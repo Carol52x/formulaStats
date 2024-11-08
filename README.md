@@ -7,7 +7,7 @@ Discord bot to view F1 stats. This is a fork of [SmCTwelve's f1-bot](https://git
 
 ## Installation
 
-The application requires **Python 3.11+**. It is recommended to use the Poetry package manager.
+The application requires **Python 3.11+**. 
 
 ```bash
 git clone https://github.com/Carol52x/formulaStats.git
