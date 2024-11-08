@@ -1,4 +1,4 @@
-# 🏁 formulaStats
+# formulaStats
 
 Discord bot to view F1 stats. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot)
 
