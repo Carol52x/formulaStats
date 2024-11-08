@@ -11,7 +11,7 @@ The application requires **Python 3.11+**.
 
 ```bash
 git clone https://github.com/Carol52x/formulaStats.git
-cd f1-bot/
+cd formulaStats/
 poetry shell
 pip install -r requirements --no-deps
 ```
