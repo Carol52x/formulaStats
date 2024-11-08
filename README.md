@@ -13,7 +13,7 @@ The application requires **Python 3.11+**.
 git clone https://github.com/Carol52x/formulaStats.git
 cd formulaStats/
 poetry shell
-pip install -r requirements --no-deps
+pip install -r requirements.txt --no-deps
 ```
 
 
