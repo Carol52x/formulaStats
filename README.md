@@ -23,6 +23,7 @@ Fill in `.env` file and optionally, configure in `config.ini`
 
 ## Usage
 
+Rename `.env.example` to `.env`
 
 To start the bot run `python -m main`. This will attempt to connect using the env Token (see installation above).
 
