@@ -275,7 +275,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/reddit",
             value="Shows a random post from r/formuladank"
         )
-        emd.set_footer(text="DM vivian.z if you see bugs."
+        emd.set_footer(text="DM carol520 if you see bugs."
 
                        )
         embeds = [emd1, emd]
