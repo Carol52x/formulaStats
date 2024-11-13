@@ -2095,7 +2095,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
     )
 
-    @plot.command(name="cornering", description="Cornering Comparison of any two drivers.", integration_types={
+    @commands.slash_command(name="cornering", description="Cornering Comparison of any two drivers.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2116,7 +2116,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="speed-comparison", description="Speed Comparison (Time or Distance) of any two drivers.", integration_types={
+    @commands.slash_command(name="speed-comparison", description="Speed Comparison (Time or Distance) of any two drivers.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2143,7 +2143,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             embed.set_image(url="attachment://plot.png")
             await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="time-delta", description="Time Delta between any two drivers.", integration_types={
+    @commands.slash_command(name="time-delta", description="Time Delta between any two drivers.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2162,7 +2162,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="track-evolution", description="Trackside weather and evolution data.", integration_types={
+    @commands.slash_command(name="track-evolution", description="Trackside weather and evolution data.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2181,7 +2181,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="standings-heatmap", description="Plot WDC standings on a heatmap.", integration_types={
+    @commands.slash_command(name="standings-heatmap", description="Plot WDC standings on a heatmap.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2198,7 +2198,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="race-trace", description="Lap Comparison of participating drivers", integration_types={
+    @commands.slash_command(name="race-trace", description="Lap Comparison of participating drivers", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2269,7 +2269,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name='standing-history', description="Standing History of either WDC or WCC", integration_types={
+    @commands.slash_command(name='standing-history', description="Standing History of either WDC or WCC", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2293,7 +2293,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             embed.set_image(url="attachment://plot.png")
             await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(description="Compare fastest lap telemetry between two drivers.", integration_types={
+    @commands.slash_command(description="Compare fastest lap telemetry between two drivers.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2318,7 +2318,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="h2h", description="Head to Head stats.", integration_types={
+    @commands.slash_command(name="h2h", description="Head to Head stats.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2347,7 +2347,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             else:
                 await MessageTarget(ctx).send("Info not available!")
 
-    @plot.command(name="avgpos", description="Average position of a driver or a team in a span of season.", integration_types={
+    @commands.slash_command(name="avgpos", description="Average position of a driver or a team in a span of season.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2371,7 +2371,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             else:
                 await MessageTarget(ctx).send(embed=dc_embed.embed)
 
-    @plot.command(description="Plot which gear is being used at which point of the track", integration_types={
+    @commands.slash_command(description="Plot which gear is being used at which point of the track", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2436,7 +2436,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="tyre-strats", description="Tyre Strategies of the drivers' in a race.", integration_types={
+    @commands.slash_command(name="tyre-strats", description="Tyre Strategies of the drivers' in a race.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2499,7 +2499,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(description="Plot driver position changes in the race.", integration_types={
+    @commands.slash_command(description="Plot driver position changes in the race.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2545,7 +2545,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(description="Show a bar chart comparing fastest laps in the session.", integration_types={
+    @commands.slash_command(description="Show a bar chart comparing fastest laps in the session.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2603,7 +2603,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="team-pace-delta", description="Rank team’s race pace from the fastest to the slowest.", integration_types={
+    @commands.slash_command(name="team-pace-delta", description="Rank team’s race pace from the fastest to the slowest.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2667,7 +2667,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="driver-lap-time-distribution", description="View driver(s) laptime distribution on track.", integration_types={
+    @commands.slash_command(name="driver-lap-time-distribution", description="View driver(s) laptime distribution on track.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2720,7 +2720,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="track-speed", description="View driver speed on track.", integration_types={
+    @commands.slash_command(name="track-speed", description="View driver speed on track.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2791,7 +2791,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="track-sectors", description="Compare fastest driver sectors on track map.", integration_types={
+    @commands.slash_command(name="track-sectors", description="Compare fastest driver sectors on track map.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2815,7 +2815,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(description="Show the position gains/losses per driver in the race.", integration_types={
+    @commands.slash_command(description="Show the position gains/losses per driver in the race.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2856,7 +2856,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="tyre-choice", description="Percentage distribution of tyre compounds.", integration_types={
+    @commands.slash_command(name="tyre-choice", description="Percentage distribution of tyre compounds.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2897,7 +2897,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="lap-compare", description="Compare laptime difference between two drivers.", integration_types={
+    @commands.slash_command(name="lap-compare", description="Compare laptime difference between two drivers.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -2954,7 +2954,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="lap-distribution",
+    @commands.slash_command(name="lap-distribution",
                   description="Violin plot comparing distribution of laptimes on different tyres.", integration_types={
                       discord.IntegrationType.guild_install,
                       discord.IntegrationType.user_install,
@@ -3022,7 +3022,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
-    @plot.command(name="tyre-performance",
+    @commands.slash_command(name="tyre-performance",
                   description="Plot the performance of each tyre compound based on the age of the tyre.", integration_types={
                       discord.IntegrationType.guild_install,
                       discord.IntegrationType.user_install,
@@ -3064,7 +3064,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(description="Plots the delta in seconds between two drivers over a lap.", integration_types={
+    @commands.slash_command(description="Plots the delta in seconds between two drivers over a lap.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -3141,7 +3141,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @plot.command(name="avg-lap-delta",
+    @commands.slash_command(name="avg-lap-delta",
                   description="Bar chart comparing average time per driver with overall race average as a delta.", integration_types={
                       discord.IntegrationType.guild_install,
                       discord.IntegrationType.user_install,

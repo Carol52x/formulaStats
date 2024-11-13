@@ -100,61 +100,61 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd1.add_field(
-            name="/plot avg-lap-delta",
+            name="/avg-lap-delta",
             value="Bar chart comparing average time per driver with overall race average as a delta."
         )
 
         emd1.add_field(
-            name="/plot avg pos",
+            name="/avg pos",
             value="Average position of a driver or a team in a span of season. (This may take about a minute or two.)"
         )
 
         emd1.add_field(
-            name="/plot cornering",
+            name="/cornering",
             value="Cornering Comparison of any two drivers."
         )
 
         emd1.add_field(
-            name="/plot driver-lap-time-distribution",
+            name="/driver-lap-time-distribution",
             value="View driver(s) lap time distribution on track."
         )
 
         emd1.add_field(
-            name="/plot fastestlaps",
+            name="/fastestlaps",
             value="Show a bar chart comparing fastest laps in the session."
         )
 
         emd1.add_field(
-            name="/plot against",
+            name="/against",
             value="Show the position gains/losses per driver in the race."
         )
 
         emd1.add_field(
-            name="/plot gap",
+            name="/gap",
             value="Plots the delta in seconds between two drivers over a lap."
         )
 
         emd1.add_field(
-            name="/plot gear",
+            name="/gear",
             value="Plot which gear is being used at which point of the track"
         )
 
         emd1.add_field(
-            name="/plot h2h",
+            name="/h2h",
             value="Head to Head stats. (This may take about a minute or two.)"
         )
 
         emd1.add_field(
-            name="/plot lap-compare",
+            name="/lap-compare",
             value="Compare lap time difference between two drivers."
         )
 
         emd1.add_field(
-            name="/plot lap-distribution",
+            name="/lap-distribution",
             value="Violin plot comparing distribution of lap times on different types."
         )
         emd1.add_field(
-            name="/plot track-evolution",
+            name="/track-evolution",
             value="Trackside weather data."
         )
         emd1.add_field(
@@ -166,67 +166,67 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Setup quiz for your server."
         )
         emd.add_field(
-            name="/plot position",
+            name="/position",
             value="Plot driver position changes in the race."
         )
 
         emd.add_field(
-            name="/plot race-trace",
+            name="/race-trace",
             value="Lap Comparison of participating drivers"
         )
 
         emd.add_field(
-            name="/plot speed-comparison",
+            name="/speed-comparison",
             value="Speed Comparison (Time or Distance) of any two drivers."
         )
 
         emd.add_field(
-            name="/plot standing-history",
+            name="/standing-history",
             value="Standing History of either WDC or WCC"
         )
 
         emd.add_field(
-            name="/plot standings-heatmap",
+            name="/standings-heatmap",
             value="Plot WDC standings on a heatmap."
         )
 
         emd.add_field(
-            name="/plot team-pace-delta",
+            name="/team-pace-delta",
             value="Rank team's race pace from the fastest to the slowest."
         )
 
         emd.add_field(
-            name="/plot telemetry",
+            name="/telemetry",
             value="Compare fastest lap telemetry between two drivers."
         )
 
         emd.add_field(
-            name="/plot time-delta",
+            name="/time-delta",
             value="Time Delta between any two drivers."
         )
 
         emd.add_field(
-            name="/plot track-sectors",
+            name="/track-sectors",
             value="Compare fastest driver sectors on track map."
         )
 
         emd.add_field(
-            name="/plot track-speed",
+            name="/track-speed",
             value="View driver speed on track."
         )
 
         emd.add_field(
-            name="/plot tyre-choice",
+            name="/tyre-choice",
             value="Percentage distribution of tyre compounds."
         )
 
         emd.add_field(
-            name="/plot tyre-performance",
+            name="/tyre-performance",
             value="Plot the performance of each tyre compound based on the age of the tyre."
         )
 
         emd.add_field(
-            name="/plot tyre-strats",
+            name="/tyre-strats",
             value="Tyre Strategies of the drivers' in a race."
         )
 
