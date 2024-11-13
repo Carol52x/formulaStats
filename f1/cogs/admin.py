@@ -283,39 +283,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 # Send both embeds together in a single message
         await ctx.respond(embeds=embeds, ephemeral=True)
 
-    @commands.slash_command(description="Bot information and status.")
-    async def info(self, ctx: ApplicationContext):
-        uptime = self.get_uptime()
-        api_status = await check_status()
-        app_info = await self.bot.application_info()
-        latency = int(self.bot.latency * 1000)
-
-        # Use diff code block styling to get coloured text
-        if api_status in [0, 3]:
-            api_txt = "```diff\n- Slow\n```"
-        else:
-            api_txt = "```diff\n+ Good\n```"
-
-        if self.bot.is_closed():
-            ws = "```diff\n- Closed\n```"
-        else:
-            ws = "```diff\n+ Open\n```"
-
-        emd = Embed(
-            title=f"{app_info.name}",
-            description=app_info.description,
-            colour=utils.F1_RED
-        )
-        emd.set_thumbnail(url=app_info.icon.url)
-        emd.add_field(name="Owner", value=app_info.owner.name, inline=True)
-        emd.add_field(
-            name="Uptime", value=f"{uptime[0]}d, {uptime[1]}h, {uptime[2]}m", inline=True)
-        emd.add_field(name="Ping", value=f"{latency} ms", inline=True)
-        emd.add_field(name="Connection", value=ws, inline=True)
-        emd.add_field(name="API", value=api_txt, inline=True)
-
-        await MessageTarget(ctx).send(embed=emd)
-
     @admin.command(name="disable-cache", description="Temporarily disable caching for X minutes (default 5).")
     @default_permissions(administrator=True)
     async def disable_cache(self, ctx: ApplicationContext,
