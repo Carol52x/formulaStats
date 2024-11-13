@@ -1,3 +1,7 @@
+from f1.errors import MissingDataError
+from f1.api import ergast
+from f1 import utils
+import discord
 import asyncio
 import gc
 import logging
@@ -13,10 +17,6 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from plottable import ColDef, Table
 ff1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
-import discord
-from f1 import utils
-from f1.api import ergast
-from f1.errors import MissingDataError
 
 logger = logging.getLogger("f1-bot")
 
@@ -58,6 +58,7 @@ def plot_table(df: pd.DataFrame, col_defs: list[ColDef], idx: str, figsize: tupl
 
     return table
 
+
 def plot_table2(df: pd.DataFrame, col_defs: list[ColDef], idx: str, figsize: tuple[float]):
     """Returns plottable table from data."""
 
@@ -77,9 +78,9 @@ def plot_table2(df: pd.DataFrame, col_defs: list[ColDef], idx: str, figsize: tup
     )
     table.col_label_row.set_fontsize(11)
     del df
-    
 
     return table
+
 
 async def to_event(year: str, rnd: str) -> Event:
     """Get a `fastf1.events.Event` for a race weekend corresponding to `year` and `round`.
@@ -119,7 +120,8 @@ async def load_session(event: Event, name: str, **kwargs) -> Session:
                                 messages=kwargs.get("messages", False),
                                 livedata=kwargs.get("livedata", None))
     except Exception:
-        raise MissingDataError("Unable to get session data, check the round and year is correct.")
+        raise MissingDataError(
+            "Unable to get session data, check the round and year is correct.")
 
     finally:
         gc.collect()
@@ -142,7 +144,7 @@ async def format_results(session: Session, name: str, year):
     """
 
     _session_type = get_session_type(name)
-    
+
     # Handle missing results data
     try:
         _sr: SessionResults = session.results
@@ -179,10 +181,9 @@ async def format_results(session: Session, name: str, year):
             "TeamName": "Team"
         })
         del _sr
-        
-    
-    res_df['Driver']=res_df['Driver'].str.replace("_", " ")
-    res_df['Driver']=res_df['Driver'].str.title()
+
+    res_df['Driver'] = res_df['Driver'].str.replace("_", " ")
+    res_df['Driver'] = res_df['Driver'].str.title()
 
     # FP1, FP2, FP3
     ###############
@@ -208,8 +209,10 @@ async def format_results(session: Session, name: str, year):
         fp["Laps"] = lap_totals["LapNumber"]
 
         # Format the lap timedeltas to strings
-        fp["LapTime"] = fp["LapTime"].apply(lambda x: utils.format_timedelta(x))
-        fp = fp.rename(columns={"LapTime": "Fastest"}).sort_values(by="Fastest")
+        fp["LapTime"] = fp["LapTime"].apply(
+            lambda x: utils.format_timedelta(x))
+        fp = fp.rename(columns={"LapTime": "Fastest"}
+                       ).sort_values(by="Fastest")
 
         return fp
 
@@ -217,7 +220,8 @@ async def format_results(session: Session, name: str, year):
     ############
     if _session_type == "Q":
         res_df["Pos"] = res_df["Pos"].astype(int)
-        qs_res = res_df.loc[:, ["Pos", "Code", "Driver", "Team", "Q1", "Q2", "Q3"]]
+        qs_res = res_df.loc[:, ["Pos", "Code",
+                                "Driver", "Team", "Q1", "Q2", "Q3"]]
 
         # Format the timedeltas to readable strings, replacing NaT with blank
         qs_res.loc[:, ["Q1", "Q2", "Q3"]] = res_df.loc[:, [
@@ -239,7 +243,8 @@ async def format_results(session: Session, name: str, year):
                                     if r['Status'] == 'Finished' else r['Status'], axis=1)
 
     # Format the timestamp of the leader lap
-    res_df.loc[res_df.first_valid_index(), "Finish"] = utils.format_timedelta(leader_time, hours=True)
+    res_df.loc[res_df.first_valid_index(), "Finish"] = utils.format_timedelta(
+        leader_time, hours=True)
 
     res_df["Pos"] = res_df["Pos"].astype(int)
     res_df["Pts"] = res_df["Points"].astype(int)
@@ -286,7 +291,8 @@ async def filter_pitstops(year, round, filter: str = None, driver: str = None) -
     del data
 
     # Convert timedelta into seconds for stop duration
-    df["duration"] = df["duration"].transform(lambda x: f"{x.total_seconds():.3f}")
+    df["duration"] = df["duration"].transform(
+        lambda x: f"{x.total_seconds():.3f}")
 
     # Add driver abbreviations and numbers from driver info dict
     df[["No", "Code"]] = df.apply(lambda x: pd.Series({
@@ -320,10 +326,11 @@ async def tyre_stints(session: Session, driver: str = None):
         raise MissingDataError("Lap data not supported before 2018.")
 
     # Group laps data to individual sints per compound with total laps driven
-    stints = session.laps.loc[:, ["Driver", "Stint", "Compound", 'FreshTyre', "TyreLife", 'LapNumber']]
-    
+    stints = session.laps.loc[:, ["Driver", "Stint",
+                                  "Compound", 'FreshTyre', "TyreLife", 'LapNumber']]
+
     stints = stints.groupby(["Driver", "Stint", "Compound", 'FreshTyre']).agg(
-    Lap=("LapNumber", "first"),
+        Lap=("LapNumber", "first"),
         TyreLife=("TyreLife", "last")
     ).reset_index()
 
@@ -390,8 +397,10 @@ def team_pace(session: Session):
 
     # Get only the quicklaps in session to exclude pits and slow laps
     laps = session.laps.pick_quicklaps()
-    times = laps.groupby(["Team"])[["Sector1Time", "Sector2Time", "Sector3Time"]].mean()
-    speeds = laps.groupby(["Team"])[["SpeedI1", "SpeedI2", "SpeedFL", "SpeedST"]].max()
+    times = laps.groupby(["Team"])[
+        ["Sector1Time", "Sector2Time", "Sector3Time"]].mean()
+    speeds = laps.groupby(["Team"])[
+        ["SpeedI1", "SpeedI2", "SpeedFL", "SpeedST"]].max()
     del laps
 
     df = pd.merge(times, speeds, how="left", left_index=True, right_index=True)
@@ -422,7 +431,8 @@ def fastest_laps(session: Session, tyre: str = None):
         raise MissingDataError("Not enough laps on this tyre.")
 
     fastest = Laps(
-        [laps.pick_drivers(d).pick_fastest() for d in laps["Driver"].dropna().unique()]
+        [laps.pick_drivers(d).pick_fastest()
+         for d in laps["Driver"].dropna().unique()]
     ).sort_values(by="LapTime").reset_index(drop=True).rename(
         columns={
             "LapNumber": "Lap",
@@ -433,7 +443,8 @@ def fastest_laps(session: Session, tyre: str = None):
     del laps
     fastest["Delta"] = fastest["LapTime"] - fastest["LapTime"].min()
     fastest["Rank"] = np.arange(1, fastest.index.size + 1)
-    fastest["LapTime"] = fastest["LapTime"].apply(lambda x: utils.format_timedelta(x))
+    fastest["LapTime"] = fastest["LapTime"].apply(
+        lambda x: utils.format_timedelta(x))
     fastest[["Lap", "ST"]] = fastest[["Lap", "ST"]].fillna(0.0).astype(int)
 
     return fastest.loc[:, ["Rank", "Driver", "LapTime", "Delta", "Lap", "Tyre", "ST"]]
@@ -474,7 +485,8 @@ def sectors(s: Session, tyre: str = None):
     ).set_index("Driver", drop=True)
 
     # Max speed for each driver
-    speeds = laps.groupby("Driver")["SpeedST"].max().reset_index().set_index("Driver", drop=True)
+    speeds = laps.groupby("Driver")["SpeedST"].max(
+    ).reset_index().set_index("Driver", drop=True)
 
     # Min sectors
     sectors = laps.groupby("Driver")[["Sector1Time", "Sector2Time", "Sector3Time"]] \
@@ -482,7 +494,8 @@ def sectors(s: Session, tyre: str = None):
     sectors["ST"] = speeds["SpeedST"].astype(int)
 
     # Merge with the finish order to get the data sorted
-    df = pd.merge(finish_order, sectors, left_index=True, right_index=True).reset_index()
+    df = pd.merge(finish_order, sectors, left_index=True,
+                  right_index=True).reset_index()
     # Convert timestamps to seconds
     df[["S1", "S2", "S3"]] = df[
         ["Sector1Time", "Sector2Time", "Sector3Time"]
@@ -512,12 +525,11 @@ def tyre_performance(session: Session):
         raise MissingDataError("Lap data not supported for this session.")
 
     # Filter and group quicklaps within 105% by Compound and TyreLife to get the mean times per driven lap
-    laps = session.laps.pick_quicklaps(1.05).groupby(["Compound", "TyreLife"])["LapTime"].mean().reset_index()
+    laps = session.laps.pick_quicklaps(1.05).groupby(["Compound", "TyreLife"])[
+        "LapTime"].mean().reset_index()
     laps["Seconds"] = laps["LapTime"].dt.total_seconds()
 
     return laps
-
-
 
 
 def pos_change(session: Session):
@@ -535,7 +547,8 @@ def pos_change(session: Session):
     ).reset_index(drop=True).sort_values(by="Finish")
 
     diff["Diff"] = diff["Start"] - diff["Finish"]
-    diff[["Start", "Finish", "Diff"]] = diff[["Start", "Finish", "Diff"]].astype(int)
+    diff[["Start", "Finish", "Diff"]] = diff[[
+        "Start", "Finish", "Diff"]].astype(int)
 
     return diff
 
@@ -559,7 +572,8 @@ def compare_lap_telemetry_delta(ref_lap: Telemetry, comp_lap: Telemetry) -> np.n
 
     # Interpolates the comp_lap times to fill missing samples from ref_lap
     # so they can be compared without NaT if the shapes are not equal
-    comp_interp = np.interp(ref_lap["Distance"].values, comp_lap["Distance"].values, comp_times)
+    comp_interp = np.interp(
+        ref_lap["Distance"].values, comp_lap["Distance"].values, comp_times)
 
     del ref_lap, comp_lap
     return comp_interp - ref_times
@@ -567,31 +581,30 @@ def compare_lap_telemetry_delta(ref_lap: Telemetry, comp_lap: Telemetry) -> np.n
 
 def get_dnf_results(session: Session):
     """Filter the results to only drivers who retired and include their final lap."""
-    
+
     driver_nums = [
-    d for d in session.drivers
-    if (
-        session.laps.pick_drivers(d)["LapNumber"].isna().all()  # No lap data
-        or session.laps.pick_drivers(d)["LapNumber"].astype(int).max() < session.race_control_messages['Lap'].max()   # Retired before max lap
-    )
-]
+        d for d in session.drivers
+        if (
+            session.laps.pick_drivers(
+                d)["LapNumber"].isna().all()  # No lap data
+            # Retired before max lap
+            or session.laps.pick_drivers(d)["LapNumber"].astype(int).max() < session.race_control_messages['Lap'].max()
+        )
+    ]
 
+    dnfs = session.results.loc[session.results["DriverNumber"].isin(
+        driver_nums)].reset_index(drop=True)
 
-    
-
-    dnfs = session.results.loc[session.results["DriverNumber"].isin(driver_nums)].reset_index(drop=True)
-
-    
-    dnfs["LapNumber"] = [session.laps.pick_drivers(d)["LapNumber"].astype(int).max() for d in driver_nums]
+    dnfs["LapNumber"] = [session.laps.pick_drivers(
+        d)["LapNumber"].astype(int).max() for d in driver_nums]
     dnfs = dnfs[dnfs["Status"] != "Finished"].reset_index(drop=True)
-   
 
     return dnfs
 
 
 def get_track_events(session: Session):
     """Return a DataFrame with lap number and event description, e.g. safety cars."""
-  
+
     incidents = (
         Laps(session.laps.loc[:, ["LapNumber", "TrackStatus"]].dropna())
         .pick_track_status("123456789", how="any")
@@ -602,16 +615,15 @@ def get_track_events(session: Session):
     pd.set_option('display.max_columns', None)
     # Map the status codes to names
     incidents["Event"] = incidents["TrackStatus"].apply(utils.map_track_status)
-   
-    
+
     # Mark the first occurance of consecutive status events by comparing against neighbouring row
     # Allows filtering to keep only the first lap where the status occured until the next change
-    incidents["Change"] = (incidents["Event"] != incidents["Event"].shift(1)).astype(int)
+    incidents["Change"] = (incidents["Event"] !=
+                           incidents["Event"].shift(1)).astype(int)
     incidents["Event"] = incidents["Event"].str.split(', ')
 
     # Explode the lists into separate rows while repeating the LapNumber
     incidents = incidents.explode("Event").reset_index(drop=True)
-    
 
     return incidents[incidents["Change"] == 1]
 
@@ -625,19 +637,22 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
         ColDef(name="Driver", width=0.9, textprops={"ha": "left"}),
         ColDef(name="Team", width=0.8, textprops={"ha": "left"}),
     ]
-    pos_def = ColDef("Pos", width=0.5, textprops={"weight": "bold"}, border="right")
+    pos_def = ColDef("Pos", width=0.5, textprops={
+                     "weight": "bold"}, border="right")
 
     if get_session_type(name) == "R":
         size = (8.5, 10)
         idx = "Pos"
-        dnfs = results.loc[~results["Status"].isin(["+1 Lap", "Finished"]), "Pos"].astype(int).values
+        dnfs = results.loc[~results["Status"].isin(
+            ["+1 Lap", "Finished"]), "Pos"].astype(int).values
         results = results.drop("Status", axis=1)
         col_defs = base_defs + [
             pos_def,
             ColDef(name="Code", width=0.4),
             ColDef("Grid", width=0.35),
             ColDef("Pts", width=0.35, border="l"),
-            ColDef("Finish", width=0.66, textprops={"ha": "right"}, border="l"),
+            ColDef("Finish", width=0.66, textprops={
+                   "ha": "right"}, border="l"),
         ]
 
     if get_session_type(name) == "Q":
@@ -651,7 +666,8 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
         size = (8, 10)
         idx = "Code"
         col_defs = base_defs + [
-            ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="right"),
+            ColDef("Code", width=0.4, textprops={
+                   "weight": "bold"}, border="right"),
             ColDef("Fastest", width=0.5, textprops={"ha": "right"}),
             ColDef("Laps", width=0.35, textprops={"ha": "right"}),
         ]
@@ -662,7 +678,8 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
     # Highlight DNFs in race
     if get_session_type(name) == "R":
         for i in dnfs:
-            table.rows[i - 1].set_facecolor((0, 0, 0, 0.38)).set_hatch("//").set_fontcolor((1, 1, 1, 0.5))
+            table.rows[i - 1].set_facecolor((0, 0, 0, 0.38)
+                                            ).set_hatch("//").set_fontcolor((1, 1, 1, 0.5))
 
     return table.figure, table.ax
 
@@ -698,15 +715,18 @@ def championship_table(data: list[dict], type: Literal["wcc", "wdc"]) -> tuple[F
     # Driver
     if type == "wdc":
         size = (5, 10)
-        col_defs = base_defs + [ColDef("Driver", width=0.8, textprops={"ha": "left"})]
+        col_defs = base_defs + \
+            [ColDef("Driver", width=0.8, textprops={"ha": "left"})]
     # Constructors
     if type == "wcc":
         size = (6, 8)
-        col_defs = base_defs + [ColDef("Team", width=0.8, textprops={"ha": "left"})]
+        col_defs = base_defs + \
+            [ColDef("Team", width=0.8, textprops={"ha": "left"})]
 
     table = plot_table(df, col_defs, "Pos", figsize=size)
 
     return table.figure, table.ax
+
 
 def plot_race_schedule(data):
     # Convert the data to a DataFrame
@@ -718,29 +738,32 @@ def plot_race_schedule(data):
         ColDef("Country", width=0.8, textprops={"ha": "left"}, border="l"),
         ColDef("Circuit", width=1.0, textprops={"ha": "left"}),
         ColDef("Date", width=0.8, textprops={"ha": "left"})
-        ]
+    ]
 
     # Plot the table
     table = plot_table(df, col_defs, "Round", figsize=(10, 8))
 
     return table.figure, table.ax
+
+
 def stints(data):
     # Convert the data to a DataFrame
     df = pd.DataFrame(data)
 
     # Define column definitions for the table
     col_defs = [
-       
+
         ColDef("Driver", width=0.8, textprops={"ha": "left"}),
         ColDef("HARD", width=0.8, textprops={"ha": "left"}),
         ColDef("MEDIUM", width=0.8, textprops={"ha": "left"}),
         ColDef("SOFT", width=0.8, textprops={"ha": "left"})
-        ]
+    ]
 
     # Plot the table
-    table = plot_table(df, col_defs, "Driver" ,figsize=(10, 8))
+    table = plot_table(df, col_defs, "Driver", figsize=(10, 8))
 
     return table.figure
+
 
 def stints_driver(data):
     # Convert the data to a DataFrame
@@ -749,71 +772,73 @@ def stints_driver(data):
     # Define column definitions for the table
     col_defs = [
         ColDef("Driver", width=0.8),
-        ColDef("Stint", width=0.8 ),
+        ColDef("Stint", width=0.8),
         ColDef("Compound", width=0.8),
         ColDef("FreshTyre", width=0.8),
         ColDef("Lap", width=0.8),
         ColDef("TyreLife", width=0.8)
-        ]
+    ]
 
     # Plot the table
-    table = plot_table(df, col_defs, "Driver" ,figsize=(6, 4))
+    table = plot_table(df, col_defs, "Driver", figsize=(6, 4))
 
     return table.figure
 
+
 def racecontrol(messages, session):
-    
-    messages=pd.DataFrame(messages)
-    messages.drop(['Category','Status','Flag','Scope', 'Sector', 'RacingNumber'], axis=1, inplace=True)
-    max_per_file=30
+
+    messages = pd.DataFrame(messages)
+    messages.drop(['Category', 'Status', 'Flag', 'Scope',
+                  'Sector', 'RacingNumber'], axis=1, inplace=True)
+    max_per_file = 30
     messages['Time'] = messages['Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-   
-    
+
     num_files = (len(messages) // max_per_file) + 1
     files = []
-    if session =='Race' or session=='Sprint':
+    if session == 'Race' or session == 'Sprint':
         col_defs = [
-                    
-                    ColDef("Time", width=0.2),
-                    ColDef("Message", width=1.1, textprops={"ha": "left"}),
-                    ColDef("Lap", width=0.07)
-                ]
-        figsize=(20,10)
+
+            ColDef("Time", width=0.2),
+            ColDef("Message", width=1.1, textprops={"ha": "left"}),
+            ColDef("Lap", width=0.07)
+        ]
+        figsize = (20, 10)
     else:
         messages.drop(['Lap'], axis=1, inplace=True)
         col_defs = [
-                    
-                    ColDef("Time", width=0.2),
-                    ColDef("Message", width=1.6, textprops={"ha": "left"})
-                ]
-        figsize=(23,13)
-        
+
+            ColDef("Time", width=0.2),
+            ColDef("Message", width=1.6, textprops={"ha": "left"})
+        ]
+        figsize = (23, 13)
+
     for i in range(num_files):
         start_idx = i * max_per_file
         end_idx = min((i + 1) * max_per_file, len(messages))
         file_messages = messages.iloc[start_idx:end_idx]
 
-        fig= plot_table2(file_messages, col_defs, "Time", figsize=figsize)
+        fig = plot_table2(file_messages, col_defs, "Time", figsize=figsize)
         files.append(fig.figure)
-   
-    
-    
+
     return files
+
+
 def plot_chances(data):
     # Convert the data to a DataFrame
     df = pd.DataFrame(data)
 
     # Define column definitions for the table
     col_defs = [
-        ColDef("Position", width=0.35, textprops={"weight": "bold"}, border="r"),
+        ColDef("Position", width=0.35, textprops={
+               "weight": "bold"}, border="r"),
         ColDef("Driver", width=0.8, textprops={"ha": "left"}, border="l"),
         ColDef("Current Points", width=0.8, textprops={"ha": "left"}),
         ColDef("Theoretical max points", width=0.8, textprops={"ha": "left"}),
         ColDef("Can win?", width=0.8, textprops={"ha": "left"})
-        ]
+    ]
 
     # Plot the table
-    table = plot_table(df, col_defs, "Position" ,figsize=(10, 8))
+    table = plot_table(df, col_defs, "Position", figsize=(10, 8))
 
     return table.figure
 
@@ -858,7 +883,8 @@ def laptime_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
 def sectors_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
     """Return table with fastest sector times and speed."""
     sectors = df.loc[:, ["Driver", "S1", "S2", "S3", "ST"]]
-    s_defs = [ColDef(c, width=0.4, textprops={"ha": "right"}) for c in ("S1", "S2", "S3")]
+    s_defs = [ColDef(c, width=0.4, textprops={
+                     "ha": "right"}) for c in ("S1", "S2", "S3")]
     col_defs = [
         ColDef("Driver", width=0.25, textprops={"weight": "bold"}, border="r"),
         ColDef("ST", width=0.25, textprops={"ha": "right"}, border="l")
@@ -870,9 +896,12 @@ def sectors_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
     table = plot_table(sectors, col_defs, "Driver", size)
 
     # Highlight fastest values
-    table.columns["S1"].cells[df["Sector1Time"].idxmin()].text.set_color("#b138dd")
-    table.columns["S2"].cells[df["Sector2Time"].idxmin()].text.set_color("#b138dd")
-    table.columns["S3"].cells[df["Sector3Time"].idxmin()].text.set_color("#b138dd")
+    table.columns["S1"].cells[df["Sector1Time"].idxmin()
+                              ].text.set_color("#b138dd")
+    table.columns["S2"].cells[df["Sector2Time"].idxmin()
+                              ].text.set_color("#b138dd")
+    table.columns["S3"].cells[df["Sector3Time"].idxmin()
+                              ].text.set_color("#b138dd")
     table.columns["ST"].cells[df["ST"].idxmax()].text.set_color("#b138dd")
     del df
 
@@ -903,17 +932,22 @@ def incidents_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
             cell.text.set_alpha(0.84)
         else:
             cell.text.set_color((1, 1, 1, 0.5))
-    
+
     del df
-    
+
     return table.figure, table.ax
 
+
 def get_top_role_color(member: discord.Member):
-    # Sort roles by position, from highest to lowest
-    roles = sorted(member.roles, key=lambda role: role.position, reverse=True)
-    
-    # Find the first role with a color other than the default color (which is usually 0)
-    for role in roles:
-        if role.color.value != 0:  # default color has a value of 0
-            return role.color
-    return discord.Color.default()
+    try:
+        # Sort roles by position, from highest to lowest
+        roles = sorted(
+            member.roles, key=lambda role: role.position, reverse=True)
+
+        # Find the first role with a color other than the default color (which is usually 0)
+        for role in roles:
+            if role.color.value != 0:  # default color has a value of 0
+                return role.color
+        return discord.Color.default()
+    except:
+        return 0x2F3136
