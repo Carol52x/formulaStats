@@ -404,7 +404,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     def __init__(self, bot: discord.Bot):
         self.bot = bot
 
-    @commands.slash_command(description="Team Radio.")
+    @commands.slash_command(description="Team Radio.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def radio(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(), round: options.RoundOption, session: options.SessionOption, year: options.SeasonOption3):
 
         if round == None and year == None or round == None and year == int(datetime.now().year):
@@ -517,7 +520,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                                       color=get_top_role_color(ctx.author))
                 msg = await ctx.respond(embed=embed, view=MyView())
 
-    @commands.slash_command(description="Race Control data")
+    @commands.slash_command(description="Race Control data", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def racecontrol(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
                           session: options.SessionOption):
 
@@ -567,7 +573,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         except discord.HTTPException:
             return
 
-    @commands.slash_command(description="Tyre compound stints in a race.")
+    @commands.slash_command(description="Tyre compound stints in a race.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def stints(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
                      driver: options.DriverOption):
 
@@ -615,7 +624,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @commands.slash_command(name="wdc-contenders", description="Shows a list of drivers who can still mathematically win the wdc.")
+    @commands.slash_command(name="wdc-contenders", description="Shows a list of drivers who can still mathematically win the wdc.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def whocanwinwdc(self, ctx: ApplicationContext):
 
         loop = asyncio.get_running_loop()
@@ -636,7 +648,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @commands.slash_command(description="Result data for the session. Default last race.")
+    @commands.slash_command(description="Result data for the session. Default last race.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def results(self, ctx: ApplicationContext, year: options.SeasonOption2, round: options.RoundOption,
                       session: options.SessionOption):
         """Get the results for a session. The `round` can be the event name, location or round number in the season.
@@ -876,7 +891,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         await quiz_message.reply(embed=winner_embed)
 
-    @commands.slash_command(name="reddit")
+    @commands.slash_command(name="reddit", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def meme2(self, ctx: ApplicationContext):
         import asyncpraw
         import random
@@ -905,7 +923,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             text=f"👍 {post.score} | 💬 {post.num_comments} | Posted by u/{post.author}")
         await ctx.respond(embed=embed)
 
-    @commands.slash_command(description="Race pitstops ranked by duration or filtered to a driver.", name="pitstops")
+    @commands.slash_command(description="Race pitstops ranked by duration or filtered to a driver.", name="pitstops", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def pitstops(self, ctx: ApplicationContext, year: options.SeasonOption, round: options.RoundOption,
                        filter: options.RankedPitstopFilter, driver: options.DriverOption):
         """Display pitstops for the race ranked by `filter` or `driver`.
@@ -917,7 +938,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         ----------
             /pitstops-ranked [season] [round] [filter]
         """
-
+        await ctx.defer()
         if round == None and year == None or round == None and year == int(datetime.now().year):
 
             schedule = fastf1.get_event_schedule(
@@ -960,7 +981,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @commands.slash_command(description="Best ranked lap times per driver.")
+    @commands.slash_command(description="Best ranked lap times per driver.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def laptimes(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
                        tyre: options.TyreOption, session: options.SessionOption):
         """Best ranked lap times per driver in the race. All parameters optional.
@@ -1004,7 +1028,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         await MessageTarget(ctx).send(embed=embed, file=f)
 
     @commands.slash_command(
-        description="View fastest sectors and speed trap based on quick laps. Seasons >= 2018.")
+        description="View fastest sectors and speed trap based on quick laps. Seasons >= 2018.", integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        })
     async def sectors(self, ctx: ApplicationContext, year: options.SeasonOption3,
                       round: options.RoundOption, tyre: options.TyreOption, session: options.SessionOption):
         """View min sector times and max speedtrap per driver. Based on recorded quicklaps only."""
@@ -1040,7 +1067,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
-    @commands.slash_command(description="Career stats for a driver. Enter Full Name of the driver.")
+    @commands.slash_command(description="Career stats for a driver. Enter Full Name of the driver.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def career(self, ctx: ApplicationContext, driver: options.driveroption2):
 
         loop = asyncio.get_running_loop()
@@ -1050,7 +1080,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
     @commands.slash_command(
         name="track-incidents",
-        description="Summary of race events including Safety Cars and retirements.")
+        description="Summary of race events including Safety Cars and retirements.", integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        })
     async def track_incidents(self, ctx: ApplicationContext,
                               year: options.SeasonOption3, round: options.RoundOption):
         """Outputs a table showing the lap number and event, such as Safety Car or Red Flag."""

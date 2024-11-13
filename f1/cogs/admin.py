@@ -47,7 +47,10 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         ff1_cache.set_enabled()
         logger.warning("Cache re-enabled after timeout")
 
-    @commands.slash_command()
+    @commands.slash_command(integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def help(self, ctx: ApplicationContext):
 
         emd1 = Embed(
@@ -275,9 +278,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/reddit",
             value="Shows a random post from r/formuladank"
         )
-        emd.set_footer(text="DM carol520 if you see bugs."
 
-                       )
         embeds = [emd1, emd]
 
 # Send both embeds together in a single message

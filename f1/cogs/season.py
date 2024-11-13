@@ -351,7 +351,10 @@ class Season(commands.Cog, guild_ids=Config().guilds):
     def __init__(self, bot: discord.Bot):
         self.bot = bot
 
-    @commands.slash_command(description="Driver championship standings.")
+    @commands.slash_command(description="Driver championship standings.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def wdc(self, ctx, year: options.SeasonOption):
         """Display the Driver Championship standings as of the last race or `season`.
 
@@ -391,7 +394,10 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(file=f, embed=embed)
 
-    @commands.slash_command(description="Provides season calender")
+    @commands.slash_command(description="Provides season calender", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def calender(self, ctx, year: options.SeasonOption2):
         if year == None:
             year = int(datetime.now().year)
@@ -408,7 +414,10 @@ class Season(commands.Cog, guild_ids=Config().guilds):
 
         await MessageTarget(ctx).send(file=f, embed=embed)
 
-    @commands.slash_command(name='fiadoc', description='Get latest FIA Document. Use 1, 2, 3.. for older documents.')
+    @commands.slash_command(name='fiadoc', description='Get latest FIA Document. Use 1, 2, 3.. for older documents.', integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def fiadoc(self, ctx, doc: typing.Optional[int]):
 
         from discord.ext.pages import Paginator, Page
@@ -433,7 +442,10 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         except discord.HTTPException:
             return
 
-    @commands.slash_command(description="Constructors Championship standings.")
+    @commands.slash_command(description="Constructors Championship standings.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def wcc(self, ctx, year: options.SeasonOption):
         """Display Constructor Championship standings as of the last race or `season`.
 
@@ -472,7 +484,10 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(file=f, embed=embed)
 
-    @commands.slash_command(description='get race schedule')
+    @commands.slash_command(description='get race schedule', integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
     async def schedule(self, ctx):
         loop = asyncio.get_running_loop()
         message_embed = await loop.run_in_executor(None, schedule, ctx)
