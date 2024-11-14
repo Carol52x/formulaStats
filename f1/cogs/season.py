@@ -1,3 +1,6 @@
+import urllib.parse
+from datetime import datetime, date
+import pytz
 from f1.api.stats import get_top_role_color
 from f1.utils import F1_RED, check_season
 from f1.target import MessageTarget
@@ -48,185 +51,117 @@ logger = logging.getLogger("f1-bot")
 
 
 def schedule(ctx):
-    now = pd.Timestamp.now()
+    now = pd.Timestamp.now(tz='America/New_York')
 
     message_embed = discord.Embed(
-        title="Schedule", description="", color=get_top_role_color(ctx.author))
-
+        title="Schedule", description="", color=get_top_role_color(ctx.author)
+    )
     message_embed.set_author(name='F1 Race Schedule')
 
+    # Fetch the current year's schedule
     schedule = fastf1.get_event_schedule(
-        int(datetime.now().year), include_testing=False)
+        int(datetime.now().year), include_testing=False
+    )
 
-    # index of next event (round number)
-    next_event = 0
+    # Find the index of the next event
+    current_date = pd.Timestamp(date.today(), tz='UTC')
+    next_event_index = schedule[schedule["Session5Date"]
+                                >= current_date].index.min()
 
-    for index, row in schedule.iterrows():
-        current_date = date.today()
-        import pytz
-        if row["Session5Date"] < pd.Timestamp(current_date, tzinfo=pytz.utc):
-            number = row['RoundNumber']
-            next_event = number+1
+    if pd.isna(next_event_index):
+        return discord.Embed(title="No upcoming events found")
 
-    try:
+    next_event = schedule.loc[next_event_index]
+    race_name = next_event["EventName"]
+    country = next_event["Country"]
+    location = next_event["Location"]
 
-        if (len(schedule) <= next_event):
-            raise IndexError
+    # Get flag emoji
 
-        # else
-        # get name of event
-        race_name = schedule.loc[next_event, "EventName"]
+    # Update embed title
+    message_embed.title = f"Race Schedule for {race_name}"
 
-        # get emoji for country
-        emoji = ":flag_" + \
-            (coco.convert(
-                names=schedule.loc[next_event, "Country"], to='ISO2')).lower()+":"
+    # Prepare session times dictionary
+    sessions = [
+        (f":one: {next_event['Session1']}", next_event["Session1Date"]),
+        (f":two: {next_event['Session2']}", next_event["Session2Date"]),
+        (f":three: {next_event['Session3']}", next_event["Session3Date"]),
+        (f":stopwatch: {next_event['Session4']}", next_event["Session4Date"]),
+        (f":checkered_flag: {next_event['Session5']}",
+         next_event["Session5Date"]),
+    ]
 
-        # Rename embed title
-        message_embed.title = "Race Schedule for " + race_name
+    # Convert session times to desired timezone
+    sessions = {
+        name: time.tz_convert('America/New_York').strftime('%Y-%m-%d %H:%M')
+        for name, time in sessions if pd.notna(time)
+    }
 
-        # create a dictionary to store converted times
-        # adjust emojis/session name according to weekend format
-        if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
-            converted_session_times = {
-                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
-                f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
-                f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
-                f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
-                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
-            }
-            # fp1_date = pd.Timestamp(converted_session_times[":one: FP1"]).strftime('%Y-%m-%d')
-            # fp2_date = pd.Timestamp(converted_session_times[":two: FP2"]).strftime('%Y-%m-%d')
-            # fp3_date = pd.Timestamp(converted_session_times[":three: FP3"]).strftime('%Y-%m-%d')
-            # quali_date = pd.Timestamp(converted_session_times[":stopwatch: Qualifying"]).strftime('%Y-%m-%d')
-            # race_date = pd.Timestamp(converted_session_times[":checkered_flag: Race"]).strftime('%Y-%m-%d')
-        else:
-            converted_session_times = {
-                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
-                f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
-                f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
-                f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
-                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
-            }
-            # fp1_date = pd.Timestamp(converted_session_times[":one: FP1"]).strftime('%Y-%m-%d')
-            # fp2_date = pd.Timestamp(converted_session_times[":two: FP2"]).strftime('%Y-%m-%d')
-            # quali_date = pd.Timestamp(converted_session_times[":stopwatch: Qualifying"]).strftime('%Y-%m-%d')
-            # sprint_date = pd.Timestamp(converted_session_times[":race_car: Sprint"]).strftime('%Y-%m-%d')
-            # race_date = pd.Timestamp(converted_session_times[":checkered_flag: Race"]).strftime('%Y-%m-%d')
+    # Add sessions to embed
+    sessions_string = '\n'.join(sessions.keys())
+    times_string = '\n'.join(
+        f"<t:{int(pd.Timestamp(time).timestamp())}:R> <t:{int(pd.Timestamp(time).timestamp())}:F>"
+        for time in sessions.values()
+    )
 
-        # string to hold description message
-        time_until = schedule.loc[next_event, "Session5Date"].tz_convert(
-            'America/New_York') - now.tz_localize('America/New_York')
-        out_string = countdown(time_until.total_seconds())
+    message_embed.add_field(name="Session", value=sessions_string, inline=True)
+    message_embed.add_field(name="Time", value=times_string, inline=True)
 
-        try:
-            location = schedule.loc[next_event, "Location"]
-            # try to get timezone from list
-            # local_tz = timezones.timezones_list[location]
-            # print("Getting timezone from timezones.py")
-            # convert times to EST
-            for key in converted_session_times.keys():
-                date_object = converted_session_times.get(
-                    key).tz_convert('America/New_York')
-                converted_session_times.update({key: date_object})
+    # Get circuit image from F1 website
+    image_url = get_circuit_image(location, country)
 
-        # timezone not found in FastF1 <-- should not be possible anymore
-        except Exception as e:
-            print("Using fallback timezone calculation")
-            # get location of race
-            print(e)
-            # calculate timezone using latitude/longitude
-            convert_timezone_fallback(location, converted_session_times)
-
-        # strings to store session names and times
-        sessions_string = ''
-        times_string = ''
-
-        # setup strings to be added to fields
-        # strings to store session names and times''
-
-# setup strings to be added to fields
-        for key in converted_session_times.keys():
-            # Convert timestamp to datetime object
-            timestamp = converted_session_times.get(key).timestamp()
-            abc = int(timestamp)
-            times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
-            sessions_string += key + '\n'
-
-        # get circuit png url from f1 site, using bs4 to parse through HTML
-        current_year = datetime.now().year
-        import urllib.parse
-
-        url = f"https://www.formula1.com/en/racing/{current_year}/{schedule.loc[next_event, 'Location'].replace(' ', '-')}/circuit.html"
-
-        response = requests.get(url)
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        images = soup.find_all('img')
-        for i in images:
-            if i.get('src').lower().endswith("circuit") is True:
-                image_url = urllib.parse.quote(i.get('src'), safe=':/%')
-                break
-            else:
-                url = f"https://www.formula1.com/en/racing/{current_year}/{schedule.loc[next_event, 'Country'].replace(' ', '-')}/circuit.html"
-
-                if schedule.loc[next_event, 'Country'].replace(' ', '-').lower() == 'united-kingdom':
-
-                    url = 'https://www.formula1.com/en/racing/2024/great-britain/circuit.html'
-                response = requests.get(url)
-                soup = BeautifulSoup(response.content, 'html.parser')
-                images = soup.find_all('img')
-                for i in images:
-
-                    if i.get('src').lower().endswith("circuit"):
-
-                        image_url = urllib.parse.quote(
-                            i.get('src'), safe=':/%')
-
-        # print(location)
-        # race_date = converted_session_times.get(":checkered_flag: Race")
-        time_to_race = converted_session_times.get(
-            ":checkered_flag: Race")-now.tz_localize('America/New_York')
-        race_within_3days = time_to_race.total_seconds() < 259200
-        if (race_within_3days):
-            a = schedule.loc[next_event, "Country"]
-            race_date = schedule.loc[next_event,
-                                     "Session5Date"].strftime('%Y-%m-%d')
-            weather_data = get_weather_data(a, race_date)
-            message_embed.add_field(
-                name="Session", value=sessions_string, inline=True)
-            message_embed.add_field(
-                name="Time", value=times_string, inline=True)
-            message_embed.add_field(
-                name='Humidity', value=f"{weather_data['main']['humidity']}%", inline=False)
+    # Weather data (if race within 3 days)
+    race_date = next_event['Session5Date'].tz_convert('America/New_York')
+    time_to_race = (race_date - now).total_seconds()
+    if time_to_race < 259200:  # within 3 days
+        weather_data = get_weather_data(
+            country, race_date.strftime('%Y-%m-%d'))
+        if weather_data:
             celsius = int(weather_data['main']['temp'] - 273.15)
-            fahrenheit = int(celsius*1.8+32)
+            fahrenheit = int(celsius * 1.8 + 32)
             message_embed.add_field(
-                name='Weather Description', value=f"{weather_data['weather'][0]['description'].capitalize()}, Precipitation: {weather_data['pop']*100}%, Wind Speed: {weather_data['wind']['speed']}m/s", inline=True)
-            message_embed.add_field(name='Temperature (Celsius | Fahrenheit)',
-                                    value=f"{celsius}°C | {fahrenheit}°F", inline=False)
+                name='Weather Description',
+                value=f"{weather_data['weather'][0]['description'].capitalize()}, "
+                      f"Precipitation: {weather_data['pop']*100}%, "
+                      f"Wind Speed: {weather_data['wind']['speed']}m/s",
+                inline=False
+            )
             message_embed.add_field(
-                name="Track Layout", value="", inline=False)
-            message_embed.set_footer(
-                text="The weather information pertains to the race day only.")
+                name='Temperature (Celsius | Fahrenheit)',
+                value=f"{celsius}°C | {fahrenheit}°F", inline=False
+            )
         else:
             message_embed.add_field(
-                name="Session", value=sessions_string, inline=True)
-            message_embed.add_field(
-                name="Time", value=times_string, inline=True)
-            message_embed.add_field(
-                name='Weather Description', value="Weather Data available within 72hrs or 3 days from the race", inline=False)
-            message_embed.add_field(
-                name="Track Layout", value="", inline=False)
+                name='Weather Description', value="No weather data available", inline=False
+            )
 
-        message_embed.set_image(url=image_url)
-
-        # add fields to embed
-
-    except:
-        return out_string
-
+    message_embed.set_image(url=image_url.replace(" ", "%20"))
     return message_embed
+
+
+def get_circuit_image(location, country):
+    if country.lower() == 'united kingdom':
+        country = 'Great Britain'
+    current_year = datetime.now().year
+    urls = [
+        f"https://www.formula1.com/en/racing/{current_year}/{location.replace(' ', '-')}/circuit.html",
+        f"https://www.formula1.com/en/racing/{current_year}/{country.replace(' ', '-')}/circuit.html"
+    ]
+
+    session = requests.Session()
+    for url in urls:
+        try:
+            response = session.get(url, timeout=5)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            img_tag = next(
+                (img for img in soup.find_all('img')
+                 if "circuit" in img.get('src').lower()), None
+            )
+            if img_tag:
+                return urllib.parse.urljoin(url, img_tag['src'])
+        except Exception as e:
+            print(f"Error fetching image from {url}: {e}")
+    return None
 
 
 def json2obj(json_file):
