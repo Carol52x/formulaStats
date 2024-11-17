@@ -1,3 +1,7 @@
+import threading
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 import requests
 import datetime
 import repeated.embed as em
@@ -55,6 +59,83 @@ request_delay = 0.5
 curr_year = int(datetime.datetime.now().year)
 
 logger = logging.getLogger("f1-bot")
+
+# Disable SSL verification warnings
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+# API Rate Limits
+BURST_LIMIT = 4  # 4 requests per second
+SUSTAINED_LIMIT = 500  # 500 requests per hour
+# Minimum interval between requests (0.25 seconds)
+REQUEST_INTERVAL = 1 / BURST_LIMIT
+# Interval to avoid breaching hourly limit (7.2 seconds)
+HOUR_LIMIT_INTERVAL = 3600 / SUSTAINED_LIMIT
+
+# Global rate limiting lock
+rate_lock = threading.Lock()
+last_request_time = 0
+request_count = 0
+hour_start_time = time.time()
+
+
+class ErgastClient:
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.verify = False
+
+        # Retry strategy
+        retries = Retry(
+            total=3,  # Number of retries
+            backoff_factor=0.5,  # Exponential backoff factor
+            # Retry on these status codes
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    def ergast_retrieve(self, api_endpoint: str):
+        global last_request_time, request_count, hour_start_time
+
+        # Rate limiting to ensure burst and sustained limits
+        with rate_lock:
+            current_time = time.time()
+
+            # Check if the hourly limit is reached
+            if request_count >= SUSTAINED_LIMIT:
+                time_since_hour_start = current_time - hour_start_time
+                if time_since_hour_start < 3600:
+                    wait_time = 3600 - time_since_hour_start
+                    print(
+                        f"Hourly limit reached. Waiting for {wait_time:.2f} seconds...")
+                    time.sleep(wait_time)
+
+                # Reset the counter and timestamp after waiting
+                request_count = 0
+                hour_start_time = time.time()
+
+            # Ensure the interval between requests is met (burst limit)
+            time_since_last_request = current_time - last_request_time
+            if time_since_last_request < REQUEST_INTERVAL:
+                time.sleep(REQUEST_INTERVAL - time_since_last_request)
+
+            # Update last request time and increment counter
+            last_request_time = time.time()
+            request_count += 1
+
+        url = f"https://api.jolpi.ca/ergast/f1/{api_endpoint}.json"
+
+        try:
+            # Reduced timeout for faster response
+            response = self.session.get(url, timeout=5)
+            response.raise_for_status()
+            return response.json().get("MRData", None)
+
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred: {e}")
+            return None
+
+
+# Example usage in a loop
+client = ErgastClient()
 
 # Set the DPI of the figure image output; discord preview seems sharper at higher value
 
@@ -1109,23 +1190,6 @@ def driver_func(yr):
     else:
         last_round = max(schedule.RoundNumber)
 
-    from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
-    def ergast_retrieve(api_endpoint: str):
-        url = f'https://api.jolpi.ca/ergast/f1/{api_endpoint}.json'
-
-        try:
-            # Disable SSL verification
-            requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-            # Set the timeout duration to 10 seconds
-            response = requests.get(url, verify=False, timeout=10)
-            response.raise_for_status()  # Raise an exception for any HTTP errors
-            return response.json()['MRData']
-        except requests.exceptions.RequestException as e:
-            print(f"An error occurred: {e}")
-            return None
-
     colors = ["#333333", "#444444", "#555555", "#666666", "#777777",
               "#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"]
     color_counter = 0
@@ -1144,7 +1208,7 @@ def driver_func(yr):
     for i in range(1, rounds + 1):
 
         # Make request to driverStandings endpoint for the current round
-        race = ergast_retrieve(f'{yr}/{i}/driverStandings')
+        race = client.ergast_retrieve(f'{yr}/{i}/driverStandings')
 
         # Get the standings from the result
         standings = race['StandingsTable']['StandingsLists'][0]['DriverStandings']
@@ -1296,23 +1360,6 @@ def const_func(yr):
     else:
         last_round = max(schedule.RoundNumber)
 
-    from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
-    def ergast_retrieve(api_endpoint: str):
-        url = f'https://api.jolpi.ca/ergast/f1/{api_endpoint}.json'
-
-        try:
-            # Disable SSL verification
-            requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-            # Set the timeout duration to 10 seconds
-            response = requests.get(url, verify=False, timeout=10)
-            response.raise_for_status()  # Raise an exception for any HTTP errors
-            return response.json()['MRData']
-        except requests.exceptions.RequestException as e:
-            print(f"An error occurred: {e}")
-            return None
-
     colors = ["#333333", "#444444", "#555555", "#666666", "#777777",
               "#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"]
     color_counter = 0
@@ -1331,7 +1378,7 @@ def const_func(yr):
     for i in range(1, rounds + 1):
         try:
             # Make request to driverStandings endpoint for the current round
-            race = ergast_retrieve(f'{yr}/{i}/constructorStandings')
+            race = client.ergast_retrieve(f'{yr}/{i}/constructorStandings')
 
             # Get the standings from the result
             standings = race['StandingsTable']['StandingsLists'][0]['ConstructorStandings']
@@ -2955,10 +3002,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await MessageTarget(ctx).send(embed=embed, file=f)
 
     @commands.slash_command(name="lap-distribution",
-                  description="Violin plot comparing distribution of laptimes on different tyres.", integration_types={
-                      discord.IntegrationType.guild_install,
-                      discord.IntegrationType.user_install,
-                  })
+                            description="Violin plot comparing distribution of laptimes on different tyres.", integration_types={
+                                discord.IntegrationType.guild_install,
+                                discord.IntegrationType.user_install,
+                            })
     async def lap_distribution(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
         """Plot a swarmplot and violin plot showing laptime distributions and tyre compound
         for the top 10 point finishers."""
@@ -3023,10 +3070,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await MessageTarget(ctx).send(embed=embed, file=file)
 
     @commands.slash_command(name="tyre-performance",
-                  description="Plot the performance of each tyre compound based on the age of the tyre.", integration_types={
-                      discord.IntegrationType.guild_install,
-                      discord.IntegrationType.user_install,
-                  })
+                            description="Plot the performance of each tyre compound based on the age of the tyre.", integration_types={
+                                discord.IntegrationType.guild_install,
+                                discord.IntegrationType.user_install,
+                            })
     async def tyreperf(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
         """Plot a line graph showing the performance of each tyre compound based on the age of the tyre."""
         round = roundnumber(round, year)[0]
@@ -3142,10 +3189,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await MessageTarget(ctx).send(embed=embed, file=f)
 
     @commands.slash_command(name="avg-lap-delta",
-                  description="Bar chart comparing average time per driver with overall race average as a delta.", integration_types={
-                      discord.IntegrationType.guild_install,
-                      discord.IntegrationType.user_install,
-                  })
+                            description="Bar chart comparing average time per driver with overall race average as a delta.", integration_types={
+                                discord.IntegrationType.guild_install,
+                                discord.IntegrationType.user_install,
+                            })
     async def avg_lap_delta(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
         """Get the overall average lap time of the session and plot the delta for each driver."""
         round = roundnumber(round, year)[0]
