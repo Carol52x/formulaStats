@@ -42,5 +42,5 @@ A `/cache` directory will be created in the project root when the bot is running
 
 
 
-The bot uses Discord slash commands. Once the commands have synced with your Guild, they can be accessed with `/command-name`.
+The bot uses Discord slash commands. Once the commands have synced with your Guild or user, they can be accessed with `/command-name`.
 
