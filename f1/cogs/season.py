@@ -44,98 +44,133 @@ fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 now = pd.Timestamp.now()
 
 
-API_KEY = os.getenv('WEATHER_API')
+
 
 fastf1.Cache.enable_cache('cache/')
 logger = logging.getLogger("f1-bot")
 
 
 def schedule(ctx):
-    now = pd.Timestamp.now(tz='America/New_York')
+    now = pd.Timestamp.now()
 
     message_embed = discord.Embed(
-        title="Schedule", description="", color=get_top_role_color(ctx.author)
-    )
+        title="Schedule", description="", color=get_top_role_color(ctx.author))
+
     message_embed.set_author(name='F1 Race Schedule')
 
-    # Fetch the current year's schedule
     schedule = fastf1.get_event_schedule(
-        int(datetime.now().year), include_testing=False
-    )
+        int(datetime.now().year), include_testing=False)
 
-    # Find the index of the next event
-    current_date = pd.Timestamp(date.today(), tz='UTC')
-    next_event_index = schedule[schedule["Session5Date"]
-                                >= current_date].index.min()
+    # index of next event (round number)
+    next_event = 0
 
-    if pd.isna(next_event_index):
-        return discord.Embed(title="No upcoming events found")
+    for index, row in schedule.iterrows():
+        current_date = date.today()
+        import pytz
+        if row["Session5Date"] < pd.Timestamp(current_date, tzinfo=pytz.utc):
+            number = row['RoundNumber']
+            next_event = number+1
 
-    next_event = schedule.loc[next_event_index]
-    race_name = next_event["EventName"]
-    country = next_event["Country"]
-    location = next_event["Location"]
+    try:
 
-    # Get flag emoji
+        if (len(schedule) <= next_event):
+            raise IndexError
 
-    # Update embed title
-    message_embed.title = f"Race Schedule for {race_name}"
+        # else
+        # get name of event
+        race_name = schedule.loc[next_event, "EventName"]
 
-    # Prepare session times dictionary
-    sessions = [
-        (f":one: {next_event['Session1']}", next_event["Session1Date"]),
-        (f":two: {next_event['Session2']}", next_event["Session2Date"]),
-        (f":three: {next_event['Session3']}", next_event["Session3Date"]),
-        (f":stopwatch: {next_event['Session4']}", next_event["Session4Date"]),
-        (f":checkered_flag: {next_event['Session5']}",
-         next_event["Session5Date"]),
-    ]
+        # get emoji for country
+        emoji = ":flag_" + \
+            (coco.convert(
+                names=schedule.loc[next_event, "Country"], to='ISO2')).lower()+":"
 
-    # Convert session times to desired timezone
-    sessions = {
-        name: time.tz_convert('America/New_York').strftime('%Y-%m-%d %H:%M')
-        for name, time in sessions if pd.notna(time)
-    }
+        # Rename embed title
+        message_embed.title = "Race Schedule for " + race_name
 
-    # Add sessions to embed
-    sessions_string = '\n'.join(sessions.keys())
-    times_string = '\n'.join(
-        f"<t:{int(pd.Timestamp(time).timestamp())}:R> <t:{int(pd.Timestamp(time).timestamp())}:F>"
-        for time in sessions.values()
-    )
-
-    message_embed.add_field(name="Session", value=sessions_string, inline=True)
-    message_embed.add_field(name="Time", value=times_string, inline=True)
-
-    # Get circuit image from F1 website
-    image_url = get_circuit_image(location, country)
-
-    # Weather data (if race within 3 days)
-    race_date = next_event['Session5Date'].tz_convert('America/New_York')
-    time_to_race = (race_date - now).total_seconds()
-    if time_to_race < 259200:  # within 3 days
-        weather_data = get_weather_data(
-            country, race_date.strftime('%Y-%m-%d'))
-        if weather_data:
-            celsius = int(weather_data['main']['temp'] - 273.15)
-            fahrenheit = int(celsius * 1.8 + 32)
-            message_embed.add_field(
-                name='Weather Description',
-                value=f"{weather_data['weather'][0]['description'].capitalize()}, "
-                      f"Precipitation: {weather_data['pop']*100}%, "
-                      f"Wind Speed: {weather_data['wind']['speed']}m/s",
-                inline=False
-            )
-            message_embed.add_field(
-                name='Temperature (Celsius | Fahrenheit)',
-                value=f"{celsius}°C | {fahrenheit}°F", inline=False
-            )
+        # create a dictionary to store converted times
+        # adjust emojis/session name according to weekend format
+        if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
+            converted_session_times = {
+                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+            }
+            # fp1_date = pd.Timestamp(converted_session_times[":one: FP1"]).strftime('%Y-%m-%d')
+            # fp2_date = pd.Timestamp(converted_session_times[":two: FP2"]).strftime('%Y-%m-%d')
+            # fp3_date = pd.Timestamp(converted_session_times[":three: FP3"]).strftime('%Y-%m-%d')
+            # quali_date = pd.Timestamp(converted_session_times[":stopwatch: Qualifying"]).strftime('%Y-%m-%d')
+            # race_date = pd.Timestamp(converted_session_times[":checkered_flag: Race"]).strftime('%Y-%m-%d')
         else:
-            message_embed.add_field(
-                name='Weather Description', value="No weather data available", inline=False
-            )
+            converted_session_times = {
+                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+            }
+            # fp1_date = pd.Timestamp(converted_session_times[":one: FP1"]).strftime('%Y-%m-%d')
+            # fp2_date = pd.Timestamp(converted_session_times[":two: FP2"]).strftime('%Y-%m-%d')
+            # quali_date = pd.Timestamp(converted_session_times[":stopwatch: Qualifying"]).strftime('%Y-%m-%d')
+            # sprint_date = pd.Timestamp(converted_session_times[":race_car: Sprint"]).strftime('%Y-%m-%d')
+            # race_date = pd.Timestamp(converted_session_times[":checkered_flag: Race"]).strftime('%Y-%m-%d')
 
-    message_embed.set_image(url=image_url.replace(" ", "%20"))
+        # string to hold description message
+        time_until = schedule.loc[next_event, "Session5Date"].tz_convert(
+            'America/New_York') - now.tz_localize('America/New_York')
+        out_string = countdown(time_until.total_seconds())
+
+        try:
+            location = schedule.loc[next_event, "Location"]
+            # try to get timezone from list
+            # local_tz = timezones.timezones_list[location]
+            # print("Getting timezone from timezones.py")
+            # convert times to EST
+            for key in converted_session_times.keys():
+                date_object = converted_session_times.get(
+                    key).tz_convert('America/New_York')
+                converted_session_times.update({key: date_object})
+
+        # timezone not found in FastF1 <-- should not be possible anymore
+        except Exception as e:
+            print("Using fallback timezone calculation")
+            # get location of race
+            print(e)
+            # calculate timezone using latitude/longitude
+            convert_timezone_fallback(location, converted_session_times)
+
+        # strings to store session names and times
+        sessions_string = ''
+        times_string = ''
+
+        # setup strings to be added to fields
+        # strings to store session names and times''
+
+# setup strings to be added to fields
+        for key in converted_session_times.keys():
+            # Convert timestamp to datetime object
+            timestamp = converted_session_times.get(key).timestamp()
+            abc = int(timestamp)
+            times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
+            sessions_string += key + '\n'
+
+      
+        message_embed.add_field(
+            name="Session", value=sessions_string, inline=True)
+        message_embed.add_field(
+            name="Time", value=times_string, inline=True)
+        message_embed.add_field(
+            name="Track Layout", value="", inline=False)
+        country=schedule.loc[next_event, "Country"]
+        message_embed.set_image(url=get_circuit_image(location, country).replace(" ", "%20"))
+
+        # add fields to embed
+
+    except:
+        return out_string
+
     return message_embed
 
 
