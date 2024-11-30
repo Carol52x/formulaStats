@@ -44,8 +44,6 @@ fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 now = pd.Timestamp.now()
 
 
-
-
 fastf1.Cache.enable_cache('cache/')
 logger = logging.getLogger("f1-bot")
 
@@ -156,15 +154,15 @@ def schedule(ctx):
             times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
             sessions_string += key + '\n'
 
-      
         message_embed.add_field(
             name="Session", value=sessions_string, inline=True)
         message_embed.add_field(
             name="Time", value=times_string, inline=True)
         message_embed.add_field(
             name="Track Layout", value="", inline=False)
-        country=schedule.loc[next_event, "Country"]
-        message_embed.set_image(url=get_circuit_image(location, country).replace(" ", "%20"))
+        country = schedule.loc[next_event, "Country"]
+        message_embed.set_image(url=get_circuit_image(
+            location, country).replace(" ", "%20"))
 
         # add fields to embed
 
@@ -263,20 +261,6 @@ def get_fia_doc(doc=None):
     doc.close()
 
     return images
-
-
-def get_weather_data(x, y):
-    url = f'http://api.openweathermap.org/data/2.5/forecast?q={x}&appid={API_KEY}'
-    response = requests.get(url)
-    data = json.loads(response.content)
-
-    # Find the weather data for the specified date
-    for forecast in data['list']:
-        forecast_date = datetime.fromtimestamp(
-            forecast['dt']).strftime('%Y-%m-%d')
-        if forecast_date == y:
-            return forecast
-    return None
 
 
 def convert_timezone_fallback(location, converted_session_times):

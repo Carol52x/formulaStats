@@ -201,11 +201,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd.add_field(
-            name="/time-delta",
-            value="Time Delta between any two drivers."
-        )
-
-        emd.add_field(
             name="/track-sectors",
             value="Compare fastest driver sectors on track map."
         )

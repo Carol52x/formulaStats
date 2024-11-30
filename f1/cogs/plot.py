@@ -750,97 +750,6 @@ def positions_func(yr):
     return file
 
 
-def delta_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
-
-    d1 = d1[0:3].upper()
-    d2 = d2[0:3].upper()
-
-    style1 = fastf1.plotting.get_driver_style(identifier=d1,
-                                              style=['color', 'linestyle'],
-                                              session=session)
-    style2 = fastf1.plotting.get_driver_style(identifier=d2,
-                                              style=['color', 'linestyle'],
-                                              session=session)
-    if (d1 == None or d1 == ''):
-        d1 = session.laps.pick_fastest()['Driver']
-
-    if (d2 == None or d2 == ''):
-        d2 = session.laps.pick_fastest()['Driver']
-
-    if (lap1 == None or lap1 == ''):
-        dd1 = session.laps.pick_driver(d1).pick_fastest()
-    else:
-        driver_laps = session.laps.pick_driver(d1)
-        dd1 = driver_laps[driver_laps['LapNumber'] == int(lap1)].iloc[0]
-
-    if (lap2 == None or lap2 == ''):
-        dd2 = session.laps.pick_driver(d2).pick_fastest()
-    else:
-        driver_laps = session.laps.pick_driver(d2)
-        dd2 = driver_laps[driver_laps['LapNumber'] == int(lap2)].iloc[0]
-
-    delta_time, ref_tel, compare_tel = fastf1.utils.delta_time(dd1, dd2)
-
-    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
-    fig, ax = plt.subplots()
-
-    plt.rcParams["figure.figsize"] = [7, 5]
-    plt.rcParams["figure.autolayout"] = True
-    my_styles = [
-        {'linestyle': 'solid', 'color': 'auto', 'custom_arg': True},
-        {'linestyle': 'dotted', 'color': '#FF0060', 'other_arg': 10}
-    ]
-
-    try:
-        ax.plot(ref_tel['Distance'], ref_tel['Speed'],
-                **style1, label=d1)
-    except:
-        ax.plot(ref_tel['Distance'], ref_tel['Speed'], color='grey', label=d1)
-    try:
-        if (d1 != d2):
-            ax.plot(compare_tel['Distance'], compare_tel['Speed'],
-                    **style2, label=d2)
-        else:
-            ax.plot(compare_tel['Distance'],
-                    compare_tel['Speed'], color='#777777', label=d2)
-    except:
-        ax.plot(compare_tel['Distance'],
-                compare_tel['Speed'], color='grey', label=d2)
-
-    ax.legend()
-    twin = ax.twinx()
-    twin.plot(ref_tel['Distance'], delta_time, '--', color='white')
-    twin.set_ylabel("<-- " + d2 + " ahead | " + d1 + " ahead -->\n in seconds")
-    ticks = twin.get_yticks()
-    ax.set_xlabel('Track Distance in meters')
-    ax.set_ylabel('Speed in km/h')
-    # set labels to absolute values and with integer representation
-    twin.set_yticklabels([round(abs(tick), 1) for tick in ticks])
-
-    if (lap1 == None or lap1 == ''):
-        lap1 = "Fastest Lap"
-    else:
-        lap1 = "Lap " + str(lap1)
-    if (lap2 == None or lap2 == ''):
-        lap2 = "Fastest Lap"
-    else:
-        lap2 = "Lap " + str(lap2)
-
-    # sn = session.event.get_session_name(sn)
-
-    plt.suptitle("Lap Comparison\n" +
-                 f"{yr} {event['EventName']}\n" + d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")")
-    image = io.BytesIO()
-
-    plt.savefig(image, format='png')
-
-    image.seek(0)
-    file = discord.File(image, filename="plot.png")
-    image.close()
-    plt.close()
-    return file
-
-
 def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     drivers = [driver1[0:3].upper(), driver2[0:3].upper()]
 
@@ -901,71 +810,6 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     ax.set_xlabel('Time')
     ax.set_ylabel('Speed [Km/h]')
     ax.legend()
-    image = io.BytesIO()
-
-    plt.savefig(image, format='png')
-
-    image.seek(0)
-    file = discord.File(image, filename="plot.png")
-    image.close()
-    plt.close()
-    return file
-
-
-def distance_func(yr, rc, sn, driver1, driver2, lap, event, session):
-    drivers = [driver1[0:3].upper(), driver2[0:3].upper()]
-
-    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
-    fig, ax = plt.subplots()
-
-    plt.rcParams["figure.figsize"] = [7, 5]
-    plt.rcParams["figure.autolayout"] = True
-
-    fast = 0
-    t = 0
-    vCar = 0
-    car_data = 0
-
-    i = 0
-    while (i < len(drivers)):
-        if (lap == None or lap == ''):
-            fast = session.laps.pick_driver(drivers[i]).pick_fastest()
-        else:
-            driver_laps = session.laps.pick_driver(drivers[i])
-            fast = driver_laps[driver_laps['LapNumber'] == int(lap)].iloc[0]
-        car_data = fast.get_car_data().add_distance()
-        t = car_data['Distance']
-        vCar = car_data['Speed']
-        style = fastf1.plotting.get_driver_style(identifier=drivers[i],
-                                                 style=['color', 'linestyle'],
-                                                 session=session)
-        try:
-            ax.plot(t, vCar, **style, label=str(drivers[i]))
-        except:
-            ax.plot(t, vCar, color='grey', label=str(drivers[i]))
-        i = i+1
-
-    title = str(drivers[0])
-
-    i = 0
-    while (i < len(drivers)):
-        if (i+1 < len(drivers)):
-            title = title + " vs " + str(drivers[i+1])
-        i += 1
-
-    # sn = session.event.get_session_name(sn)
-
-    if (lap == None or lap == ''):
-        plt.suptitle("Fastest Lap Comparison\n" +
-                     f"{yr} {event['EventName']} {sn}\n" + title)
-    else:
-        plt.suptitle("Lap " + str(lap) + " Comparison " +
-                     f"{yr} {event['EventName']} {sn}\n" + title)
-
-    ax.set_xlabel('Distance in m')
-    ax.set_ylabel('Speed km/h')
-    ax.legend()
-
     image = io.BytesIO()
 
     plt.savefig(image, format='png')
@@ -2151,7 +1995,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         loop = asyncio.get_running_loop()
         file = await loop.run_in_executor(None, cornering_func, year, round, session, driver1, driver2, distance1, distance2, event, s)
 
-        embed = discord.Embed(title='Cornering Analysis',
+        embed = discord.Embed(title=f'Cornering Analysis: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2161,44 +2005,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def speed(self, ctx: ApplicationContext, driver1: discord.Option(str, required=True),
-                    driver2: discord.Option(str, required=True), year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption, type: options.typeOption, lap: options.LapOption):
+                    driver2: discord.Option(str, required=True), year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption,  lap: options.LapOption):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
         loop = asyncio.get_running_loop()
-        if type == 'Time':
-            file = await loop.run_in_executor(None, time_func, year, round, session, driver1, driver2, lap, event, s)
 
-            embed = discord.Embed(
-                title='Speed Comparison (Time)', color=get_top_role_color(ctx.author))
-            embed.set_image(url="attachment://plot.png")
-            await MessageTarget(ctx).send(embed=embed, file=file)
-        else:
-            file = await loop.run_in_executor(None, distance_func, year, round, session, driver1, driver2, lap, event, s)
+        file = await loop.run_in_executor(None, time_func, year, round, session, driver1, driver2, lap, event, s)
 
-            embed = discord.Embed(
-                title='Speed Comparison (Distance)', color=get_top_role_color(ctx.author))
-            embed.set_image(url="attachment://plot.png")
-            await MessageTarget(ctx).send(embed=embed, file=file)
-
-    @commands.slash_command(name="time-delta", description="Time Delta between any two drivers.", integration_types={
-        discord.IntegrationType.guild_install,
-        discord.IntegrationType.user_install,
-    })
-    async def timedelta(self, ctx: ApplicationContext, driver1: discord.Option(str, required=True),
-                        driver2: discord.Option(str, required=True), year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption, lap: options.LapOption, lap2: options.LapOption2):
-
-        round = roundnumber(round, year)[0]
-        year = roundnumber(round, year)[1]
-        await utils.check_season(ctx, year)
-        event = await stats.to_event(year, round)
-        s = await stats.load_session(event, session, laps=True, telemetry=True)
-        loop = asyncio.get_running_loop()
-        file = await loop.run_in_executor(None, delta_func, year, round, session, driver1, driver2, lap, lap2, event, s)
         embed = discord.Embed(
-            title='Time Delta between two drivers', color=get_top_role_color(ctx.author))
+            title=f'Speed Comparison (Time) {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
@@ -2216,7 +2034,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
         file = await loop.run_in_executor(None, weather, year, round, session, event, race)
-        embed = discord.Embed(title='Track Evolution',
+        embed = discord.Embed(title=f'Track Evolution: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2233,7 +2051,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
         file = await loop.run_in_executor(None, positions_func, year)
-        embed = discord.Embed(title="WDC standings (heatmap)",
+        embed = discord.Embed(title=f"WDC standings (heatmap) {year}",
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2306,7 +2124,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         plt.savefig(image, format="png")
         image.seek(0)
         file = discord.File(image, filename="plot.png")
-        embed = discord.Embed(title='Race Trace',
+        embed = discord.Embed(title=f'Race Trace: {ev["EventName"]} ',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2323,14 +2141,14 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if category == 'Drivers':
             loop = asyncio.get_running_loop()
             file = await loop.run_in_executor(None, driver_func, year)
-            embed = discord.Embed(title='WDC History',
+            embed = discord.Embed(title=f'WDC History: {year}',
                                   color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
             await MessageTarget(ctx).send(embed=embed, file=file)
         else:
             loop = asyncio.get_running_loop()
             file = await loop.run_in_executor(None, const_func, year)
-            embed = discord.Embed(title='WCC History',
+            embed = discord.Embed(title=f'WCC History: {year}',
                                   color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
             await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2356,9 +2174,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         f = await loop.run_in_executor(None, tel_func, year, round, session, driver1, driver2, lap, lap2, event, session)
 
         embed = discord.Embed(
-            title='Telemetry', color=get_top_role_color(ctx.author))
+            title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        embed.set_footer(text="Brake traces are in binary")
+        embed.set_footer(
+            text="Please note that the Brake traces are in binary and therfore are not an accurate representation of the actual telemetry.")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
     @commands.slash_command(name="h2h", description="Head to Head stats.", integration_types={
@@ -2474,7 +2293,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         buffer.seek(0)
         plt.close(fig)
         file = discord.File(buffer, filename="plot.png")
-        embed = discord.Embed(title='Gear Shift plot',
+        embed = discord.Embed(title=f'Gear Shift plot: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2534,7 +2353,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         plt.close(fig)
 
         file = discord.File(buffer, filename="plot.png")
-        embed = discord.Embed(title='Tyre Strategies',
+        embed = discord.Embed(title=f'Tyre Strategies: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
@@ -2583,7 +2402,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Create image
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Driver position changes',
+        embed = discord.Embed(title=f'Driver position changes: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -2641,7 +2460,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         fig.suptitle(f"Fastest: {top['LapTime']} ({top['Driver']})")
 
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Fastest Laps',
+        embed = discord.Embed(title=f'Fastest Laps: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -2705,7 +2524,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         buffer.seek(0)
         plt.close(fig)
         file = discord.File(buffer, filename="plot.png")
-        embed = discord.Embed(title='Team Pace delta ',
+        embed = discord.Embed(title=f'Team Pace delta: {ev.EventName} ',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
@@ -2759,7 +2578,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         plt.close(fig)
         file = discord.File(buffer, filename="plot.png")
         embed = discord.Embed(
-            title='Driver lap time distribution', color=get_top_role_color(ctx.author))
+            title=f'Driver lap time distribution: {driver[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
@@ -2829,7 +2648,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             f"{drv_id} Track Speed - {ev['EventDate'].year} {ev['EventName']}", size=16)
 
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Speed visualisation',
+        embed = discord.Embed(title=f'Speed visualisation: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -2853,7 +2672,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Check API support
 
-        embed = discord.Embed(title='Fastest Sectors comparison',
+        embed = discord.Embed(title=f'Fastest Sectors comparison: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -2895,7 +2714,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(
-            title='Driver position gains/losses', color=get_top_role_color(ctx.author))
+            title=f'Driver position gains/losses: {ev.EventName}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
@@ -2935,7 +2754,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             f"Tyre Distribution - {session}\n{ev['EventName']} ({ev['EventDate'].year})")
 
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Tyre choices',
+        embed = discord.Embed(title=f'Tyre choices: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -2988,12 +2807,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             f"Lap Difference -\n{ev['EventName']} ({ev['EventDate'].year})")
         ax.set_xlabel("Lap")
         ax.set_ylabel("Time")
-        ax.grid(True, alpha=0.1)
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
         ax.legend()
 
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(
-            title='Laptime Comparison between two drivers', color=get_top_role_color(ctx.author))
+            title=f'Laptime Comparison between two drivers: {first[0:3].upper()} vs {second[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
@@ -3051,6 +2871,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.set_xlabel("Driver (Point Finishers)")
         ax.set_title(
             f"Lap Distribution - {ev['EventName']} ({ev['EventDate'].year})")
+
         sns.despine(left=True, right=True)
 
         plt.tight_layout()
@@ -3061,7 +2882,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         file = discord.File(buffer, filename="plot.png")
 # Now send the plot image as part of a message
         embed = discord.Embed(
-            title='Lap distribution on violin plot', color=get_top_role_color(ctx.author))
+            title=f'Lap distribution on violin plot: {ev.EventName}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=file)
 
@@ -3104,7 +2925,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.minorticks_on()
         ax.grid(True, alpha=0.1)
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Tyre degradation',
+        embed = discord.Embed(title=f'Tyre degradation: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -3181,7 +3002,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.grid(True, alpha=0.1)
 
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Driver lap delta',
+        embed = discord.Embed(title=f'Driver lap delta: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
@@ -3241,7 +3062,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             f"{yr} {rd}\nDelta to Average ({utils.format_timedelta(session_avg)})").set_fontsize(16)
 
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title='Average lap delta',
+        embed = discord.Embed(title=f'Average lap delta: {ev.EventName} ',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)

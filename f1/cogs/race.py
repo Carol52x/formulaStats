@@ -1062,7 +1062,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         ).set_fontsize(12)
 
         f = utils.plot_to_file(table, "plot")
-        embed = discord.Embed(title='Sectors and Speed Trap',
+        embed = discord.Embed(title=f'Sectors and Speed Trap: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await MessageTarget(ctx).send(embed=embed, file=f)
