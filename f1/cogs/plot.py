@@ -811,6 +811,8 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     ax.set_ylabel('Speed [Km/h]')
     ax.legend()
     image = io.BytesIO()
+    ax.grid(True, alpha=0.1)
+    ax.minorticks_on()
 
     plt.savefig(image, format='png')
 
@@ -2163,7 +2165,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         driver1: discord.Option(str, required=True),
                         driver2: discord.Option(str, required=True),
                         year: options.SeasonOption3, round: options.RoundOption,
-                        session: options.SessionOption, lap: options.LapOption, lap2: options.LapOption2):
+                        session: options.SessionOption, lap1: options.LapOption1, lap2: options.LapOption2):
         """Plot lap telemetry (speed, distance, rpm, gears, brake) between two driver's fastest lap."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -2173,7 +2175,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         loop = asyncio.get_running_loop()
         # await interaction.followup.send(content='h2h')
-        f = await loop.run_in_executor(None, tel_func, year, round, session, driver1, driver2, lap, lap2, event, session)
+        f = await loop.run_in_executor(None, tel_func, year, round, session, driver1, driver2, lap1, lap2, event, session)
 
         embed = discord.Embed(
             title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
