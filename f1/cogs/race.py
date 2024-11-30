@@ -622,7 +622,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             title=f"Race Tyre Stints - {event['EventName']} ({event['EventDate'].year})", color=get_top_role_color(ctx.author)
         )
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="wdc-contenders", description="Shows a list of drivers who can still mathematically win the wdc.", integration_types={
         discord.IntegrationType.guild_install,
@@ -646,7 +646,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title='Theoretical WDC Contenders',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(description="Result data for the session. Default last race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -696,7 +696,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f"{ev['EventDate'].year} {ev['EventName']} - {session}", color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="quizsetup")
     @default_permissions(administrator=True)
@@ -938,7 +938,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         ----------
             /pitstops-ranked [season] [round] [filter]
         """
-        await ctx.defer()
+
         if round == None and year == None or round == None and year == int(datetime.now().year):
 
             schedule = fastf1.get_event_schedule(
@@ -979,7 +979,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(description="Best ranked lap times per driver.", integration_types={
         discord.IntegrationType.guild_install,
@@ -1025,7 +1025,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f"{event['EventDate'].year} {event['EventName']} Fastest Lap Times", color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(
         description="View fastest sectors and speed trap based on quick laps. Seasons >= 2018.", integration_types={
@@ -1065,7 +1065,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Sectors and Speed Trap: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(description="Career stats for a driver. Enter Full Name of the driver.", integration_types={
         discord.IntegrationType.guild_install,
@@ -1076,7 +1076,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         loop = asyncio.get_running_loop()
         result_embed = await loop.run_in_executor(None, get_driver, driver, ctx)
         # send final embed
-        await MessageTarget(ctx).send(embed=result_embed)
+        await ctx.respond(embed=result_embed)
 
     @commands.slash_command(
         name="track-incidents",
@@ -1141,7 +1141,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
             text=r"If you see erroneous data or want a detailed analysis of session events, use /racecontrol. No data represents the driver did not start the race.")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
 
 def setup(bot: discord.Bot):

@@ -346,7 +346,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'WDC standings for the {yr} season', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(file=f, embed=embed)
+        await ctx.respond(file=f, embed=embed)
 
     @commands.slash_command(description="Provides season calender", integration_types={
         discord.IntegrationType.guild_install,
@@ -366,7 +366,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             title=f'Calender {year}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
 
-        await MessageTarget(ctx).send(file=f, embed=embed)
+        await ctx.respond(file=f, embed=embed)
 
     @commands.slash_command(name='fiadoc', description='Get latest FIA Document. Use 1, 2, 3.. for older documents.', integration_types={
         discord.IntegrationType.guild_install,
@@ -436,7 +436,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'WCC standings for the {yr} season', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(file=f, embed=embed)
+        await ctx.respond(file=f, embed=embed)
 
     @commands.slash_command(description='get race schedule', integration_types={
         discord.IntegrationType.guild_install,
@@ -445,7 +445,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
     async def schedule(self, ctx):
         loop = asyncio.get_running_loop()
         message_embed = await loop.run_in_executor(None, schedule, ctx)
-        await MessageTarget(ctx).send(embed=message_embed)
+        await ctx.respond(embed=message_embed)
 
 
 def setup(bot: discord.Bot):

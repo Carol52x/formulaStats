@@ -1,3 +1,4 @@
+
 import asyncio
 import logging
 import sys
@@ -19,6 +20,9 @@ logger = logging.getLogger("f1-bot")
 
 # set global time bot started
 START_TIME = time.time()
+
+
+# Connect to SQLite database (it will be created if it doesn't exist)
 
 
 class Admin(commands.Cog, guild_ids=Config().guilds):
@@ -278,29 +282,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
 # Send both embeds together in a single message
         await ctx.respond(embeds=embeds, ephemeral=True)
-
-    @admin.command(name="disable-cache", description="Temporarily disable caching for X minutes (default 5).")
-    @default_permissions(administrator=True)
-    async def disable_cache(self, ctx: ApplicationContext,
-                            minutes: discord.Option(int, default=5, max_value=15)):
-        """Temporarily disable result caching. Will automatically re-enable the
-        cache after `minutes`, default 5."""
-        fetch.use_cache = False
-        ff1_cache.set_disabled()
-        logger.warning(f"Disabling caching for {minutes} minutes")
-        # Schedule the sleep task in the background so the command doesn't wait
-        asyncio.create_task(self._enable_cache(minutes))
-        await MessageTarget(ctx).send(f":warning: Cache disabled for {minutes} minutes.")
-
-    @admin.command(description="Shut down the bot application. Bot owner only.")
-    @default_permissions()
-    @commands.is_owner()
-    async def stop(self, ctx):
-        logger.warning(
-            "Owner used stop command. Closing the bot connection...")
-        await self.bot.close()
-        logger.warning("Shutting down application.")
-        sys.exit()
 
 
 def setup(bot: discord.Bot):

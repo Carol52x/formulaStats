@@ -1998,7 +1998,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Cornering Analysis: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="speed-comparison", description="Speed Comparison (Time or Distance) of any two drivers.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2018,7 +2018,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'Speed Comparison (Time) {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="track-evolution", description="Trackside weather and evolution data.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2037,7 +2037,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Track Evolution: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="standings-heatmap", description="Plot WDC standings on a heatmap.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2054,7 +2054,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f"WDC standings (heatmap) {year}",
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="race-trace", description="Lap Comparison of participating drivers", integration_types={
         discord.IntegrationType.guild_install,
@@ -2127,7 +2127,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Race Trace: {ev["EventName"]} ',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name='standing-history', description="Standing History of either WDC or WCC", integration_types={
         discord.IntegrationType.guild_install,
@@ -2144,14 +2144,14 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             embed = discord.Embed(title=f'WDC History: {year}',
                                   color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
-            await MessageTarget(ctx).send(embed=embed, file=file)
+            await ctx.respond(embed=embed, file=file)
         else:
             loop = asyncio.get_running_loop()
             file = await loop.run_in_executor(None, const_func, year)
             embed = discord.Embed(title=f'WCC History: {year}',
                                   color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
-            await MessageTarget(ctx).send(embed=embed, file=file)
+            await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(description="Compare fastest lap telemetry between two drivers.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2178,7 +2178,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
             text="Please note that the Brake traces are in binary and therfore are not an accurate representation of the actual telemetry.")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="h2h", description="Head to Head stats.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2196,18 +2196,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             dc_embed, file = await loop.run_in_executor(None, get_embed2, year, session, ctx)
 
             if not (file is None):
-                await MessageTarget(ctx).send(embed=dc_embed.embed, file=file)
+                await (ctx).send(embed=dc_embed.embed, file=file)
             else:
-                await MessageTarget(ctx).send("Info not available!")
+                await ctx.respond("Info not available!")
         else:
             loop = asyncio.get_running_loop()
         # await interaction.followup.send(content='h2h')
             dc_embed, file = await loop.run_in_executor(None, get_embed, year, session, ctx)
 
             if not (file is None):
-                await MessageTarget(ctx).send(embed=dc_embed.embed, file=file)
+                await ctx.respond(embed=dc_embed.embed, file=file)
             else:
-                await MessageTarget(ctx).send("Info not available!")
+                await ctx.respond("Info not available!")
 
     @commands.slash_command(name="avgpos", description="Average position of a driver or a team in a span of season.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2222,16 +2222,16 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             loop = asyncio.get_running_loop()
             dc_embed, file = await loop.run_in_executor(None, get_embed_and_image2, year, session, category, ctx)
             if file != None:
-                await MessageTarget(ctx).send(embed=dc_embed.embed, file=file)
+                await ctx.respond(embed=dc_embed.embed, file=file)
             else:
-                await MessageTarget(ctx).send(embed=dc_embed.embed)
+                await ctx.respond(embed=dc_embed.embed)
         else:
             loop = asyncio.get_running_loop()
             dc_embed, file = await loop.run_in_executor(None, get_embed_and_image, year, session, category, ctx)
             if file != None:
-                await MessageTarget(ctx).send(embed=dc_embed.embed, file=file)
+                await ctx.respond(embed=dc_embed.embed, file=file)
             else:
-                await MessageTarget(ctx).send(embed=dc_embed.embed)
+                await ctx.respond(embed=dc_embed.embed)
 
     @commands.slash_command(description="Plot which gear is being used at which point of the track", integration_types={
         discord.IntegrationType.guild_install,
@@ -2296,7 +2296,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Gear Shift plot: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="tyre-strats", description="Tyre Strategies of the drivers' in a race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2359,7 +2359,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_footer(
             text='The stripes (if any) represents that the tyre is a used set.', icon_url=None)
 
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(description="Plot driver position changes in the race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2405,7 +2405,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Driver position changes: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(description="Show a bar chart comparing fastest laps in the session.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2463,7 +2463,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Fastest Laps: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="team-pace-delta", description="Rank team’s race pace from the fastest to the slowest.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2527,7 +2527,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Team Pace delta: {ev.EventName} ',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="driver-lap-time-distribution", description="View driver(s) laptime distribution on track.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2580,7 +2580,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'Driver lap time distribution: {driver[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="track-speed", description="View driver speed on track.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2651,7 +2651,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Speed visualisation: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="track-sectors", description="Compare fastest driver sectors on track map.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2675,7 +2675,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Fastest Sectors comparison: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(description="Show the position gains/losses per driver in the race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2716,7 +2716,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'Driver position gains/losses: {ev.EventName}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="tyre-choice", description="Percentage distribution of tyre compounds.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2757,7 +2757,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Tyre choices: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="lap-compare", description="Compare laptime difference between two drivers.", integration_types={
         discord.IntegrationType.guild_install,
@@ -2815,7 +2815,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'Laptime Comparison between two drivers: {first[0:3].upper()} vs {second[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="lap-distribution",
                             description="Violin plot comparing distribution of laptimes on different tyres.", integration_types={
@@ -2884,7 +2884,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'Lap distribution on violin plot: {ev.EventName}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=file)
+        await ctx.respond(embed=embed, file=file)
 
     @commands.slash_command(name="tyre-performance",
                             description="Plot the performance of each tyre compound based on the age of the tyre.", integration_types={
@@ -2928,7 +2928,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Tyre degradation: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(description="Plots the delta in seconds between two drivers over a lap.", integration_types={
         discord.IntegrationType.guild_install,
@@ -3005,7 +3005,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Driver lap delta: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
     @commands.slash_command(name="avg-lap-delta",
                             description="Bar chart comparing average time per driver with overall race average as a delta.", integration_types={
@@ -3065,7 +3065,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Average lap delta: {ev.EventName} ',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await MessageTarget(ctx).send(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f)
 
 
 def setup(bot: discord.Bot):
