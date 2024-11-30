@@ -1046,6 +1046,7 @@ def driver_func(yr):
 
         # Make request to driverStandings endpoint for the current round
         race = client.ergast_retrieve(f'{yr}/{i}/driverStandings')
+        session = fastf1.get_session(yr, 1, 'R')
 
         # Get the standings from the result
         standings = race['StandingsTable']['StandingsLists'][0]['DriverStandings']
@@ -1095,7 +1096,7 @@ def driver_func(yr):
 
     ax.xaxis.label.set_color("white")
     ax.yaxis.label.set_color("white")
-    session = fastf1.get_session(yr, 1, 'R')
+
     # Draw a line for every driver in the data by looping through all the standings
     # The reason we do it this way is so that we can specify the team color per driver
     for driver in pd.unique(all_championship_standings_melted['variable']):
@@ -1151,7 +1152,8 @@ def driver_func(yr):
     ax.set_ylabel("Championship position", color='white')
 
     # Disable the gridlines
-    ax.grid(False)
+    ax.grid(True, alpha=0.1)
+    ax.minorticks_on()
 
     # Add the driver name to the lines
     for line, name, points in zip(ax.lines, all_championship_standings.columns.tolist(), driver_point_mapping.values()):
@@ -1319,8 +1321,8 @@ def const_func(yr):
     ax.set_xlabel("Round", color='white')
     ax.set_ylabel("Championship position", color='white')
 
-    # Disable the gridlines
-    ax.grid(False)
+    ax.grid(True, alpha=0.1)
+    ax.minorticks_on()
 
     # Add the driver name to the lines
     for line, name, points in zip(ax.lines, all_championship_standings.columns.tolist(), constructor_point_mapping.values()):
@@ -2365,7 +2367,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def position(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def positionchanges(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
         """Line graph per driver showing position for each lap."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -2386,8 +2388,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         for d in session.drivers:
             laps = session.laps.pick_drivers(d)
             id = laps["Driver"].iloc[0]
+            style = fastf1.plotting.get_driver_style(identifier=id,
+                                                     style=['color', 'linestyle'],
+                                                     session=session)
             ax.plot(laps["LapNumber"], laps["Position"], label=id,
-                    color=utils.get_driver_or_team_color(id, session, api_only=True))
+                    **style)
 
         # Presentation
         ax.set_title(
@@ -2619,33 +2624,24 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         speed = car["Speed"]
         del lap, car
 
-        fig = Figure(figsize=(12, 6.75), dpi=DPI, layout="constrained")
+        fig = Figure(figsize=(12, 8), dpi=DPI, layout="constrained")
         ax = fig.subplots(sharex=True, sharey=True)
         ax.axis("off")
 
-
-# Rotate the positional data
-
-        # Create the track outline from pos coordinates
-        ax.plot(rotated_pos_x, rotated_pos_y, color="black",
-                linestyle="-", linewidth=12, zorder=0)
+        # Plot the track and map segments to colors
+        ax.plot(rotated_pos_x, rotated_pos_y, color="black", linestyle="-", linewidth=8, zorder=0)
         ax.axis('equal')
 
-        # Map the segments to colours
         norm = Normalize(speed.min(), speed.max())
-        lc = LineCollection(segs, cmap="plasma", norm=norm,
-                            linestyle="-", linewidth=5)
+        lc = LineCollection(segs, cmap="plasma", norm=norm, linestyle="-", linewidth=4)
         lc.set_array(speed)
-
-        # Plot the coloured speed segments on track
         speed_line = ax.add_collection(lc)
 
-        # Add legend
-        cax = fig.add_axes([0.25, 0.05, 0.5, 0.025])
-        fig.colorbar(speed_line, cax=cax, location="bottom",
-                     label="Speed (km/h)")
-        fig.suptitle(
-            f"{drv_id} Track Speed - {ev['EventDate'].year} {ev['EventName']}", size=16)
+        # Add the color bar at a better position
+        cax = fig.add_axes([0.25, 0.02, 0.5, 0.025])  # Adjusted for more spacing
+        fig.colorbar(speed_line, cax=cax, location="bottom", label="Speed (km/h)")
+
+        fig.suptitle(f"{drv_id} Track Speed - {ev['EventDate'].year} {ev['EventName']}", size=16)
 
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'Speed visualisation: {ev.EventName}',

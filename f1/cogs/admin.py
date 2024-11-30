@@ -129,7 +129,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd1.add_field(
-            name="/against",
+            name="/gains",
             value="Show the position gains/losses per driver in the race."
         )
 
@@ -170,7 +170,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Setup quiz for your server."
         )
         emd.add_field(
-            name="/position",
+            name="/positionchanges",
             value="Plot driver position changes in the race."
         )
 
