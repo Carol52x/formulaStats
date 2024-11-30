@@ -4,27 +4,17 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 import requests
 import datetime
-import repeated.embed as em
-import repeated.common as cm
-from lib.f1font import regular_font, bold_font
-from f1.target import MessageTarget
 from f1.errors import MissingDataError
 from f1.config import Config
 from f1.api import ergast, stats
 from f1 import options, utils
-import typing
-import traceback
-import os
 import io
-from math import isnan
 import matplotlib.patheffects as pe
 import matplotlib.image as mpim
 import pytz
-import matplotlib.transforms as transforms
 from matplotlib.ticker import MaxNLocator
 import math
 from f1.api.stats import get_top_role_color
-import lib.emojiid as emoji
 import matplotlib
 from fastf1.ergast import Ergast
 from windrose import WindroseAxes
@@ -38,13 +28,11 @@ from matplotlib import colormaps
 import discord
 import fastf1.plotting
 import asyncio
-import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from discord.commands import ApplicationContext
 from discord.ext import commands
-from matplotlib import dates
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, Normalize
 import time
@@ -76,6 +64,35 @@ rate_lock = threading.Lock()
 last_request_time = 0
 request_count = 0
 hour_start_time = time.time()
+
+
+class customEmbed:
+
+    # embed.set_image(url=None)
+    # embed.set_footer(text='')
+    # embed.description = ''
+    def __init__(self, title=None, description=None, colour=None, image_url=None, thumbnail_url=None, author=None, footer=None):
+        # necessary or else other info is retained in new command's embed
+        self.embed = discord.Embed(title=f"Default Embed", description="")
+
+        self.embed.clear_fields()
+        self.embed.set_image(url=None)
+        self.embed.set_footer(text='')
+        self.embed.description = ''
+        if not (title == None):
+            self.embed.title = title
+        if not (description == None):
+            self.embed.description = description
+        if (not (author == None) and len(author) == 2):
+            self.embed.set_author(name=author[0], icon_url=author[1])
+        if not (colour == None):
+            self.embed.colour = colour
+        if not (image_url == None):
+            self.embed.set_image(url=image_url)
+        if not (thumbnail_url == None):
+            self.embed.set_thumbnail(url=thumbnail_url)
+        if not (footer == None):
+            self.embed.set_footer(text=footer)
 
 
 class ErgastClient:
@@ -1458,7 +1475,6 @@ def get_data2(year, session_type):
 
 
 def get_data(year, session_type):
-    # the code for this is kinda bad and complicated so imma leave comments for when i forget what any of this does
     team_list = {}
     color_list = {}
     check_list = {}
@@ -1473,17 +1489,6 @@ def get_data(year, session_type):
         session.load(laps=False, telemetry=False,
                      weather=False, messages=False)
         results = session.results
-        # print(results)
-        # for driver in results.index:
-        #     country_code = results.loc[driver,'CountryCode']
-        #     if not (country_code == ''):
-        #         driver_country.update({results.loc[driver,'Abbreviation']:country_code})
-
-        # for each race, reset the boolean
-        # boolean is used to prevent same driver being updated twice in the same race since it iterates through every driver
-        # EX: if VER finished ahead of PER, first VER is updated to +1, boolean is set to true,
-        # that way when loop gets to PER it doesnt add +1 to VER again since boolean is true
-        # until the next race when they can be updated again
         for i in check_list.keys():
             check_list.update({i: False})
 
@@ -1491,16 +1496,6 @@ def get_data(year, session_type):
             team_results = results.loc[lambda df: df['TeamId'] == i]
             if len(team_results.index) < 2:
                 break
-            # testing
-            # if (i == "Ferrari"):
-            #     print(team_results)
-            # print(team_results[['Abbreviation','ClassifiedPosition','Status','TeamColor','TeamId']])
-
-            # dictionary format:
-            # teamName:
-            #   driverPairing:
-            #       driver: #ofRacesFinishedAheadofTeammate
-            #       otherDriver: #ofRacesFinishedAheadofTeammate
             if (team_list.get(i) is None):
                 team_fullName.update(
                     {i: team_results.loc[min(team_results.index), 'TeamName']})
@@ -1550,24 +1545,6 @@ def get_data(year, session_type):
     return team_list, color_list, team_fullName  # , outstring
 
 
-def print_data(data):
-    for team in data.keys():
-        print(team)
-        for pairing in data.get(team).keys():
-            print(f'    {pairing}:')
-            for driver in data.get(team).get(pairing):
-                print(
-                    f'        {driver}: {data.get(team).get(pairing).get(driver)}')
-
-
-def h2h_embed(self, data, year, session_type):
-    title = f"Teammate {session_type} Head to Head {year}"
-    description = ''
-    for team in data.keys():
-        description += f'{self.bot.get_emoji(emoji.team_emoji_ids.get(team))}\n'
-    print(description)
-
-
 def make_plot(data, colors, year, session_type, team_names, filepath):
     plt.clf()
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
@@ -1598,16 +1575,9 @@ def make_plot(data, colors, year, session_type, team_names, filepath):
             else:
                 color = "#ffffff"
             ax.barh(pairing, driver_wins, color=color,)  # edgecolor = 'black')
-            try:
-                # team logo
-                img = mpim.imread(f'lib/cars/logos/{team}.webp')
-                zoom = .2
-                imagebox = OffsetImage(img, zoom=zoom)
-                ab = AnnotationBbox(imagebox, (0, offset), frameon=False)
-                ax.add_artist(ab)
-            except:
-                ax.text(0, offset, team, ha='center', fontsize=10,  path_effects=[
-                        pe.withStroke(linewidth=2, foreground="black")])
+
+            ax.text(0, offset, team.replace("_", " ").title(), ha='center', fontsize=10,  path_effects=[
+                pe.withStroke(linewidth=2, foreground="black")])
 
             # label the bars
             for i in range(len(drivers)):
@@ -1671,7 +1641,7 @@ def get_embed(year, session_type, ctx):
     top_role_color = get_top_role_color(ctx.author)
     title = f"Teammate {session_type} Head to Head {year}"
     image.close()
-    return em.Embed(title=title, image_url='attachment://image.png', colour=top_role_color), file
+    return customEmbed(title=title, image_url='attachment://image.png', colour=top_role_color), file
 
 
 def get_embed2(year, session_type, ctx):
@@ -1683,7 +1653,7 @@ def get_embed2(year, session_type, ctx):
     title = f"Teammate {session_type} Head to Head {year}"
     top_role_color = get_top_role_color(ctx.author)
     image.close()
-    return em.Embed(title=title, image_url='attachment://image.png', colour=top_role_color), file
+    return customEmbed(title=title, image_url='attachment://image.png', colour=top_role_color), file
 
 
 def get_event_data2(session_type, year, category):
@@ -1767,7 +1737,7 @@ def get_event_data2(session_type, year, category):
 def get_event_data(session_type, year, category):
     schedule = fastf1.get_event_schedule(year=year, include_testing=False)
     first_index = schedule.index[0]
-    max_index = cm.latest_completed_index(year)
+    max_index = max(schedule.RoundNumber)
     first_round = schedule.loc[first_index, 'RoundNumber']
     last_round = schedule.loc[max_index, 'RoundNumber']
     # print(first_index)
@@ -1836,7 +1806,7 @@ def get_event_data(session_type, year, category):
 
 
 def plot_avg(driver_positions, driver_colors, session_type, year, category, filepath):
-    # latest_event_index = cm.latest_completed_index(year)
+
     plt.clf()
     driver_positions = dict(
         sorted(driver_positions.items(), key=lambda x: x[1]))
@@ -1908,24 +1878,14 @@ def plot_avg(driver_positions, driver_colors, session_type, year, category, file
 
 
 def get_embed_and_image(year, session_type, category, ctx):
-    try:
-        year = cm.check_year(year)
-    except cm.YearNotValidException as e:
-        return em.ErrorEmbed(title=f"Invalid Input: {year}", error_message=e).embed
-    except:
-        return em.ErrorEmbed(error_message='').embed
 
-    latest_event_index = cm.latest_completed_index(year)
     pos, colors = get_event_data(
         session_type=session_type, year=year, category=category)
 
     # Create a BytesIO object
     image_bytes_io = io.BytesIO()
 
-    try:
-        plot_avg(pos, colors, session_type, year, category, image_bytes_io)
-    except Exception as e:
-        return em.ErrorEmbed(error_message=e), None
+    plot_avg(pos, colors, session_type, year, category, image_bytes_io)
 
     # Reset the file position to the beginning
     image_bytes_io.seek(0)
@@ -1935,18 +1895,11 @@ def get_embed_and_image(year, session_type, category, ctx):
     title = f"Average {category} {session_type} Finish Position {year}"
     top_role_color = get_top_role_color(ctx.author)
     image_bytes_io.close()
-    return em.Embed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
+    return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
 
 
 def get_embed_and_image2(year, session_type, category, ctx):
-    try:
-        year = cm.check_year(year)
-    except cm.YearNotValidException as e:
-        return em.ErrorEmbed(title=f"Invalid Input: {year}", error_message=e).embed
-    except:
-        return em.ErrorEmbed(error_message='').embed
 
-    latest_event_index = cm.latest_completed_index(year)
     pos, colors = get_event_data2(
         session_type=session_type, year=curr_year, category=category)
 
@@ -1954,11 +1907,8 @@ def get_embed_and_image2(year, session_type, category, ctx):
     image_bytes_io = io.BytesIO()
     top_role_color = get_top_role_color(ctx.author)
 
-    try:
-        plot_avg(pos, colors, session_type,
-                 curr_year, category, image_bytes_io)
-    except Exception as e:
-        return em.ErrorEmbed(error_message=e), None
+    plot_avg(pos, colors, session_type,
+             curr_year, category, image_bytes_io)
 
     # Reset the file position to the beginning
     image_bytes_io.seek(0)
@@ -1967,7 +1917,7 @@ def get_embed_and_image2(year, session_type, category, ctx):
     description = "DNS/DNF excluded from calculation"
     title = f"Average {category} {session_type} Finish Position {year}"
     image_bytes_io.close()
-    return em.Embed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
+    return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
 
 
 class Plot(commands.Cog, guild_ids=Config().guilds):
@@ -2196,7 +2146,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if year == int(datetime.datetime.now().year):
 
             loop = asyncio.get_running_loop()
-        # await interaction.followup.send(content='h2h')
+
             dc_embed, file = await loop.run_in_executor(None, get_embed2, year, session, ctx)
 
             if not (file is None):
@@ -2205,7 +2155,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 await ctx.respond("Info not available!")
         else:
             loop = asyncio.get_running_loop()
-        # await interaction.followup.send(content='h2h')
+
             dc_embed, file = await loop.run_in_executor(None, get_embed, year, session, ctx)
 
             if not (file is None):
