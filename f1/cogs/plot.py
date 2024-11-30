@@ -2200,7 +2200,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             dc_embed, file = await loop.run_in_executor(None, get_embed2, year, session, ctx)
 
             if not (file is None):
-                await (ctx).send(embed=dc_embed.embed, file=file)
+                await ctx.respond(embed=dc_embed.embed, file=file)
             else:
                 await ctx.respond("Info not available!")
         else:
