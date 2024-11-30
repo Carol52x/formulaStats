@@ -1143,6 +1143,21 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     # set labels to absolute values and with integer representation
     ax[6].set_yticklabels([round(abs(tick), 1) for tick in ticks])
 
+    ax[0].grid(which="minor", alpha=0.1)
+    ax[0].minorticks_on()
+    ax[1].grid(which="minor", alpha=0.1)
+    ax[1].minorticks_on()
+    ax[2].grid(which="minor", alpha=0.1)
+    ax[2].minorticks_on()
+    ax[3].grid(which="minor", alpha=0.1)
+    ax[3].minorticks_on()
+    ax[4].grid(which="minor", alpha=0.1)
+    ax[4].minorticks_on()
+    ax[5].grid(which="minor", alpha=0.1)
+    ax[5].minorticks_on()
+    ax[6].grid(which="minor", alpha=0.1)
+    ax[6].minorticks_on()
+
     image = io.BytesIO()
     plt.tight_layout()
     plt.savefig(image, format='png')
@@ -2284,6 +2299,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             lambda x, pos: '{:0.0f}'.format(x)))
 
         ax.legend()
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
         image = io.BytesIO()
 
         plt.savefig(image, format="png")
@@ -3083,6 +3100,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.set_title(
             f"Tyre Performance - {ev['EventDate'].year} {ev['EventName']}")
         ax.legend()
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
         ax.grid(True, alpha=0.1)
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title='Tyre degradation',
