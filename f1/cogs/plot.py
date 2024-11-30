@@ -1927,11 +1927,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         self.bot = bot
 
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, mpl_timedelta_support=True, color_scheme='fastf1')
-    plot = discord.SlashCommandGroup(
-        name="plot",
-        description="Commands for plotting charts"
-
-    )
+   
 
     @commands.slash_command(name="cornering", description="Cornering Comparison of any two drivers.", integration_types={
         discord.IntegrationType.guild_install,
