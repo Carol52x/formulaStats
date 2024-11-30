@@ -49,7 +49,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, Normalize
 import time
 from matplotlib.figure import Figure
-fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=True)
+fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False, color_scheme='fastf1')
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 matplotlib.use('agg')
 
@@ -170,7 +170,7 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     lap1 = lap
     lap2 = lap1
 
-    fastf1.plotting.setup_mpl()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
 
     # Explore the lap data
     session.laps
@@ -183,32 +183,9 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
 
     driver_1 = d1
     driver_2 = d2
-    my_styles = [
-        {'linestyle': 'solid', 'color': 'green', 'custom_arg': True},
-        {'linestyle': 'dotted', 'color': '#FF0060', 'alpha': 0.5, 'other_arg': 10}
-    ]
 
-    style1 = fastf1.plotting.get_driver_style(identifier=driver_1,
-                                              style=['color', 'linestyle'],
-                                              session=session)
-    style2 = fastf1.plotting.get_driver_style(identifier=driver_2,
-                                              style=['color', 'linestyle'],
-                                              session=session)
-    try:
-        color_1 = fastf1.plotting.get_driver_style(
-            d1, my_styles, session)['color']
-    except:
-        color_1 = 'grey'
-
-    try:
-        if d1 != d2:
-            color_2 = fastf1.plotting.get_driver_style(
-                d2, my_styles, session)['color']
-        else:
-            color_2 = '#777777'
-    except:
-        color_2 = 'grey'
-
+    color_1 = 'green'
+    color_2 = 'red'
     # Find the laps
     laps_driver_1 = session.laps.pick_driver(driver_1)
     laps_driver_2 = session.laps.pick_driver(driver_2)
@@ -544,7 +521,7 @@ def cornering_func(yr, rc, sn, d1, d2, dist1, dist2, event, session):
         'Brake': 'red',
     }
 
-    fastf1.plotting.setup_mpl()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(2)
 
     ##############################
@@ -804,7 +781,7 @@ def delta_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
 
     delta_time, ref_tel, compare_tel = fastf1.utils.delta_time(dd1, dd2)
 
-    fastf1.plotting.setup_mpl()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots()
 
     plt.rcParams["figure.figsize"] = [7, 5]
@@ -867,7 +844,7 @@ def delta_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
 def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     drivers = [driver1[0:3].upper(), driver2[0:3].upper()]
 
-    fastf1.plotting.setup_mpl()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots()
 
     plt.rcParams["figure.figsize"] = [7, 5]
@@ -938,7 +915,7 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
 def distance_func(yr, rc, sn, driver1, driver2, lap, event, session):
     drivers = [driver1[0:3].upper(), driver2[0:3].upper()]
 
-    fastf1.plotting.setup_mpl()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots()
 
     plt.rcParams["figure.figsize"] = [7, 5]
@@ -1004,7 +981,6 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     d1 = d1[0:3].upper()
     d2 = d2[0:3].upper()
 
-    weekend = session.event
     laps = session.laps
 
     if (d1 == None or d1 == ''):
@@ -1050,9 +1026,11 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     first_car = first_driver.get_car_data().add_distance()
     second_car = second_driver.get_car_data().add_distance()
 
-    fastf1.plotting.setup_mpl()
-    fig, ax = plt.subplots(7, 1, figsize=(18, 14), gridspec_kw={
-                           'height_ratios': [2, 2, 2, 2, 2, 2, 3]})
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+    fig, ax = plt.subplots(7, 1, figsize=(15, 10), gridspec_kw={
+        'height_ratios': [3, 3, 3, 3, 3, 3, 3],  # Equal height for all subplots
+        'hspace': 0.5  # Adjust spacing between subplots
+    })
 
     if (lap1 == None or lap1 == ''):
         lap1 = "Fastest Lap"
@@ -1149,7 +1127,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     fig.legend((l1, l2), (drv1, drv2))
 
     ax[5].fill_between(second_car['Distance'], drs2,
-                       step="pre", **style2, alpha=1)
+                       step="pre", **style2, alpha=0.5)
     ax[5].fill_between(first_car['Distance'], drs1,
                        step="pre", **style1, alpha=1)
     ax[4].fill_between(second_car['Distance'], brake2,
@@ -1166,7 +1144,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     ax[6].set_yticklabels([round(abs(tick), 1) for tick in ticks])
 
     image = io.BytesIO()
-
+    plt.tight_layout()
     plt.savefig(image, format='png')
     image.seek(0)
     file = discord.File(image, filename="plot.png")
@@ -1729,7 +1707,7 @@ def h2h_embed(self, data, year, session_type):
 
 def make_plot(data, colors, year, session_type, team_names, filepath):
     plt.clf()
-    fastf1.plotting.setup_mpl()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(1, figsize=(13, 9))
 
     fig.suptitle(f'{year} {session_type} Head to Head', size=20, y=0.95)
@@ -2000,7 +1978,7 @@ def plot_avg(driver_positions, driver_colors, session_type, year, category, file
     driver_positions = dict(
         sorted(driver_positions.items(), key=lambda x: x[1]))
 
-    fastf1.plotting.setup_mpl(misc_mpl_mods=False)
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     # set directory for later use
     # create the bar plot and size
     fig, ax = plt.subplots(figsize=(16.8, 10.5))
@@ -2135,7 +2113,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
     def __init__(self, bot: discord.Bot):
         self.bot = bot
 
-    fastf1.plotting.setup_mpl(misc_mpl_mods=True, mpl_timedelta_support=True)
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, mpl_timedelta_support=True, color_scheme='fastf1')
     plot = discord.SlashCommandGroup(
         name="plot",
         description="Commands for plotting charts"
@@ -2262,7 +2240,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         for a in dri:
             drivers.append(a)
 
-        fastf1.plotting.setup_mpl()
+        fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
         fig, ax = plt.subplots()
 
         plt.rcParams["figure.figsize"] = [14, 12]
@@ -2363,6 +2341,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title='Telemetry', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
+        embed.set_footer(text="Brake traces are in binary")
         await MessageTarget(ctx).send(embed=embed, file=f)
 
     @commands.slash_command(name="h2h", description="Head to Head stats.", integration_types={
