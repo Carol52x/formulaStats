@@ -22,19 +22,13 @@ logger = logging.getLogger("f1-bot")
 START_TIME = time.time()
 
 
-# Connect to SQLite database (it will be created if it doesn't exist)
-
-
 class Admin(commands.Cog, guild_ids=Config().guilds):
     """Commands to manage the bot and view info."""
 
     def __init__(self, bot: discord.Bot):
         self.bot = bot
 
-    admin = discord.SlashCommandGroup(
-        name="admin",
-        description="Admin commands."
-    )
+    
 
     def get_uptime(self):
         """Get running time since bot started. Return tuple (days, hours, minutes)."""
