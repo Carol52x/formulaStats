@@ -220,7 +220,7 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     telemetry = pd.concat([telemetry_driver_1, telemetry_driver_2])
 
     # Calculate minisectors
-    num_minisectors = 25
+    num_minisectors = 80
     total_distance = max(telemetry['Distance'])
     minisector_length = total_distance / num_minisectors
 
