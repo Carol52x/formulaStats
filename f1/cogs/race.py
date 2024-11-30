@@ -19,7 +19,6 @@ from f1.api import ergast, stats
 from f1 import options, utils
 from discord import default_permissions
 import io
-from PIL import Image, ImageDraw, ImageFont
 from discord.ext import commands
 from discord import ApplicationContext, Embed
 import pandas as pd
@@ -31,9 +30,9 @@ from datetime import datetime
 from datetime import date
 import os
 from dotenv import load_dotenv
-from pydub import AudioSegment
 import aiohttp
 load_dotenv()
+
 TOKEN = os.getenv("BOT_TOKEN")
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 WIKI_REQUEST = 'http://en.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles='
@@ -707,189 +706,194 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                         remove_role: discord.Option(
                             discord.Role, "Select roles to remove", required=False)
                         ):
+        if ctx.guild.name is not None:
 
-        guild_id = ctx.guild.id
-        role_id = role.id if role else None
-        channel_id = channel.id if channel else None
-        remove_role_id = remove_role.id if remove_role else None
+            guild_id = ctx.guild.id
+            role_id = role.id if role else None
+            channel_id = channel.id if channel else None
+            remove_role_id = remove_role.id if remove_role else None
 
-        if role is not None:
+            if role is not None:
 
-            add_role_to_guild(guild_id, role_id)
-        if remove_role_id:
-            if remove_role_from_guild(guild_id, remove_role_id):
-                pass
-            else:
-                await ctx.respond(f"Role {remove_role.mention} was not found in quiz permissions.", ephemeral=True)
-                return
+                add_role_to_guild(guild_id, role_id)
+            if remove_role_id:
+                if remove_role_from_guild(guild_id, remove_role_id):
+                    pass
+                else:
+                    await ctx.respond(f"Role {remove_role.mention} was not found in quiz permissions.", ephemeral=True)
+                    return
 
-        # Update channel if provided
-        if channel_id is not None:
-            connection = sqlite3.connect('guild_roles.db')
-            cursor = connection.cursor()
-            cursor.execute('''
-                INSERT INTO GuildChannels (guild_id, channel_id)
-                VALUES (?, ?)
-                ON CONFLICT(guild_id) DO UPDATE SET channel_id = ?
-            ''', (guild_id, channel_id, channel_id))
-            connection.commit()
-            connection.close()
+            # Update channel if provided
+            if channel_id is not None:
+                connection = sqlite3.connect('guild_roles.db')
+                cursor = connection.cursor()
+                cursor.execute('''
+                    INSERT INTO GuildChannels (guild_id, channel_id)
+                    VALUES (?, ?)
+                    ON CONFLICT(guild_id) DO UPDATE SET channel_id = ?
+                ''', (guild_id, channel_id, channel_id))
+                connection.commit()
+                connection.close()
 
-        await ctx.respond('Settings Updated for this server! Make sure you assign permissions to this bot for the specified channels if any.', ephemeral=True)
+            await ctx.respond('Settings Updated for this server! Make sure you assign permissions to this bot for the specified channels if any.', ephemeral=True)
+        else:
+            await ctx.respond("Install this bot in your server to access quiz features!", ephemeral=True)
 
     @commands.slash_command(name="quiz")
     async def quiz(self, ctx: ApplicationContext, question: str, option1: str, option2: str, option3: str, option4: str, answer: options.quizoption, fact: discord.Option(str, required=False), image: discord.Option(discord.Attachment, "Upload an image", required=False) = None):
+        if ctx.guild.name is not None:
+            guild_id = ctx.guild.id
+            channel_id, role_ids = get_channel_and_roles_for_guild(guild_id)
 
-        guild_id = ctx.guild.id
-        channel_id, role_ids = get_channel_and_roles_for_guild(guild_id)
+            if channel_id is None or role_ids is None:
+                await ctx.respond("Quiz setup is not configured for this server.", ephemeral=True)
+                return
 
-        if channel_id is None or role_ids is None:
-            await ctx.respond("Quiz setup is not configured for this server.", ephemeral=True)
-            return
+            # Check if the user has any of the specific roles
+            has_specific_role = any(
+                role.id in role_ids for role in ctx.author.roles)
 
-        # Check if the user has any of the specific roles
-        has_specific_role = any(
-            role.id in role_ids for role in ctx.author.roles)
+            if not has_specific_role:
+                await ctx.respond("You don't have permission to create a quiz.", ephemeral=True)
+                return
 
-        if not has_specific_role:
-            await ctx.respond("You don't have permission to create a quiz.", ephemeral=True)
-            return
+            # Fetch the channel to send the quiz
+            channel = ctx.guild.get_channel(channel_id)
+            await ctx.respond("Quiz Created!", ephemeral=True)
 
-        # Fetch the channel to send the quiz
-        channel = ctx.guild.get_channel(channel_id)
-        await ctx.respond("Quiz Created!", ephemeral=True)
+            class QuizButton(Button):
+                def __init__(self, label, style, answer):
+                    super().__init__(label=label, style=style)
+                    self.answer = answer
+                    count = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0, '4️⃣': 0}
+                    self.count = count
 
-        class QuizButton(Button):
-            def __init__(self, label, style, answer):
-                super().__init__(label=label, style=style)
-                self.answer = answer
-                count = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0, '4️⃣': 0}
-                self.count = count
+                async def callback(self, interaction: discord.Interaction):
+                    await interaction.response.send_message(f"You selected {self.label}", ephemeral=True)
+                    self.view.selected_answer = self.label
+                    self.view.user_responses[interaction.user] = self.label
+                    self.count[self.label] += 1
 
-            async def callback(self, interaction: discord.Interaction):
-                await interaction.response.send_message(f"You selected {self.label}", ephemeral=True)
-                self.view.selected_answer = self.label
-                self.view.user_responses[interaction.user] = self.label
-                self.count[self.label] += 1
+            class QuizView(View):
 
-        class QuizView(View):
+                def __init__(self, answer):
+                    super().__init__()
+                    self.answer = answer
+                    self.user_responses = defaultdict(int)
 
-            def __init__(self, answer):
-                super().__init__()
-                self.answer = answer
-                self.user_responses = defaultdict(int)
+                async def on_timeout(self):
+                    # Create a new view for displaying results
+                    result_view = View()
+                    option_counts = defaultdict(int)
 
-            async def on_timeout(self):
-                # Create a new view for displaying results
-                result_view = View()
-                option_counts = defaultdict(int)
+                    # Count the responses
+                    for option in self.user_responses.values():
+                        option_counts[option] += 1
 
-                # Count the responses
-                for option in self.user_responses.values():
-                    option_counts[option] += 1
+                    # Update button styles and labels
+                    for item in self.children:
+                        if isinstance(item, QuizButton):
 
-                # Update button styles and labels
-                for item in self.children:
-                    if isinstance(item, QuizButton):
+                            style = discord.ButtonStyle.success if item.label == self.answer else discord.ButtonStyle.danger
+                            label = f"{item.label} ({item.count.get(item.label)})"
+                            result_view.add_item(QuizButton(
+                                label=label, style=style, answer=item.answer))
 
-                        style = discord.ButtonStyle.success if item.label == self.answer else discord.ButtonStyle.danger
-                        label = f"{item.label} ({item.count.get(item.label)})"
-                        result_view.add_item(QuizButton(
-                            label=label, style=style, answer=item.answer))
+                    # Edit the message to remove the countdown field
+                    for item in result_view.children:
+                        if isinstance(item, QuizButton):
+                            item.disabled = True
 
-                # Edit the message to remove the countdown field
-                for item in result_view.children:
-                    if isinstance(item, QuizButton):
-                        item.disabled = True
+                    # Edit the message to remove the countdown field
+                    if self.message:
+                        embed = self.message.embeds[0]
 
-                # Edit the message to remove the countdown field
-                if self.message:
-                    embed = self.message.embeds[0]
+                        for index, field in enumerate(embed.fields):
+                            if "Time Remaining" in field.name:
+                                embed.remove_field(index)
+                                break
+                        if embed.image:
 
-                    for index, field in enumerate(embed.fields):
-                        if "Time Remaining" in field.name:
-                            embed.remove_field(index)
-                            break
-                    if embed.image:
+                            img_data1 = await image.read()
+                            img1 = discord.File(io.BytesIO(
+                                img_data1), filename="quiz_image.png")
+                            embed.set_image(url="attachment://quiz_image.png")
+                            await self.message.edit(embed=embed, file=img1, view=result_view)
+                        else:
+                            await self.message.edit(embed=embed, view=result_view)
+            # Send quiz embed with custom question and options
+            embed = discord.Embed(title="You only have 10 seconds to answer!",
+                                  description=f"**{question}**", color=discord.Color.blurple())
+            embed.set_author(name='FormulaOne Quiz')
+            embed.add_field(name="1️⃣", value=option1, inline=False)
+            embed.add_field(name="2️⃣", value=option2, inline=False)
+            embed.add_field(name="3️⃣", value=option3, inline=False)
+            embed.add_field(name="4️⃣", value=option4, inline=False)
 
-                        img_data1 = await image.read()
-                        img1 = discord.File(io.BytesIO(
-                            img_data1), filename="quiz_image.png")
-                        embed.set_image(url="attachment://quiz_image.png")
-                        await self.message.edit(embed=embed, file=img1, view=result_view)
-                    else:
-                        await self.message.edit(embed=embed, view=result_view)
-        # Send quiz embed with custom question and options
-        embed = discord.Embed(title="You only have 10 seconds to answer!",
-                              description=f"**{question}**", color=discord.Color.blurple())
-        embed.set_author(name='FormulaOne Quiz')
-        embed.add_field(name="1️⃣", value=option1, inline=False)
-        embed.add_field(name="2️⃣", value=option2, inline=False)
-        embed.add_field(name="3️⃣", value=option3, inline=False)
-        embed.add_field(name="4️⃣", value=option4, inline=False)
+        # Create the embed with the countdown timestamp
 
-    # Create the embed with the countdown timestamp
+            embed.set_footer(
+                text='Only first 5 users to answer correctly are mentioned!')
+            # Set timestamp for live countdown
 
-        embed.set_footer(
-            text='Only first 5 users to answer correctly are mentioned!')
-        # Set timestamp for live countdown
+            embed2 = discord.Embed(title="Quiz starting in 10 seconds!",
+                                   description="", color=discord.Color.blurple())
+            await channel.send(embed=embed2, delete_after=10)
+            future_time = int(time.time()) + 20
+            embed.add_field(name="Time Remaining",
+                            value=f"<t:{future_time}:R>", inline=False)
+            await asyncio.sleep(10)
 
-        embed2 = discord.Embed(title="Quiz starting in 10 seconds!",
-                               description="", color=discord.Color.blurple())
-        await channel.send(embed=embed2, delete_after=10)
-        future_time = int(time.time()) + 20
-        embed.add_field(name="Time Remaining",
-                        value=f"<t:{future_time}:R>", inline=False)
-        await asyncio.sleep(10)
+            if image:
+                img_data = await image.read()
+                img = discord.File(io.BytesIO(img_data), filename="quiz_image.png")
+                embed.set_image(url="attachment://quiz_image.png")
 
-        if image:
-            img_data = await image.read()
-            img = discord.File(io.BytesIO(img_data), filename="quiz_image.png")
-            embed.set_image(url="attachment://quiz_image.png")
+            view = QuizView(answer)
+            buttons = [
+                QuizButton(
+                    label="1️⃣", style=discord.ButtonStyle.primary, answer=option1),
+                QuizButton(
+                    label="2️⃣", style=discord.ButtonStyle.primary, answer=option2),
+                QuizButton(
+                    label="3️⃣", style=discord.ButtonStyle.primary, answer=option3),
+                QuizButton(
+                    label="4️⃣", style=discord.ButtonStyle.primary, answer=option4)
+            ]
+            for button in buttons:
+                view.add_item(button)
 
-        view = QuizView(answer)
-        buttons = [
-            QuizButton(
-                label="1️⃣", style=discord.ButtonStyle.primary, answer=option1),
-            QuizButton(
-                label="2️⃣", style=discord.ButtonStyle.primary, answer=option2),
-            QuizButton(
-                label="3️⃣", style=discord.ButtonStyle.primary, answer=option3),
-            QuizButton(
-                label="4️⃣", style=discord.ButtonStyle.primary, answer=option4)
-        ]
-        for button in buttons:
-            view.add_item(button)
+            if image:
+                quiz_message = await channel.send(embed=embed, file=img, view=view)
+            else:
+                quiz_message = await channel.send(embed=embed, view=view)
 
-        if image:
-            quiz_message = await channel.send(embed=embed, file=img, view=view)
+            await asyncio.sleep(10)
+            await view.on_timeout()
+
+            correct_answers = 0
+            winners = []
+            for user, user_answer in view.user_responses.items():
+                if user_answer == answer:
+                    winners.append(user)
+                    correct_answers += 1
+
+            winner_embed = discord.Embed(
+                title="Quiz Results", color=discord.Color.blurple())
+            if not fact:
+                fact = ""
+            d = {"1️⃣": option1, "2️⃣": option2, "3️⃣": option3, "4️⃣": option4}
+            if correct_answers == 0:
+                winner_embed.description = f"No one answered correctly. The correct answer was **||{d.get(answer)}. {fact}||**"
+            else:
+                winner_embed.description = f"The correct answer was **||{d.get(answer)}. {fact}||**. {correct_answers} {'person' if correct_answers == 1 else 'people'} answered correctly:"
+                for i, winner in enumerate(winners):
+                    if i < 5:  # Mention up to 5 winners
+                        winner_embed.description += f"\n{i + 1}. {winner.mention}"
+
+            await quiz_message.reply(embed=winner_embed)
         else:
-            quiz_message = await channel.send(embed=embed, view=view)
-
-        await asyncio.sleep(10)
-        await view.on_timeout()
-
-        correct_answers = 0
-        winners = []
-        for user, user_answer in view.user_responses.items():
-            if user_answer == answer:
-                winners.append(user)
-                correct_answers += 1
-
-        winner_embed = discord.Embed(
-            title="Quiz Results", color=discord.Color.blurple())
-        if not fact:
-            fact = ""
-        d = {"1️⃣": option1, "2️⃣": option2, "3️⃣": option3, "4️⃣": option4}
-        if correct_answers == 0:
-            winner_embed.description = f"No one answered correctly. The correct answer was **||{d.get(answer)}. {fact}||**"
-        else:
-            winner_embed.description = f"The correct answer was **||{d.get(answer)}. {fact}||**. {correct_answers} {'person' if correct_answers == 1 else 'people'} answered correctly:"
-            for i, winner in enumerate(winners):
-                if i < 5:  # Mention up to 5 winners
-                    winner_embed.description += f"\n{i + 1}. {winner.mention}"
-
-        await quiz_message.reply(embed=winner_embed)
+            await ctx.respond("Install this bot in your server to access quiz features!", ephemeral=True)
 
     @commands.slash_command(name="reddit", integration_types={
         discord.IntegrationType.guild_install,
