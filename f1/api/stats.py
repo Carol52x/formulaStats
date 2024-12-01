@@ -1,26 +1,2121 @@
-from f1.errors import MissingDataError
-from f1.api import ergast
-from f1 import utils
-import discord
 import asyncio
 import gc
+import io
+import json
 import logging
+import math
+import re
+import sqlite3
+import threading
+import time
+import urllib.parse
+from datetime import date, datetime
 from typing import Literal
-
-import fastf1 as ff1
+import discord
+import matplotlib.patheffects
+import fastf1
+import fastf1.plotting
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import pytz
+import requests
+import seaborn as sns
+from bs4 import BeautifulSoup
+from discord import ApplicationContext
+from discord.commands import ApplicationContext
 from fastf1.core import Lap, Laps, Session, SessionResults, Telemetry
 from fastf1.ergast import Ergast
 from fastf1.events import Event
+from f1 import  utils
+from f1.api import ergast
+from f1.errors import MissingDataError
 from matplotlib.axes import Axes
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator, MultipleLocator
 from plottable import ColDef, Table
-ff1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from requests.packages.urllib3.util.retry import Retry
+from unidecode import unidecode
+from windrose import WindroseAxes
+import wikipedia
+fastf1.plotting.setup_mpl(mpl_timedelta_support=True,
+                          misc_mpl_mods=False, color_scheme='fastf1')
+fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 
 logger = logging.getLogger("f1-bot")
 
 ff1_erg = Ergast()
+WIKI_REQUEST = 'http://en.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles='
+
+# Disable SSL verification warnings
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+# API Rate Limits
+BURST_LIMIT = 4  # 4 requests per second
+SUSTAINED_LIMIT = 500  # 500 requests per hour
+# Minimum interval between requests (0.25 seconds)
+REQUEST_INTERVAL = 1 / BURST_LIMIT
+# Interval to avoid breaching hourly limit (7.2 seconds)
+HOUR_LIMIT_INTERVAL = 3600 / SUSTAINED_LIMIT
+
+# Global rate limiting lock
+rate_lock = threading.Lock()
+last_request_time = 0
+request_count = 0
+hour_start_time = time.time()
+
+
+class customEmbed:
+
+    # embed.set_image(url=None)
+    # embed.set_footer(text='')
+    # embed.description = ''
+    def __init__(self, title=None, description=None, colour=None, image_url=None, thumbnail_url=None, author=None, footer=None):
+        # necessary or else other info is retained in new command's embed
+        self.embed = discord.Embed(title=f"Default Embed", description="")
+
+        self.embed.clear_fields()
+        self.embed.set_image(url=None)
+        self.embed.set_footer(text='')
+        self.embed.description = ''
+        if not (title == None):
+            self.embed.title = title
+        if not (description == None):
+            self.embed.description = description
+        if (not (author == None) and len(author) == 2):
+            self.embed.set_author(name=author[0], icon_url=author[1])
+        if not (colour == None):
+            self.embed.colour = colour
+        if not (image_url == None):
+            self.embed.set_image(url=image_url)
+        if not (thumbnail_url == None):
+            self.embed.set_thumbnail(url=thumbnail_url)
+        if not (footer == None):
+            self.embed.set_footer(text=footer)
+
+
+class ErgastClient:
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.verify = False
+
+        # Retry strategy
+        retries = Retry(
+            total=3,  # Number of retries
+            backoff_factor=0.5,  # Exponential backoff factor
+            # Retry on these status codes
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    def ergast_retrieve(self, api_endpoint: str):
+        global last_request_time, request_count, hour_start_time
+
+        # Rate limiting to ensure burst and sustained limits
+        with rate_lock:
+            current_time = time.time()
+
+            # Check if the hourly limit is reached
+            if request_count >= SUSTAINED_LIMIT:
+                time_since_hour_start = current_time - hour_start_time
+                if time_since_hour_start < 3600:
+                    wait_time = 3600 - time_since_hour_start
+                    print(
+                        f"Hourly limit reached. Waiting for {wait_time:.2f} seconds...")
+                    time.sleep(wait_time)
+
+                # Reset the counter and timestamp after waiting
+                request_count = 0
+                hour_start_time = time.time()
+
+            # Ensure the interval between requests is met (burst limit)
+            time_since_last_request = current_time - last_request_time
+            if time_since_last_request < REQUEST_INTERVAL:
+                time.sleep(REQUEST_INTERVAL - time_since_last_request)
+
+            # Update last request time and increment counter
+            last_request_time = time.time()
+            request_count += 1
+
+        url = f"https://api.jolpi.ca/ergast/f1/{api_endpoint}.json"
+
+        try:
+            # Reduced timeout for faster response
+            response = self.session.get(url, timeout=5)
+            response.raise_for_status()
+            return response.json().get("MRData", None)
+
+        except requests.exceptions.RequestException as e:
+            return None
+
+
+client = ErgastClient()
+
+
+def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
+    d1 = d1[0:3].upper()
+    d2 = d2[0:3].upper()
+
+    lap1 = lap
+    lap2 = lap1
+
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+
+    # Explore the lap data
+    session.laps
+
+    if (d1 == None or d1 == ''):
+        d1 = session.laps.pick_fastest()['Driver']
+
+    if (d2 == None or d2 == ''):
+        d2 = session.laps.pick_fastest()['Driver']
+
+    driver_1 = d1
+    driver_2 = d2
+
+    color_1 = 'green'
+    color_2 = 'red'
+    # Find the laps
+    laps_driver_1 = session.laps.pick_driver(driver_1)
+    laps_driver_2 = session.laps.pick_driver(driver_2)
+
+    if (lap1 == None or lap1 == ''):
+        fastest_driver_1 = laps_driver_1.pick_fastest()
+    else:
+        fastest_driver_1 = laps_driver_1[laps_driver_1['LapNumber'] == int(
+            lap1)].iloc[0]
+
+    if (lap2 == None or lap2 == ''):
+        fastest_driver_2 = laps_driver_2.pick_fastest()
+    else:
+        fastest_driver_2 = laps_driver_2[laps_driver_2['LapNumber'] == int(
+            lap2)].iloc[0]
+
+    telemetry_driver_1 = fastest_driver_1.get_telemetry()
+    telemetry_driver_2 = fastest_driver_2.get_telemetry()
+
+    # Get the gap (delta time) between driver 1 and driver 2
+    delta_time, ref_tel, compare_tel = fastf1.utils.delta_time(
+        fastest_driver_1, fastest_driver_2)
+
+    # Identify team colors
+    team_driver_1 = laps_driver_1['Team'].iloc[0]
+    team_driver_2 = laps_driver_2['Team'].iloc[0]
+
+    # Merge the telemetry from both drivers into one dataframe
+    telemetry_driver_1['Driver'] = driver_1
+    telemetry_driver_2['Driver'] = driver_2
+
+    telemetry = pd.concat([telemetry_driver_1, telemetry_driver_2])
+
+    # Calculate minisectors
+    num_minisectors = 80
+    total_distance = max(telemetry['Distance'])
+    minisector_length = total_distance / num_minisectors
+
+    minisectors = [0]
+
+    for i in range(0, (num_minisectors - 1)):
+        minisectors.append(minisector_length * (i + 1))
+
+    # Assign a minisector number to every row in the telemetry dataframe
+    telemetry['Minisector'] = telemetry['Distance'].apply(
+        lambda dist: (
+            int((dist // minisector_length) + 1)
+        )
+    )
+
+    # Calculate minisector speeds per driver
+    average_speed = telemetry.groupby(['Minisector', 'Driver'])[
+        'Speed'].mean().reset_index()
+
+    # Per minisector, find the fastest driver
+    fastest_driver = average_speed.loc[average_speed.groupby(['Minisector'])[
+        'Speed'].idxmax()]
+    fastest_driver = fastest_driver[['Minisector', 'Driver']].rename(
+        columns={'Driver': 'Fastest_driver'})
+
+    # Merge the fastest_driver dataframe to the telemetry dataframe on minisector
+    telemetry = telemetry.merge(fastest_driver, on=['Minisector'])
+    telemetry = telemetry.sort_values(by=['Distance'])
+
+    # Since our plot can only work with integers, we need to convert the driver abbreviations to integers (1 or 2)
+    telemetry.loc[telemetry['Fastest_driver']
+                  == driver_1, 'Fastest_driver_int'] = 1
+    telemetry.loc[telemetry['Fastest_driver']
+                  == driver_2, 'Fastest_driver_int'] = 2
+
+    # Get the x and y coordinates
+    x = np.array(telemetry['X'].values)
+    y = np.array(telemetry['Y'].values)
+
+    # Convert the coordinates to points, and then concat them into segments
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    fastest_driver_array = telemetry['Fastest_driver_int'].to_numpy().astype(
+        float)
+
+    # The segments we just created can now be colored according to the fastest driver in a minisector
+    cmap = ListedColormap([color_1, color_2])
+    lc_comp = LineCollection(
+        segments, norm=plt.Normalize(1, cmap.N+1), cmap=cmap)
+    lc_comp.set_array(fastest_driver_array)
+    lc_comp.set_linewidth(5)
+
+    # Create the plot
+    plt.rcParams['figure.figsize'] = [18, 10]
+    plt.rcParams["figure.autolayout"] = True
+
+    # Plot the line collection and style the plot
+    plt.gca().add_collection(lc_comp)
+    plt.axis('equal')
+    plt.box(False)
+    plt.tick_params(labelleft=False, left=False,
+                    labelbottom=False, bottom=False)
+
+    # Add a colorbar for as legend
+    cbar = plt.colorbar(mappable=lc_comp, boundaries=np.arange(1, 4))
+    cbar.set_ticks(np.arange(1.5, 3.5))
+    cbar.set_ticklabels([driver_1, driver_2])
+
+    if (lap1 == None or lap1 == ''):
+        lap1 = "Fastest Lap"
+    else:
+        lap1 = "Lap " + str(lap1)
+    if (lap2 == None or lap2 == ''):
+        lap2 = "Fastest Lap"
+    else:
+        lap2 = "Lap " + str(lap2)
+
+    # sn = session.event.get_session_name(sn)
+
+    plt.suptitle(f"{yr} {event['EventName']} {sn} - Fastest Sectors\n" +
+                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")", size=25)
+    file = utils.plot_to_file(plt.gcf(), "plot")
+    return file
+
+
+def weather(year, location, session, event, race):
+
+    race_name = race.event.EventName
+    df = race.laps
+
+# load dataframe of df (by Final Position in ascending order)
+    df = df.sort_values(by=['LapNumber', 'Position'], ascending=[
+                        False, True]).reset_index(drop=True)
+
+# fill in empty laptime records and convert to seconds
+    df.LapTime = df.LapTime.fillna(
+        df['Sector1Time']+df['Sector2Time']+df['Sector3Time'])
+    df.LapTime = df.LapTime.dt.total_seconds()
+    df.Sector1Time = df.Sector1Time.dt.total_seconds()
+    df.Sector2Time = df.Sector2Time.dt.total_seconds()
+    df.Sector3Time = df.Sector3Time.dt.total_seconds()
+
+# weather
+    df_weather = race.weather_data.copy()
+    df_weather['Time'] = df_weather['Time'].dt.total_seconds()/60
+    df_weather = df_weather.rename(columns={'Time': 'SessionTime(Minutes)'})
+
+# Rain Indicator
+    rain = df_weather.Rainfall.eq(True).any()
+
+
+# get session
+
+    fig, ax = plt.subplots(2, 2, figsize=(15, 15))
+    fig.suptitle('Weather Data & Track Evolution \n'+race_name, fontsize=30)
+
+# Track and Air Temperature
+    sns.lineplot(data=df_weather, x='SessionTime(Minutes)',
+                 y='TrackTemp', label='TrackTemp', ax=ax[0, 0])
+    sns.lineplot(data=df_weather, x='SessionTime(Minutes)',
+                 y='AirTemp', label='AirTemp', ax=ax[0, 0])
+    if rain:
+        ax[0, 0].fill_between(df_weather[df_weather.Rainfall == True]['SessionTime(Minutes)'], df_weather.TrackTemp.max(
+        )+0.5, df_weather.AirTemp.min()-0.5, facecolor="blue", color='blue', alpha=0.1, zorder=0, label='Rain')
+    ax[0, 0].legend(loc='upper right')
+    ax[0, 0].set_ylabel('Temperature')
+    ax[0, 0].title.set_text('Track Temperature & Air Temperature (°C)')
+
+# Humidity
+    sns.lineplot(df_weather, x='SessionTime(Minutes)',
+                 y='Humidity', ax=ax[0, 1])
+    if rain:
+        ax[0, 1].fill_between(df_weather[df_weather.Rainfall == True]['SessionTime(Minutes)'], df_weather.Humidity.max(
+        )+0.5, df_weather.Humidity.min()-0.5, facecolor="blue", color='blue', alpha=0.1, zorder=0, label='Rain')
+        ax[0, 1].legend(loc='upper right')
+    ax[0, 1].title.set_text('Track Humidity (%)')
+
+# Pressure
+    sns.lineplot(data=df_weather, x='SessionTime(Minutes)',
+                 y='Pressure', ax=ax[1, 0])
+    ax[1, 0].title.set_text('Air Pressure (mbar)')
+
+    # Wind Direction & Speed
+    rect = ax[1, 1].get_position()
+    wax = WindroseAxes(fig, rect)
+    fig.add_axes(wax)
+    wax.bar(df_weather.WindDirection, df_weather.WindSpeed,
+            normed=True, opening=0.8, edgecolor='white')
+    wax.set_legend()
+    ax[1, 1].title.set_text('Wind Direction (°) and Speed(m/s)')
+    image = io.BytesIO()
+    fig.set_tight_layout(False)
+
+    file = utils.plot_to_file(fig, "plot")
+    return file
+
+
+def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session):
+
+    d1 = d1[0:3].upper()
+    d2 = d2[0:3].upper()
+
+    # Get the laps
+    laps = session.laps
+
+    if (d1 == None or d1 == ''):
+        d1 = laps.pick_fastest()['Driver']
+
+    if (d2 == None or d2 == ''):
+        d2 = laps.pick_fastest()['Driver']
+
+    # Setting parameters
+    driver_1, driver_2 = d1, d2
+
+    car_data = laps.pick_driver(
+        driver_1).pick_fastest().get_car_data().add_distance()
+    dist = car_data['Distance']
+    maxdist = dist[len(dist)-1]
+
+    if (dist1 == None or dist1 == ''):
+        dist1 = 0
+
+    if (dist2 == None or dist2 == ''):
+        dist2 = maxdist
+
+    if (dist1 > dist2):
+        dist1, dist2 = dist2, dist1
+
+    distance_min, distance_max = dist1, dist2
+
+    # Extracting the laps
+    laps_driver_1 = laps.pick_driver(driver_1)
+    laps_driver_2 = laps.pick_driver(driver_2)
+
+    if (lap1 == None or lap1 == ''):
+        telemetry_driver_1 = laps_driver_1.pick_fastest().get_car_data().add_distance()
+    else:
+        temp_laps1 = laps_driver_1[laps_driver_1['LapNumber'] == int(
+            lap1)].iloc[0]
+        telemetry_driver_1 = temp_laps1.get_car_data().add_distance()
+
+    if (lap2 == None or lap2 == ''):
+        telemetry_driver_2 = laps_driver_2.pick_fastest().get_car_data().add_distance()
+    else:
+        temp_laps2 = laps_driver_2[laps_driver_2['LapNumber'] == int(
+            lap2)].iloc[0]
+        telemetry_driver_2 = temp_laps2.get_car_data().add_distance()
+
+    # Identifying the team for coloring later on
+    team_driver_1 = laps_driver_1.reset_index().loc[0, 'Team']
+    team_driver_2 = laps_driver_2.reset_index().loc[0, 'Team']
+
+    # Assigning labels to what the drivers are currently doing
+    telemetry_driver_1.loc[telemetry_driver_1['Brake']
+                           > 0, 'CurrentAction'] = 'Brake'
+    telemetry_driver_1.loc[telemetry_driver_1['Throttle']
+                           == 100, 'CurrentAction'] = 'Full Throttle'
+    telemetry_driver_1.loc[(telemetry_driver_1['Brake'] == 0) & (
+        telemetry_driver_1['Throttle'] < 100), 'CurrentAction'] = 'Cornering'
+
+    telemetry_driver_2.loc[telemetry_driver_2['Brake']
+                           > 0, 'CurrentAction'] = 'Brake'
+    telemetry_driver_2.loc[telemetry_driver_2['Throttle']
+                           == 100, 'CurrentAction'] = 'Full Throttle'
+    telemetry_driver_2.loc[(telemetry_driver_2['Brake'] == 0) & (
+        telemetry_driver_2['Throttle'] < 100), 'CurrentAction'] = 'Cornering'
+
+    # Numbering each unique action to identify changes, so that we can group later on
+    telemetry_driver_1['ActionID'] = (
+        telemetry_driver_1['CurrentAction'] != telemetry_driver_1['CurrentAction'].shift(1)).cumsum()
+    telemetry_driver_2['ActionID'] = (
+        telemetry_driver_2['CurrentAction'] != telemetry_driver_2['CurrentAction'].shift(1)).cumsum()
+
+    # Identifying all unique actions
+    actions_driver_1 = telemetry_driver_1[['ActionID', 'CurrentAction', 'Distance']].groupby(
+        ['ActionID', 'CurrentAction']).max('Distance').reset_index()
+    actions_driver_2 = telemetry_driver_2[['ActionID', 'CurrentAction', 'Distance']].groupby(
+        ['ActionID', 'CurrentAction']).max('Distance').reset_index()
+
+    actions_driver_1['Driver'] = driver_1
+    actions_driver_2['Driver'] = driver_2
+
+    # Calculating the distance between each action, so that we know how long the bar should be
+    actions_driver_1['DistanceDelta'] = actions_driver_1['Distance'] - \
+        actions_driver_1['Distance'].shift(1)
+    actions_driver_1.loc[0,
+                         'DistanceDelta'] = actions_driver_1.loc[0, 'Distance']
+
+    actions_driver_2['DistanceDelta'] = actions_driver_2['Distance'] - \
+        actions_driver_2['Distance'].shift(1)
+    actions_driver_2.loc[0,
+                         'DistanceDelta'] = actions_driver_2.loc[0, 'Distance']
+
+    # Merging together
+    all_actions = pd.concat([actions_driver_1, actions_driver_2])
+
+    # Calculating average speed
+    avg_speed_driver_1 = np.mean(telemetry_driver_1['Speed'].loc[
+        (telemetry_driver_1['Distance'] >= distance_min) &
+        (telemetry_driver_1['Distance'] >= distance_max)
+    ])
+
+    avg_speed_driver_2 = np.mean(telemetry_driver_2['Speed'].loc[
+        (telemetry_driver_2['Distance'] >= distance_min) &
+        (telemetry_driver_2['Distance'] >= distance_max)
+    ])
+
+    if avg_speed_driver_1 > avg_speed_driver_2:
+        speed_text = f"{driver_1} {round(avg_speed_driver_1 - avg_speed_driver_2,2)}km/h faster"
+    else:
+        speed_text = f"{driver_2} {round(avg_speed_driver_2 - avg_speed_driver_1,2)}km/h faster"
+
+    ##############################
+    #
+    # Setting everything up
+    #
+    ##############################
+    plt.rcParams["figure.figsize"] = [13, 4]
+    plt.rcParams["figure.autolayout"] = True
+
+    telemetry_colors = {
+        'Full Throttle': 'green',
+        'Cornering': 'grey',
+        'Brake': 'red',
+    }
+
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+    fig, ax = plt.subplots(2)
+
+    ##############################
+    #
+    # Lineplot for speed
+    #
+    ##############################
+
+    style1 = fastf1.plotting.get_driver_style(identifier=driver_1,
+                                              style=['color', 'linestyle'],
+                                              session=session)
+    style2 = fastf1.plotting.get_driver_style(identifier=driver_2,
+                                              style=['color', 'linestyle'],
+                                              session=session)
+
+    try:
+        ax[0].plot(telemetry_driver_1['Distance'], telemetry_driver_1['Speed'], **style1,
+                   label=driver_1)
+    except:
+        ax[0].plot(telemetry_driver_1['Distance'],
+                   telemetry_driver_1['Speed'], label=driver_1, color='grey')
+
+    try:
+        if (d1 != d2):
+            ax[0].plot(telemetry_driver_2['Distance'], telemetry_driver_2['Speed'], **style2,
+                       label=driver_2)
+        else:
+            ax[0].plot(telemetry_driver_2['Distance'],
+                       telemetry_driver_2['Speed'], label=driver_2, color='#777777')
+    except:
+        ax[0].plot(telemetry_driver_2['Distance'],
+                   telemetry_driver_2['Speed'], label=driver_2, color='grey')
+
+    # Speed difference
+    if distance_min == None:
+        ax[0].text(0, 200, speed_text, fontsize=15)
+    else:
+        ax[0].text(distance_min + 15, 200, speed_text, fontsize=15)
+
+    ax[0].set(ylabel='Speed in km/h')
+    ax[0].legend(loc="lower right")
+
+    ##############################
+    #
+    # Horizontal barplot for telemetry
+    #
+    ##############################
+    for driver in [driver_1, driver_2]:
+        driver_actions = all_actions.loc[all_actions['Driver'] == driver]
+
+        previous_action_end = 0
+        for _, action in driver_actions.iterrows():
+            ax[1].barh(
+                [driver],
+                action['DistanceDelta'],
+                left=previous_action_end,
+                color=telemetry_colors[action['CurrentAction']]
+            )
+
+            previous_action_end = previous_action_end + action['DistanceDelta']
+
+    ##############################
+    #
+    # Styling of the plot
+    #
+    ##############################
+    # Set x-label
+    plt.xlabel('Track Distance in meters')
+
+    # Invert y-axis
+    plt.gca().invert_yaxis()
+
+    # Remove frame from plot
+    ax[1].spines['top'].set_visible(False)
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['left'].set_visible(False)
+
+    # Add legend
+    labels = list(telemetry_colors.keys())
+    handles = [plt.Rectangle(
+        (0, 0), 1, 1, color=telemetry_colors[label]) for label in labels]
+    ax[1].legend(handles, labels)
+
+    # Zoom in on the specific part we want to see
+    ax[0].set_xlim(distance_min, distance_max)
+    ax[1].set_xlim(distance_min, distance_max)
+
+    if (lap1 == None or lap1 == ''):
+        lap1 = "Fastest Lap"
+    else:
+        lap1 = "Lap " + str(lap1)
+    if (lap2 == None or lap2 == ''):
+        lap2 = "Fastest Lap"
+    else:
+        lap2 = "Lap " + str(lap2)
+
+    # sn = session.event.get_session_name(sn)
+
+    plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
+                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")", size=20)
+    file = utils.plot_to_file(plt.gcf(), "plot")
+    return file
+
+
+def heatmap_func(yr):
+    ergast = Ergast()
+    races = ergast.get_race_schedule(yr)  # Races in year 2022
+    results = []
+    if yr == int(datetime.now().year):
+        schedule = fastf1.get_event_schedule(yr, include_testing=False)
+        last_index = None
+        for index, row in schedule.iterrows():
+            if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+                last_index = index
+
+        for rnd, race in races['raceName'].items():
+            if rnd >= last_index:
+                break
+            temp = ergast.get_race_results(season=yr, round=rnd + 1)
+            temp = temp.content[0]
+
+    # If there is a sprint, get the results as well
+            sprint = ergast.get_sprint_results(season=yr, round=rnd + 1)
+            if sprint.content and sprint.description['round'][0] == rnd + 1:
+                temp = pd.merge(
+                    temp, sprint.content[0], on='driverCode', how='left')
+        # Add sprint points and race points to get the total
+                temp['points'] = temp['points_x'] + temp['points_y']
+                temp.drop(columns=['points_x', 'points_y'], inplace=True)
+
+    # Add round no. and grand prix name
+            temp['round'] = rnd + 1
+            temp['race'] = race.removesuffix(' Grand Prix')
+            # Keep useful cols.
+            temp = temp[['round', 'race', 'driverCode', 'points']]
+            results.append(temp)
+
+    # Get results. Note that we use the round no. + 1, because the round no.
+    # starts from one (1) instead of zero (0)
+
+    else:
+        # For each race in the season
+        for rnd, race in races['raceName'].items():
+
+            # Get results. Note that we use the round no. + 1, because the round no.
+            # starts from one (1) instead of zero (0)
+            temp = ergast.get_race_results(season=yr, round=rnd + 1)
+            temp = temp.content[0]
+
+    # If there is a sprint, get the results as well
+            sprint = ergast.get_sprint_results(season=yr, round=rnd + 1)
+            if sprint.content and sprint.description['round'][0] == rnd + 1:
+                temp = pd.merge(
+                    temp, sprint.content[0], on='driverCode', how='left')
+        # Add sprint points and race points to get the total
+                temp['points'] = temp['points_x'] + temp['points_y']
+                temp.drop(columns=['points_x', 'points_y'], inplace=True)
+
+    # Add round no. and grand prix name
+            temp['round'] = rnd + 1
+            temp['race'] = race.removesuffix(' Grand Prix')
+            # Keep useful cols.
+            temp = temp[['round', 'race', 'driverCode', 'points']]
+            results.append(temp)
+
+# Append all races into a single dataframe
+    results = pd.concat(results)
+    races = results['race'].drop_duplicates()
+    results = results.pivot(
+        index='driverCode', columns='round', values='points')
+# Here we have a 22-by-22 matrix (22 races and 22 drivers, incl. DEV and HUL)
+
+# Rank the drivers by their total points
+    results['total_points'] = results.sum(axis=1)
+    results = results.sort_values(by='total_points', ascending=False)
+    results.drop(columns='total_points', inplace=True)
+
+# Use race name, instead of round no., as column names
+    results.columns = races
+    fig = px.imshow(
+        results,
+        text_auto=True,
+        aspect='auto',  # Automatically adjust the aspect ratio
+        color_continuous_scale=[[0,    'rgb(198, 219, 239)'],  # Blue scale
+                                [0.25, 'rgb(107, 174, 214)'],
+                                [0.5,  'rgb(33,  113, 181)'],
+                                [0.75, 'rgb(8,   81,  156)'],
+                                [1,    'rgb(8,   48,  107)']],
+        labels={'x': 'Race',
+                'y': 'Driver',
+                'color': 'Points'}       # Change hover texts
+    )
+    fig.update_xaxes(title_text='')      # Remove axis titles
+    fig.update_yaxes(title_text='')
+    fig.update_yaxes(tickmode='linear')  # Show all ticks, i.e. driver names
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGrey',
+                     showline=False,
+                     tickson='boundaries')              # Show horizontal grid only
+    # And remove vertical grid
+    fig.update_xaxes(showgrid=False, showline=False)
+    fig.update_layout(plot_bgcolor='rgba(0,0,0,0)')     # White background
+    fig.update_layout(coloraxis_showscale=False)        # Remove legend
+    fig.update_layout(xaxis=dict(side='top'))           # x-axis on top
+    fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
+    fig_bytes = fig.to_image(format="png")
+    buffer = io.BytesIO()
+    buffer.write(fig_bytes)
+    buffer.seek(0)
+    file = discord.File(buffer, filename="plot.png")
+    buffer.close()
+    plt.close()
+
+    return file
+
+
+def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
+    drivers = [driver1[0:3].upper(), driver2[0:3].upper()]
+
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+    fig, ax = plt.subplots()
+
+    plt.rcParams["figure.figsize"] = [7, 5]
+    plt.rcParams["figure.autolayout"] = True
+
+    fast = 0
+    t = 0
+    vCar = 0
+    car_data = 0
+
+    i = 0
+    for z in drivers:
+        style = fastf1.plotting.get_driver_style(identifier=drivers[i],
+                                                 style=['color', 'linestyle'],
+                                                 session=session)
+
+    while (i < len(drivers)):
+        if (lap == None or lap == ''):
+            fast = session.laps.pick_driver(drivers[i]).pick_fastest()
+        else:
+            driver_laps = session.laps.pick_driver(drivers[i])
+            fast = driver_laps[driver_laps['LapNumber'] == int(lap)].iloc[0]
+        car_data = fast.get_car_data()
+        t = car_data['Time']
+        vCar = car_data['Speed']
+        style = fastf1.plotting.get_driver_style(identifier=drivers[i],
+                                                 style=['color', 'linestyle'],
+                                                 session=session)
+        try:
+            ax.plot(t, vCar, **style, label=str(drivers[i]))
+        except:
+            ax.plot(t, vCar, color='grey', label=str(drivers[i]))
+        i = i+1
+
+    title = str(drivers[0])
+
+    i = 0
+    while (i < len(drivers)):
+        if (i+1 < len(drivers)):
+            title = title + " vs " + str(drivers[i+1])
+        i += 1
+
+    # sn = session.event.get_session_name(sn)
+
+    if (lap == None or lap == ''):
+        plt.suptitle("Fastest Lap Comparison\n" +
+                     f"{yr} {event['EventName']} {sn}\n" + title)
+    else:
+        plt.suptitle("Lap " + str(lap) + " Comparison " +
+                     f"{yr} {event['EventName']} {sn}\n" + title)
+
+    plt.setp(ax.get_xticklabels(), fontsize=7)
+
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Speed [Km/h]')
+    ax.legend()
+    image = io.BytesIO()
+    ax.grid(True, alpha=0.1)
+    ax.minorticks_on()
+
+    file = utils.plot_to_file(plt.gcf(), "plot")
+    return file
+
+
+def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
+    d1 = d1[0:3].upper()
+    d2 = d2[0:3].upper()
+
+    laps = session.laps
+
+    if (d1 == None or d1 == ''):
+        d1 = laps.pick_fastest()['Driver']
+
+    if (d2 == None or d2 == ''):
+        d2 = laps.pick_fastest()['Driver']
+
+    drv1 = d1
+    drv2 = d2
+
+    first_driver = laps.pick_driver(drv1)
+    first_driver_info = session.get_driver(drv1)
+    my_styles = [
+        {'linestyle': 'solid', 'color': 'auto', 'custom_arg': True},
+        {'linestyle': 'dashed', 'color': 'auto', 'other_arg': 10}
+    ]
+
+    style1 = fastf1.plotting.get_driver_style(identifier=d1,
+                                              style=['color', 'linestyle'],
+                                              session=session)
+    style2 = fastf1.plotting.get_driver_style(identifier=d2,
+                                              style=['color', 'linestyle'],
+                                              session=session)
+
+    second_driver = laps.pick_driver(drv2)
+    second_driver_info = session.get_driver(drv2)
+
+    if (lap1 == None or lap1 == ''):
+        first_driver = laps.pick_driver(drv1).pick_fastest()
+    else:
+        driver_laps = session.laps.pick_driver(drv1)
+        first_driver = driver_laps[driver_laps['LapNumber'] == int(
+            lap1)].iloc[0]
+
+    if (lap2 == None or lap2 == ''):
+        second_driver = laps.pick_driver(drv2).pick_fastest()
+    else:
+        driver_laps = session.laps.pick_driver(drv2)
+        second_driver = driver_laps[driver_laps['LapNumber'] == int(
+            lap2)].iloc[0]
+
+    first_car = first_driver.get_car_data().add_distance()
+    second_car = second_driver.get_car_data().add_distance()
+
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+    fig, ax = plt.subplots(7, 1, figsize=(15, 10), gridspec_kw={
+        # Equal height for all subplots
+        'height_ratios': [3, 3, 3, 3, 3, 3, 3],
+        'hspace': 0.5  # Adjust spacing between subplots
+    })
+
+    if (lap1 == None or lap1 == ''):
+        lap1 = "Fastest Lap"
+    else:
+        lap1 = "Lap " + str(lap1)
+    if (lap2 == None or lap2 == ''):
+        lap2 = "Fastest Lap"
+    else:
+        lap2 = "Lap " + str(lap2)
+
+    # sn = session.event.get_session_name(sn)
+
+    # sn = session.event.get_session_name(sn)
+
+    fig.suptitle(f"{yr} {event['EventName']}\n" +
+                 drv1 + " (" + lap1 + ") vs " + drv2 + " (" + lap2 + ")", size=15)
+
+    drs_1 = first_car['DRS']
+    drs_2 = second_car['DRS']
+
+    brake_2 = second_car['Brake']
+
+    drs1 = []
+    drs2 = []
+
+    d = 0
+    while (d < len(drs_1)):
+        if (drs_1[d] >= 10 and drs_1[d] % 2 == 0):
+            drs1.extend([1])
+        else:
+            drs1.extend([0])
+        d += 1
+    d = 0
+    while (d < len(drs_2)):
+        if (drs_2[d] >= 10 and drs_2[d] % 2 == 0):
+            drs2.extend([-1])
+        else:
+            drs2.extend([0])
+        d += 1
+
+    brake2 = []
+
+    b = 0
+    while (b < len(brake_2)):
+        if (brake_2[b] == 1):
+            brake2.extend([-1])
+        else:
+            brake2.extend([0])
+        b += 1
+    if (len(brake_2) < len(second_car['Distance'])):
+        b = len(brake_2)
+        while (b < len(second_car['Distance'])):
+            brake_2.extend([0])
+            b += 1
+    delta_time, ref_tel, compare_tel = fastf1.utils.delta_time(
+        first_driver, second_driver)
+
+    delta = []
+
+    dt = 0
+    while (dt < len(first_car['Distance'])):
+        delta.extend([float(delta_time[dt])*(-1)])
+        dt += 1
+
+    ax[6].set_ylabel(drv1 + " ahead | " + drv2 + " ahead")
+
+    l2, = ax[0].plot(second_car['Distance'],
+                     second_car['Speed'], **style2)
+    l1, = ax[0].plot(first_car['Distance'],
+                     first_car['Speed'], **style1)
+    ax[1].plot(second_car['Distance'], second_car['RPM'], **style2)
+    ax[1].plot(first_car['Distance'], first_car['RPM'], **style1)
+    ax[2].plot(second_car['Distance'], second_car['nGear'], **style2)
+    ax[2].plot(first_car['Distance'], first_car['nGear'], **style1)
+    ax[3].plot(second_car['Distance'],
+               second_car['Throttle'], **style2)
+    ax[3].plot(first_car['Distance'], first_car['Throttle'], **style1)
+    ax[6].plot(first_car['Distance'], delta, color='white')
+
+    ax[0].set_ylabel("Speed [km/h]")
+    ax[1].set_ylabel("RPM [#]")
+    ax[2].set_ylabel("Gear [#]")
+    ax[3].set_ylabel("Throttle [%]")
+    ax[4].set_ylabel(f"Brake [%]\n {drv2} | {drv1}")
+    ax[5].set_ylabel("DRS")
+
+    ax[0].get_xaxis().set_ticklabels([])
+    ax[1].get_xaxis().set_ticklabels([])
+    ax[2].get_xaxis().set_ticklabels([])
+    ax[3].get_xaxis().set_ticklabels([])
+    ax[4].get_xaxis().set_ticklabels([])
+
+    fig.align_ylabels()
+    fig.legend((l1, l2), (drv1, drv2))
+
+    ax[5].fill_between(second_car['Distance'], drs2,
+                       step="pre", **style2, alpha=0.5)
+    ax[5].fill_between(first_car['Distance'], drs1,
+                       step="pre", **style1, alpha=1)
+    ax[4].fill_between(second_car['Distance'], brake2,
+                       step="pre", **style2, alpha=0.5)
+    ax[4].fill_between(first_car['Distance'], first_car['Brake'],
+                       step="pre", **style1, alpha=1)
+
+    plt.subplots_adjust(left=0.06, right=0.99, top=0.9, bottom=0.05)
+
+    ax[2].get_yaxis().set_major_locator(MaxNLocator(integer=True))
+
+    ticks = ax[6].get_yticks()
+    # set labels to absolute values and with integer representation
+    ax[6].set_yticklabels([round(abs(tick), 1) for tick in ticks])
+
+    ax[0].grid(which="minor", alpha=0.1)
+    ax[0].minorticks_on()
+    ax[1].grid(which="minor", alpha=0.1)
+    ax[1].minorticks_on()
+    ax[2].grid(which="minor", alpha=0.1)
+    ax[2].minorticks_on()
+    ax[3].grid(which="minor", alpha=0.1)
+    ax[3].minorticks_on()
+    ax[4].grid(which="minor", alpha=0.1)
+    ax[4].minorticks_on()
+    ax[5].grid(which="minor", alpha=0.1)
+    ax[5].minorticks_on()
+    ax[6].grid(which="minor", alpha=0.1)
+    ax[6].minorticks_on()
+
+    image = io.BytesIO()
+    plt.tight_layout()
+    file = utils.plot_to_file(plt.gcf(), "plot")
+    return file
+
+
+def driver_func(yr):
+    import datetime
+    schedule = fastf1.get_event_schedule(yr, include_testing=False)
+    if yr == int(datetime.datetime.now().year):
+
+        last_index = None
+        for index, row in schedule.iterrows():
+
+            if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+                number = row['RoundNumber']
+                last_index = number
+
+        last_round = last_index
+    else:
+        last_round = max(schedule.RoundNumber)
+
+    colors = ["#333333", "#444444", "#555555", "#666666", "#777777",
+              "#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"]
+    color_counter = 0
+
+    # Specify the number of rounds we want in our plot (in other words, specify the current round)
+    rounds = last_round
+
+    # Initiate an empty dataframe to store our data
+    all_championship_standings = pd.DataFrame()
+
+    # We also want to store which driver drives for which team, which will help us later
+    driver_team_mapping = {}
+    driver_point_mapping = {}
+
+    # Initate a loop through all the rounds
+    for i in range(1, rounds + 1):
+
+        # Make request to driverStandings endpoint for the current round
+        race = client.ergast_retrieve(f'{yr}/{i}/driverStandings')
+        session = fastf1.get_session(yr, 1, 'R')
+
+        # Get the standings from the result
+        standings = race['StandingsTable']['StandingsLists'][0]['DriverStandings']
+
+        # Initiate a dictionary to store the current rounds' standings in
+        current_round = {'round': i}
+
+        # Loop through all the drivers to collect their information
+        for i in range(len(standings)):
+            try:
+                driver = standings[i]['Driver']['code']
+            except:
+                driver = " ".join(word[0].upper()+word[1:] for word in (
+                    standings[i]['Driver']['driverId'].replace("_", " ")).split(" "))
+            try:
+
+                position = standings[i]['position']
+            except:
+                break
+            points = standings[i]['points']
+
+            # Store the drivers' position
+            current_round[driver] = int(position)
+
+            # Create mapping for driver-team to be used for the coloring of the lines
+            driver_team_mapping[driver] = standings[i]['Constructors'][0]['name']
+
+            driver_point_mapping[driver] = points
+
+        # Append the current round to our fial dataframe
+        all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
+            current_round, index=[0])], ignore_index=True)
+
+    rounds = i
+
+    all_championship_standings = all_championship_standings.set_index('round')
+
+    # Melt data so it can be used as input for plot
+    all_championship_standings_melted = pd.melt(
+        all_championship_standings.reset_index(), ['round'])
+
+    # Initiate the plot
+    fig, ax = plt.subplots(figsize=(15, 10))
+
+    # Set the title of the plot
+    ax.set_title(str(yr) + " Championship Standing", color='white')
+
+    ax.xaxis.label.set_color("white")
+    ax.yaxis.label.set_color("white")
+
+    # Draw a line for every driver in the data by looping through all the standings
+    # The reason we do it this way is so that we can specify the team color per driver
+    for driver in pd.unique(all_championship_standings_melted['variable']):
+
+        try:
+            color = fastf1.plotting.get_team_color(
+                driver_team_mapping[driver], session)
+        except:
+            color = colors[color_counter]
+        sns.lineplot(
+            x='round',
+            y='value',
+            data=all_championship_standings_melted.loc[all_championship_standings_melted['variable'] == driver],
+            color=color
+        )
+        try:
+            color = fastf1.plotting.get_team_color(
+                driver_team_mapping[driver], session)
+        except:
+            color_counter += 1
+            if color_counter >= len(colors):
+                color_counter = 0
+
+    # Invert Y-axis to have championship leader (#1) on top
+    ax.invert_yaxis()
+
+    # Set the values that appear on the x- and y-axes
+    ax.set_xticks(range(1, max(schedule.RoundNumber)+1))
+    if yr > 1995:
+        ax.set_yticks(range(1, len(driver_team_mapping)+1))
+    else:
+        ax.set_yticks(range(1, 31))
+
+    # set colorbar tick color
+    ax.yaxis.set_tick_params(color='white')
+    ax.xaxis.set_tick_params(color='white')
+
+    # set colorbar ticklabels
+    plt.setp(plt.getp(ax.axes, 'yticklabels'), color='white')
+    plt.setp(plt.getp(ax.axes, 'xticklabels'), color='white')
+
+    ax.spines['bottom'].set_color('black')
+    ax.spines['top'].set_color('black')
+    ax.spines['left'].set_color('black')
+    ax.spines['right'].set_color('black')
+    for t in ax.xaxis.get_ticklines():
+        t.set_color('black')
+    for t in ax.yaxis.get_ticklines():
+        t.set_color('black')
+
+    # Set the labels of the axes
+    ax.set_xlabel("Round", color='white')
+    ax.set_ylabel("Championship position", color='white')
+
+    # Disable the gridlines
+    ax.grid(True, alpha=0.1)
+    ax.minorticks_on()
+
+    # Add the driver name to the lines
+    for line, name, points in zip(ax.lines, all_championship_standings.columns.tolist(), driver_point_mapping.values()):
+        y = line.get_ydata()[-1]
+        x = line.get_xdata()[-1]
+
+        text = ax.annotate(
+            name + ": " + str(points),
+            xy=(x + 0.1, y),
+            xytext=(0, 0),
+            color=line.get_color(),
+            xycoords=(
+                ax.get_xaxis_transform(),
+                ax.get_yaxis_transform()
+            ),
+            textcoords="offset points"
+        )
+
+    file = utils.plot_to_file(plt.gcf(), "plot")
+    return file
+
+
+def const_func(yr):
+    import datetime
+    schedule = fastf1.get_event_schedule(yr, include_testing=False)
+    if yr == int(datetime.datetime.now().year):
+
+        last_index = None
+        for index, row in schedule.iterrows():
+
+            if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+                number = row['RoundNumber']
+                last_index = number
+
+        last_round = last_index
+    else:
+        last_round = max(schedule.RoundNumber)
+
+    colors = ["#333333", "#444444", "#555555", "#666666", "#777777",
+              "#888888", "#999999", "#AAAAAA", "#BBBBBB", "#CCCCCC"]
+    color_counter = 0
+
+    # Specify the number of rounds we want in our plot (in other words, specify the current round)
+    rounds = last_round
+
+    # Initiate an empty dataframe to store our data
+    all_championship_standings = pd.DataFrame()
+
+    # We also want to store which driver drives for which team, which will help us later
+    constructor_team_mapping = {}
+    constructor_point_mapping = {}
+
+    # Initate a loop through all the rounds
+    for i in range(1, rounds + 1):
+        try:
+            # Make request to driverStandings endpoint for the current round
+            race = client.ergast_retrieve(f'{yr}/{i}/constructorStandings')
+
+            # Get the standings from the result
+            standings = race['StandingsTable']['StandingsLists'][0]['ConstructorStandings']
+
+            # Initiate a dictionary to store the current rounds' standings in
+            current_round = {'round': i}
+
+            # Loop through all the drivers to collect their information
+            for i in range(len(standings)):
+                constructor = standings[i]['Constructor']['name']
+
+                position = standings[i]['position']
+
+                points = standings[i]['points']
+
+                # Store the drivers' position
+                current_round[constructor] = int(position)
+
+                # Create mapping for driver-team to be used for the coloring of the lines
+                constructor_team_mapping[constructor] = standings[i]['Constructor']['name']
+
+                constructor_point_mapping[constructor] = points
+
+            # Append the current round to our fial dataframe
+            all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
+                current_round, index=[0])], ignore_index=True)
+        except:
+            break
+
+    all_championship_standings = all_championship_standings.set_index('round')
+
+    # Melt data so it can be used as input for plot
+    all_championship_standings_melted = pd.melt(
+        all_championship_standings.reset_index(), ['round'])
+
+    rounds = i
+
+    # Set the round as the index of the dataframe
+
+    # Increase the size of the plot
+
+    session = fastf1.get_session(yr, 1, "Race")
+    session.load(laps=False, weather=False, telemetry=False, messages=False)
+    # Initiate the plot
+    fig, ax = plt.subplots(figsize=(15, 10))
+
+    # Set the title of the plot
+    ax.set_title(str(yr) + " Championship Standing", color='white')
+
+    ax.xaxis.label.set_color("white")
+    ax.yaxis.label.set_color("white")
+
+    # Draw a line for every driver in the data by looping through all the standings
+    # The reason we do it this way is so that we can specify the team color per driver
+    for constructor in pd.unique(all_championship_standings_melted['variable']):
+        try:
+            color = fastf1.plotting.get_team_color(
+                constructor_team_mapping[constructor], session)
+        except:
+            color = colors[color_counter]
+        sns.lineplot(
+            x='round',
+            y='value',
+            data=all_championship_standings_melted.loc[
+                all_championship_standings_melted['variable'] == constructor],
+            color=color
+        )
+        try:
+            color = fastf1.plotting.get_team_color(
+                constructor_team_mapping[constructor], session)
+        except:
+            color_counter += 1
+            if color_counter >= len(colors):
+                color_counter = 0
+
+    # Invert Y-axis to have championship leader (#1) on top
+    ax.invert_yaxis()
+
+    # Set the values that appear on the x- and y-axes
+    ax.set_xticks(range(1, max(schedule.RoundNumber)+1))
+    ax.set_yticks(range(1, len(constructor_team_mapping)+1))
+
+    # set colorbar tick color
+    ax.yaxis.set_tick_params(color='white')
+    ax.xaxis.set_tick_params(color='white')
+
+    # set colorbar ticklabels
+    plt.setp(plt.getp(ax.axes, 'yticklabels'), color='white')
+    plt.setp(plt.getp(ax.axes, 'xticklabels'), color='white')
+
+    ax.spines['bottom'].set_color('black')
+    ax.spines['top'].set_color('black')
+    ax.spines['left'].set_color('black')
+    ax.spines['right'].set_color('black')
+    for t in ax.xaxis.get_ticklines():
+        t.set_color('black')
+    for t in ax.yaxis.get_ticklines():
+        t.set_color('black')
+
+    # Set the labels of the axes
+    ax.set_xlabel("Round", color='white')
+    ax.set_ylabel("Championship position", color='white')
+
+    ax.grid(True, alpha=0.1)
+    ax.minorticks_on()
+
+    # Add the driver name to the lines
+    for line, name, points in zip(ax.lines, all_championship_standings.columns.tolist(), constructor_point_mapping.values()):
+        y = line.get_ydata()[-1]
+        x = line.get_xdata()[-1]
+
+        text = ax.annotate(
+            name.replace("amp;", "") + ": " + str(points),
+            xy=(x + 0.1, y),
+            xytext=(0, 0),
+            color=line.get_color(),
+            xycoords=(
+                ax.get_xaxis_transform(),
+                ax.get_yaxis_transform()
+            ),
+            textcoords="offset points"
+        )
+
+    # Save the plot
+    # plt.show()
+    file = utils.plot_to_file(plt.gcf(), "plot")
+    return file
+
+
+def h2h(year, session_type, ctx):
+    import datetime
+    team_list = {}
+    color_list = {}
+    check_list = {}
+    team_fullName = {}
+    driver_country = {}
+    outstring = ''
+    schedule = fastf1.get_event_schedule(year, include_testing=False)
+    if year == int(datetime.datetime.now().year):
+        max_index = roundnumber(None, year)[0]
+    else:
+        max_index = max(schedule.RoundNumber)
+
+    for c in range(min(schedule.RoundNumber), max_index):
+
+        session = fastf1.get_session(
+            year, c, session_type)
+        session.load(laps=False, telemetry=False,
+                     weather=False, messages=False)
+        results = session.results
+        for i in check_list.keys():
+            check_list.update({i: False})
+
+        for i in results['TeamId']:
+            team_results = results.loc[lambda df: df['TeamId'] == i]
+
+            if len(team_results.index) < 2:
+                break
+            if (team_list.get(i) is None):
+                team_fullName.update(
+                    {i: team_results.loc[min(team_results.index), 'TeamName']})
+                team_list.update({i: {}})
+                color_list.update(
+                    {i: team_results.loc[min(team_results.index), 'TeamColor']})
+
+            drivers = []
+            for j in team_results.index:
+                drivers.append(team_results.loc[j, 'Abbreviation'])
+            drivers = sorted(drivers)
+            pairing = ''.join(drivers)
+
+            if (team_list.get(i).get(pairing) is None):
+                team_list.get(i).update({pairing: {}})
+
+            for abbreviation in team_results['Abbreviation']:
+                if team_list.get(i).get(pairing).get(abbreviation) is None:
+                    team_list.get(i).get(pairing).update({abbreviation: 0})
+
+            curr_abbr = team_results.loc[team_results.index[0], 'Abbreviation']
+
+            # figure out which races to ignore
+            both_drivers_finished = True
+            if (session_type == 'Race'):
+                dnf = ['D', 'E', 'W', 'F', 'N']
+                for driver in team_results.index:
+                    if ((team_results.loc[driver, 'ClassifiedPosition']) in dnf) or (not ((team_results.loc[driver, 'Status'] == 'Finished') or ('+' in team_results.loc[driver, 'Status']))):
+                        # for testing
+                        # outstring += (f'{pairing}: Skipping {session}\nReason: {team_results.loc[driver,'Abbreviation']} did ({team_results.loc[driver,'ClassifiedPosition']},{team_results.loc[driver,'Status']})\n')
+                        both_drivers_finished = False
+
+            # if (team_list.get(i).get(pairing).get(curr_abbr) is None):
+            #     team_list.get(i).get(pairing).update({curr_abbr:0})
+            if (check_list.get(i) is None):
+                check_list.update({i: False})
+            if not check_list.get(i):
+                curr_value = team_list.get(i).get(pairing).get(curr_abbr)
+                # if include this race, then update the driver pairing's h2h "points"
+                if (both_drivers_finished):
+                    team_list.get(i).get(pairing).update(
+                        {curr_abbr: curr_value+1})
+                    check_list.update({i: True})
+            else:
+                curr_value = team_list.get(i).get(pairing).get(curr_abbr)
+                team_list.get(i).get(pairing).update({curr_abbr: curr_value})
+    data, colors, team_names = team_list, color_list, team_fullName
+
+    plt.clf()
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+    fig, ax = plt.subplots(1, figsize=(13, 9))
+
+    fig.suptitle(f'{year} {session_type} Head to Head', size=20, y=0.95)
+    offset = 0
+    driver_names = []
+    y_ticks = []
+    for team in data.keys():
+        for pairing in data.get(team).keys():
+            y_ticks.append(team_names.get(team))
+            drivers = list(data.get(team).get(pairing).keys())
+            driver_wins = list(data.get(team).get(pairing).values())
+
+            # flip second driver to draw back to back
+            if len(driver_wins) >= 2:
+
+                driver_wins[1] = -1 * driver_wins[1]
+
+            else:
+                driver_wins.append(0)
+
+            # team color
+            color = ''
+            if not ((colors.get(team).lower() == 'nan') or (colors.get(team).lower() == '')):
+                color = f'#{colors.get(team).lower()}'
+            else:
+                color = "#ffffff"
+            ax.barh(pairing, driver_wins, color=color,)  # edgecolor = 'black')
+
+            ax.text(0, offset, team.replace("_", " ").title(), ha='center', fontsize=10,  path_effects=[
+                matplotlib.patheffects.withStroke(linewidth=2, foreground="black")])
+
+            # label the bars
+            for i in range(len(drivers)):
+                # Check if the driver participated
+                if driver_wins[i] <= 0:
+                    driver_name = drivers[i]
+                    driver_names.append(driver_name)
+                    wins_string = f'{-1*driver_wins[i]}'
+                    ax.text(min(driver_wins[i] - 0.6, -1.2), offset - 0.2, wins_string,  fontsize=20,
+                            horizontalalignment='right', path_effects=[matplotlib.patheffects.withStroke(linewidth=4, foreground="black")])
+                else:
+                    driver_name = drivers[i]
+                    driver_names.append(driver_name)
+                    wins_string = f'{driver_wins[i]}'
+                    ax.text(driver_wins[i] + 0.6, offset - 0.2, wins_string,  fontsize=20,
+                            horizontalalignment='left', path_effects=[matplotlib.patheffects.withStroke(linewidth=4, foreground="black")])
+            offset += 1
+    # plot formatting
+    left = min(fig.subplotpars.left, 1 - fig.subplotpars.right)
+    bottom = min(fig.subplotpars.bottom, 1 - fig.subplotpars.top)
+    fig.subplots_adjust(left=left, right=1 - left,
+                        bottom=bottom, top=1 - bottom)
+    ax.get_xaxis().set_visible(False)
+    ax.yaxis.grid(False)
+    ax.get_yaxis().set_visible(False)
+    ax.set_yticklabels(y_ticks, fontsize=10)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    xabs_max = abs(max(ax.get_xlim(), key=abs))+7
+
+    ax.text(0.1, 1.03, '', transform=ax.transAxes,
+            fontsize=13, ha='center')
+
+    ax.set_xlim(xmin=-xabs_max, xmax=xabs_max)
+    offset = 0
+    # label drivers
+    for i in range(len(driver_names)):
+        if (i % 2) == 0:
+            ax.text(xabs_max, offset-0.2, driver_names[i], fontsize=20, horizontalalignment='right', path_effects=[
+                    matplotlib.patheffects.withStroke(linewidth=4, foreground="black")])
+        else:
+            ax.text(-xabs_max, math.floor(offset)-0.2, driver_names[i], fontsize=20, horizontalalignment='left', path_effects=[
+                    matplotlib.patheffects.withStroke(linewidth=4, foreground="black")])
+        offset += 0.5
+    plt.rcParams['savefig.dpi'] = 300
+
+    file = utils.plot_to_file(fig, "image")
+    top_role_color = get_top_role_color(ctx.author)
+    title = f"Teammate {session_type} Head to Head {year}"
+    description = "DNS/DNF excluded from calculation"
+
+    return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
+
+
+def averageposition(session_type, year, category, ctx):
+    import datetime
+    schedule = fastf1.get_event_schedule(year=year, include_testing=False)
+    first_index = min(schedule.RoundNumber)
+    if year == int(datetime.datetime.now().year):
+        max_index = roundnumber(None, year)[0]
+    else:
+        max_index = max(schedule.RoundNumber)
+    driver_positions = {}
+    driver_average = {}
+    driver_colors = {}
+    driver_racesParticipated = {}
+
+    for i in range(first_index, max_index+1):
+        event = fastf1.get_session(year, i, session_type)
+        event.load(laps=False, telemetry=False, weather=False, messages=False)
+        results = event.results
+        results.dropna(subset=['Position'], inplace=True)
+        # print(results)
+
+        for driver in event.drivers:
+            if (category == 'Drivers'):
+                currDriver_abbreviation = results.loc[driver, 'Abbreviation']
+            else:
+                currDriver_abbreviation = results.loc[driver, 'TeamName']
+
+            if driver_positions.get(currDriver_abbreviation) is None:
+                driver_positions.update({currDriver_abbreviation: 0})
+
+            if driver_racesParticipated.get(currDriver_abbreviation) is None:
+                driver_racesParticipated.update({currDriver_abbreviation: 0})
+
+            if session_type == 'Race':
+                currDriver_position = results.loc[driver, 'ClassifiedPosition']
+            else:
+                currDriver_position = results.loc[driver, 'Position']
+
+            currDriver_total = driver_positions.get(currDriver_abbreviation)
+
+            if (type(currDriver_position) is str):
+                if (currDriver_position.isnumeric()):
+                    driver_racesParticipated.update(
+                        {currDriver_abbreviation: driver_racesParticipated.get(currDriver_abbreviation)+1})
+                    driver_positions.update(
+                        {currDriver_abbreviation: currDriver_total+int(currDriver_position)})
+            else:
+                driver_racesParticipated.update(
+                    {currDriver_abbreviation: driver_racesParticipated.get(currDriver_abbreviation)+1})
+                driver_positions.update(
+                    {currDriver_abbreviation: currDriver_total+(currDriver_position)})
+
+            driver_colors.update(
+                {currDriver_abbreviation: results.loc[driver, 'TeamColor']})
+    # print(driver_positions)
+    # print(driver_colors)
+    # print(driver_racesParticipated)
+    for key in driver_positions.keys():
+        try:
+            driver_average.update({key: driver_positions.get(
+                key)/driver_racesParticipated.get(key)})
+        except:
+            print('div by 0')
+    driver_positions, driver_colors = driver_average, driver_colors
+    plt.clf()
+    driver_positions = dict(
+        sorted(driver_positions.items(), key=lambda x: x[1]))
+
+    fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
+    # set directory for later use
+    # create the bar plot and size
+    fig, ax = plt.subplots(figsize=(16.8, 10.5))
+
+    # setting x-axis label, title
+    ax.set_xlabel("Position", fontsize=20, labelpad=20)
+    ax.set_title(
+        f"Average {category} {session_type} Finish Position {year}", fontsize=20, pad=20)
+
+    # space between limits for the y-axis and x-axis
+    ax.set_ylim(-0.8, len(driver_positions.keys())-0.25)
+    ax.set_xlim(0, 20.1)
+    ax.invert_yaxis()  # invert y axis, top to bottom
+    # amount x-axis increments by 1
+    ax.xaxis.set_major_locator(MultipleLocator(1))
+
+    # remove ticks, keep labels
+    ax.xaxis.set_tick_params(labelsize=12)
+    ax.yaxis.set_tick_params(labelsize=12)
+    ax.set_xticklabels(
+        range(-1, int(max(driver_positions.values()))+6),  fontsize=20)
+    if (category == 'Drivers'):
+        fontsize = 20
+    else:
+        fontsize = 10
+    ax.set_yticklabels(driver_positions.keys(), fontsize=fontsize)
+    ax.set_yticks(range(len(driver_positions.keys())))
+    ax.tick_params(axis='both', length=0, pad=8, )
+
+    # remove all lines, bar the x-axis grid lines
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(True, color='#191919')
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.minorticks_off()
+
+    # testing for possible median bars
+    # plt.barh("VER", 5, color='none', edgecolor='blue', hatch="/", linewidth=1,alpha=0.6)
+    annotated = False
+    for driver in driver_positions.keys():
+        curr_color = driver_colors.get(driver)
+        # print(curr_color)
+        # print(curr_color == 'nan')
+        if ((curr_color != 'nan') and (curr_color != '')):
+            plt.barh(driver, driver_positions.get(
+                driver), color=f'#{curr_color}')
+        else:
+            if not annotated:
+                plt.figtext(
+                    0.91, 0.01, "*Some color data is unavailable", ha="center")
+                annotated = True
+            plt.barh(driver, driver_positions.get(driver), color='#ffffff')
+    # add f1buddy pfp
+
+    for i, position in enumerate(driver_positions.values()):
+        ax.text(position + 0.1, i,
+                f"   {str(round(position,2))}", va='center',  fontsize=20)
+
+    plt.rcParams['savefig.dpi'] = 300
+    file = utils.plot_to_file(fig, "image")
+    description = "DNS/DNF excluded from calculation"
+    title = f"Average {category} {session_type} Finish Position {year}"
+    top_role_color = get_top_role_color(ctx.author)
+
+    return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
+
+
+def roundnumber(round=None, year=None):
+    import datetime
+    if round == None and year == None or round == None and year == int(datetime.datetime.now().year):
+
+        schedule = fastf1.get_event_schedule(
+            int(datetime.datetime.now().year), include_testing=False)
+
+        for index, row in schedule.iterrows():
+
+            if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+                number = row['RoundNumber']
+                round = number
+    if year == None:
+        year = int(datetime.datetime.now().year)
+    if year < int(datetime.datetime.now().year) and round == None:
+        round = max(fastf1.get_event_schedule(
+            int(year), include_testing=False)['RoundNumber'])
+    return [round, year]
+
+
+def schedule(ctx):
+    now = pd.Timestamp.now()
+
+    message_embed = discord.Embed(
+        title="Schedule", description="", color=get_top_role_color(ctx.author))
+
+    message_embed.set_author(name='F1 Race Schedule')
+
+    schedule = fastf1.get_event_schedule(
+        int(datetime.now().year), include_testing=False)
+
+    # index of next event (round number)
+    next_event = 0
+
+    for index, row in schedule.iterrows():
+        current_date = date.today()
+        import pytz
+        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+            number = row['RoundNumber']
+            next_event = number+1
+
+    try:
+
+        if (len(schedule) <= next_event):
+            raise IndexError
+
+        race_name = schedule.loc[next_event, "EventName"]
+
+        message_embed.title = "Race Schedule for " + race_name
+
+        if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
+            converted_session_times = {
+                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+            }
+
+        else:
+            converted_session_times = {
+                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+            }
+
+        time_until = schedule.loc[next_event, "Session5Date"].tz_convert(
+            'America/New_York') - now.tz_localize('America/New_York')
+        out_string = countdown(time_until.total_seconds())
+
+        location = schedule.loc[next_event, "Location"]
+
+        for key in converted_session_times.keys():
+            date_object = converted_session_times.get(
+                key).tz_convert('America/New_York')
+            converted_session_times.update({key: date_object})
+
+        sessions_string = ''
+        times_string = ''
+
+        for key in converted_session_times.keys():
+            # Convert timestamp to datetime object
+            timestamp = converted_session_times.get(key).timestamp()
+            abc = int(timestamp)
+            times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
+            sessions_string += key + '\n'
+
+        message_embed.add_field(
+            name="Session", value=sessions_string, inline=True)
+        message_embed.add_field(
+            name="Time", value=times_string, inline=True)
+        message_embed.add_field(
+            name="Track Layout", value="", inline=False)
+        country = schedule.loc[next_event, "Country"]
+        message_embed.set_image(url=get_circuit_image(
+            location, country).replace(" ", "%20"))
+
+    except:
+        return out_string
+
+    return message_embed
+
+
+def get_circuit_image(location, country):
+    if country.lower() == 'united kingdom':
+        country = 'Great Britain'
+    current_year = datetime.now().year
+    urls = [
+        f"https://www.formula1.com/en/racing/{current_year}/{location.replace(' ', '-')}/circuit.html",
+        f"https://www.formula1.com/en/racing/{current_year}/{country.replace(' ', '-')}/circuit.html"
+    ]
+
+    session = requests.Session()
+    for url in urls:
+        try:
+            response = session.get(url, timeout=5)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            img_tag = next(
+                (img for img in soup.find_all('img')
+                 if "circuit" in img.get('src').lower()), None
+            )
+            if img_tag:
+                return urllib.parse.urljoin(url, img_tag['src'])
+        except Exception as e:
+            print(f"Error fetching image from {url}: {e}")
+    return None
+
+
+def get_fia_doc(doc=None):
+    message_embed = discord.Embed()
+    message_embed.title = f"FIA Document {doc}"
+
+    if doc is None:
+        doc = 0
+        message_embed.title = "Latest FIA Document"
+
+    # get FIA site
+    url = 'https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2024-2043'
+    html = requests.get(url=url)
+    s = BeautifulSoup(html.content, 'html.parser')
+
+    # get latest document
+    results = s.find_all(class_='document-row')
+    documents = [result.find('a')['href']
+                 for result in results if result.find('a')]
+
+    if doc >= len(documents):
+        raise IndexError("Document index out of range")
+
+    doc_url = 'https://www.fia.com/' + documents[doc]
+    fileName = documents[doc].split(
+        '/sites/default/files/decision-document/')[-1]
+    message_embed.description = fileName[:-4]
+
+    images = []
+
+    # fetch the document
+    doc_response = requests.get(doc_url)
+    pdf_stream = io.BytesIO(doc_response.content)
+
+    # convert pdf to images
+    doc = fitz.open(stream=pdf_stream, filetype="pdf")
+    page_num = 0
+    try:
+        while True:
+            page = doc.load_page(page_num)  # number of page
+            pix = page.get_pixmap(matrix=(fitz.Matrix(300 / 72, 300 / 72)))
+            img_stream = io.BytesIO()
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img.save(img_stream, format="PNG")
+            img_stream.seek(0)  # Go to the beginning of the BytesIO stream
+            images.append(discord.File(img_stream, filename=f"{page_num}.png"))
+            page_num += 1
+    except ValueError:
+        pass
+    doc.close()
+
+    return images
+
+
+def countdown(totalseconds):
+    out_string = ""
+    days = int(totalseconds // 86400)
+    totalseconds %= 86400
+    hours = int(totalseconds // 3600)
+    totalseconds %= 3600
+    minutes = int(totalseconds // 60)
+    seconds = totalseconds % 60
+    seconds = int(seconds // 1)
+    out_string += f"{days} days, {hours} hours, {minutes} minutes, and {seconds} seconds until the race!"
+    return out_string
+
+
+def parse_driver_name(name):
+    return name.strip().replace("~", "").replace("*", "").replace("^", "")
+
+
+def parse_championships(championships):
+    champ_val = championships.split('<')[0].strip()[0]
+    return int(champ_val) if champ_val.isdigit() else 0
+
+
+def parse_brackets(text):
+    return re.sub(r'\[.*?\]', '', text)
+
+
+def get_wiki_image(search_term):
+    try:
+        result = wikipedia.search(search_term, results=1)
+        wikipedia.set_lang('en')
+        wkpage = wikipedia.WikipediaPage(title=result[0])
+        title = wkpage.title
+        response = requests.get(WIKI_REQUEST+title)
+        json_data = json.loads(response.text)
+        img_link = list(json_data['query']['pages'].values())[
+            0]['original']['source']
+        return img_link
+    except:
+        return 0
+
+
+def get_driver(driver, ctx):
+    try:
+        # setup embed
+        message_embed = discord.Embed(
+            title="temp_driver_title", description="", color=get_top_role_color(ctx.author))
+
+        url = 'https://en.wikipedia.org/wiki/List_of_Formula_One_drivers'
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        table = soup.find_all('table')
+        table = table[2]
+
+        driver_data = []
+
+        try:
+            for row in table.find_all('tr')[1:]:
+                columns = row.find_all('td')
+                flags = row.find('img', {'class': 'mw-file-element'})
+                if flags:
+                    nationality = flags['src']
+                if columns:
+                    driver_dict = {
+                        'name': parse_driver_name(columns[0].text.strip()),
+                        'nationality': nationality,
+                        'seasons_completed': columns[2].text.strip(),
+                        'championships': parse_championships(columns[3].text.strip()),
+                        'entries': parse_brackets(columns[4].text.strip()),
+                        'starts': parse_brackets(columns[5].text.strip()),
+                        'poles': parse_brackets(columns[6].text.strip()),
+                        'wins': parse_brackets(columns[7].text.strip()),
+                        'podiums': parse_brackets(columns[8].text.strip()),
+                        'fastest_laps': parse_brackets(columns[9].text.strip()),
+                        'points': parse_brackets(columns[10].text.strip())
+                    }
+                    driver_data.append(driver_dict)
+        except Exception as e:
+            message_embed.set_footer(f"Error getting data! {e}")
+
+        normalized_input = unidecode(driver).casefold()
+        # img_url = unidecode(driver).title()
+        wiki_image = get_wiki_image(driver)
+
+        # iterate through driver data to find a match
+        index = -1
+        for i in range(len(driver_data)):
+            normalized_name = unidecode(driver_data[i]['name']).casefold()
+            if normalized_name == normalized_input:
+                index = i
+                break
+        if index == -1:
+
+            message_embed.title = "Driver \"" + driver + "\" not found!"
+            message_embed.description = "Try a driver's full name!"
+            return message_embed
+
+        else:
+            if wiki_image != 0:
+                message_embed.set_image(url=wiki_image)
+                message_embed.set_thumbnail(
+                    url=f"https:{driver_data[index]['nationality']}")
+            message_embed.title = driver_data[index]['name']
+            message_embed.description = ""
+            message_embed.url = wikipedia.WikipediaPage(
+                title=wikipedia.search(driver, results=1)[0]).url
+            message_embed.add_field(
+                name="**Seasons Completed:** ", value=str(driver_data[index]['seasons_completed']))
+            message_embed.add_field(
+                name="**Championships:** ", value=str(driver_data[index]['championships']))
+            message_embed.add_field(
+                name="**Entries:** ", value=str(driver_data[index]['entries']))
+            message_embed.add_field(
+                name="**Starts:** ", value=str(driver_data[index]['starts']))
+            message_embed.add_field(
+                name="**Poles:** ", value=str(driver_data[index]['poles']))
+            message_embed.add_field(
+                name="**Wins:** ", value=str(driver_data[index]['wins']))
+            message_embed.add_field(
+                name="**Podiums:** ", value=str(driver_data[index]['podiums']))
+            message_embed.add_field(
+                name="**Fastest Laps:** ", value=str(driver_data[index]['fastest_laps']))
+            message_embed.add_field(
+                name="**Points:**", value=str(driver_data[index]['points']))
+            return message_embed
+    except:
+        print('Error occured!')
+
+
+stat_map = {
+    'Starts': 'starts',
+    'Career Points': 'careerpoints',
+    'Wins': 'wins',
+    'Podiums': 'podiums',
+    'Poles': 'poles',
+    'Fastest Laps': 'fastestlaps',
+}
+
+
+def get_drivers_standings():
+    schedule = fastf1.get_event_schedule(
+        int(datetime.now().year), include_testing=False)
+    last_index = None
+    for index, row in schedule.iterrows():
+        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+            last_index = index
+
+    SEASON = int(datetime.now().year)
+    ROUND = last_index
+    ergast = Ergast()
+    standings = ergast.get_driver_standings(season=SEASON, round=ROUND)
+    return standings.content[0]
+
+
+def calculate_max_points_for_remaining_season():
+    curr_year = int(datetime.now().year)
+
+    schedule = fastf1.get_event_schedule(
+        int(datetime.now().year), include_testing=False)
+    last_index = None
+    for index, row in schedule.iterrows():
+        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
+            last_index = index
+
+    SEASON = int(datetime.now().year)
+    ROUND = last_index
+    POINTS_FOR_SPRINT = 8 + 25 + 1  # Winning the sprint, race and fastest lap
+    POINTS_FOR_CONVENTIONAL = 25 + 1  # Winning the race and fastest lap
+    events = fastf1.events.get_event_schedule(SEASON)
+    events = events[events['RoundNumber'] > ROUND]
+
+    # Count how many sprints and conventional races are left
+    sprint_events = len(
+        events.loc[events["EventFormat"] == "sprint_qualifying"])
+    conventional_events = len(
+        events.loc[events["EventFormat"] == "conventional"])
+
+    # Calculate points for each
+    sprint_points = sprint_events * POINTS_FOR_SPRINT
+    conventional_points = conventional_events * POINTS_FOR_CONVENTIONAL
+
+    return sprint_points + conventional_points
+
+
+def calculate_who_can_win(driver_standings, max_points):
+    LEADER_POINTS = int(driver_standings.loc[0]['points'])
+
+    for i, _ in enumerate(driver_standings.iterrows()):
+        driver = driver_standings.loc[i]
+        driver_max_points = int(driver["points"]) + max_points
+        can_win = 'No' if driver_max_points < LEADER_POINTS else 'Yes'
+
+        driver_info = {
+            "Position": driver["position"],
+            "Driver": f"{driver['givenName']} {driver['familyName']}",
+            "Current Points": driver["points"],
+            "Theoretical max points": driver_max_points,
+            "Can win?": can_win
+        }
+
+        # Yield the dictionary for the driver
+        yield driver_info
+
+
+connection = sqlite3.connect('guild_roles.db')
+cursor = connection.cursor()
+
+# Create table to map guilds to roles
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS GuildRoles (
+        guild_id INTEGER NOT NULL,
+        role_id INTEGER NOT NULL,
+        PRIMARY KEY (guild_id, role_id)
+    )
+''')
+
+# Create table to map guilds to a single channel
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS GuildChannels (
+        guild_id INTEGER NOT NULL PRIMARY KEY,
+        channel_id INTEGER NOT NULL
+    )
+''')
+
+connection.commit()
+connection.close()
+
+
+def add_role_to_guild(guild_id, role_id):
+    connection = sqlite3.connect('guild_roles.db')
+    cursor = connection.cursor()
+
+    # Insert role_id if it doesn't exist
+    cursor.execute('''
+        INSERT OR IGNORE INTO GuildRoles (guild_id, role_id)
+        VALUES (?, ?)
+    ''', (guild_id, role_id))
+
+    connection.commit()
+    connection.close()
+
+
+def get_channel_and_roles_for_guild(guild_id):
+    connection = sqlite3.connect('guild_roles.db')
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT channel_id FROM GuildChannels
+        WHERE guild_id = ?
+    ''', (guild_id,))
+
+    channel_id = cursor.fetchone()
+    if channel_id:
+        channel_id = channel_id[0]
+    else:
+        channel_id = None
+
+    cursor.execute('''
+        SELECT role_id FROM GuildRoles
+        WHERE guild_id = ?
+    ''', (guild_id,))
+
+    role_ids = [row[0] for row in cursor.fetchall()]
+    connection.close()
+
+    return channel_id, role_ids
+
+
+def remove_role_from_guild(guild_id, role_id):
+    connection = sqlite3.connect('guild_roles.db')
+    cursor = connection.cursor()
+
+    # Check if the role exists for the given guild_id
+    cursor.execute('''
+        SELECT 1 FROM GuildRoles
+        WHERE guild_id = ? AND role_id = ?
+    ''', (guild_id, role_id))
+
+    exists = cursor.fetchone()
+
+    if exists:
+        # Remove the role_id for the given guild_id
+        cursor.execute('''
+            DELETE FROM GuildRoles
+            WHERE guild_id = ? AND role_id = ?
+        ''', (guild_id, role_id))
+
+        connection.commit()
+        connection.close()
+        return True  # Indicate that the role was successfully removed
+    else:
+        connection.close()
+        return False  # Indicate that the role was not found in the database
+
+
+def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
+    """
+    Fetch the ephemeral setting for a guild.
+    If the guild ID doesn't exist in the database, return the default value (False).
+
+    Args:
+        guild_id (int): The ID of the guild.
+
+    Returns:
+        bool: The ephemeral setting for the guild (True or False).
+
+    """
+    try:
+        default_ephemeral = True
+        if ctx.guild.name is not None:
+            guild_id = ctx.guild_id
+
+            # Default value if guild is not found
+            conn = sqlite3.connect("bot_settings.db")
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute("SELECT ephemeral_setting FROM settings WHERE guild_id = ?", (guild_id,))
+                result = cursor.fetchone()
+                if result is not None:
+                    return bool(result[0])  # Return the fetched ephemeral setting
+                else:
+                    return default_ephemeral  # Guild not found, return default
+            except Exception as e:
+                return default_ephemeral  # On error, return default
+            finally:
+                conn.close()
+        else:
+            return True
+    except:
+        return True
 
 
 def get_session_type(name: str):
@@ -98,7 +2193,7 @@ async def to_event(year: str, rnd: str) -> Event:
         rnd = int(rnd)
 
     try:
-        event = await asyncio.to_thread(ff1.get_event, year=utils.convert_season(year), gp=rnd)
+        event = await asyncio.to_thread(fastf1.get_event, year=utils.convert_season(year), gp=rnd)
     except Exception:
         raise MissingDataError()
 
