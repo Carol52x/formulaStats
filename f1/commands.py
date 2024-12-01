@@ -1,8 +1,11 @@
+import time
+import fastf1
 import gc
 import logging
 import asyncio
 import re
 from cogwatch import Watcher
+from f1.api.stats import get_ephemeral_setting
 import discord
 from discord.ext import commands
 from discord.activity import Activity, ActivityType
@@ -23,6 +26,10 @@ bot.load_extensions(
 
 )
 
+# Enable FastF1 caching
+# Change this path if you want to store the cache elsewhere
+fastf1.Cache.enable_cache('./cache')
+
 
 @bot.event
 async def on_ready():
@@ -41,17 +48,25 @@ async def on_message(message: discord.Message):
 
 
 def handle_command(ctx: commands.Context | discord.Interaction):
+    if ctx.guild:
+        guild_name = ctx.guild.name
+    else:
+        guild_name = "DMs"
     logger.info(
-        f"Command: /{ctx.command} in {ctx.guild.name} {ctx.channel} by {ctx.user}")
+        f"Command: /{ctx.command} in {guild_name} {ctx.channel} by {ctx.user}")
 
 
 async def handle_errors(ctx: commands.Context | discord.Interaction, err):
     # Force cleanup
     plt.close("all")
     gc.collect()
+    if ctx.guild:
+        guild_name = ctx.guild.name
+    else:
+        guild_name = "DMs"
 
     logger.error(
-        f"Command failed: /{ctx.command} in {ctx.guild.name} {ctx.channel} by {ctx.user}")
+        f"Command failed: /{ctx.command} in {guild_name} {ctx.channel} by {ctx.user}")
     logger.error(f"Selected Options: {ctx.selected_options}")
     logger.error(f"Reason: {err}")
     target = MessageTarget(ctx)
@@ -84,7 +99,7 @@ async def on_application_command(ctx: discord.Interaction):
     # Defer slash commands by default
     handle_command(ctx)
     await ctx.defer(
-        ephemeral=Config().settings["MESSAGE"].getboolean("EPHEMERAL"),
+        ephemeral=get_ephemeral_setting(ctx),
     )
 
 
