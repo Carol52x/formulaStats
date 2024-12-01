@@ -3,398 +3,30 @@ from f1.api.stats import get_top_role_color
 import time
 from collections import defaultdict
 from discord.ui import Button, View
-import re
-import requests
-import wikipedia
-from bs4 import BeautifulSoup
-from unidecode import unidecode
-import json
-from fastf1.ergast import Ergast
-import pytz
 import fastf1
-from f1.target import MessageTarget
 from f1.errors import MissingDataError
+from f1.api.stats import get_channel_and_roles_for_guild, get_drivers_standings, calculate_max_points_for_remaining_season, calculate_who_can_win, get_driver
 from f1.config import Config
 from f1.api import ergast, stats
+from f1.api.stats import get_ephemeral_setting
 from f1 import options, utils
+from f1.api.stats import add_role_to_guild, remove_role_from_guild
 from discord import default_permissions
 import io
+from f1.api.stats import roundnumber
 from discord.ext import commands
 from discord import ApplicationContext, Embed
 import pandas as pd
 import discord
-import matplotlib.pyplot as plt
 import asyncio
 import logging
 from datetime import datetime
-from datetime import date
 import os
 from dotenv import load_dotenv
 import aiohttp
 load_dotenv()
-
-TOKEN = os.getenv("BOT_TOKEN")
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
-WIKI_REQUEST = 'http://en.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles='
-current_date = date.today()
-curr_year = int(datetime.now().year)
 logger = logging.getLogger('f1-bot')
-
-schedule = fastf1.get_event_schedule(
-    int(datetime.now().year), include_testing=False)
-last_index = None
-for index, row in schedule.iterrows():
-    if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-        last_index = index
-
-SEASON = curr_year
-ROUND = last_index
-
-
-def parse_driver_name(name):
-    return name.strip().replace("~", "").replace("*", "").replace("^", "")
-
-
-def parse_championships(championships):
-    champ_val = championships.split('<')[0].strip()[0]
-    return int(champ_val) if champ_val.isdigit() else 0
-
-
-def parse_brackets(text):
-    return re.sub(r'\[.*?\]', '', text)
-
-
-def get_wiki_image(search_term):
-    try:
-        result = wikipedia.search(search_term, results=1)
-        wikipedia.set_lang('en')
-        wkpage = wikipedia.WikipediaPage(title=result[0])
-        title = wkpage.title
-        response = requests.get(WIKI_REQUEST+title)
-        json_data = json.loads(response.text)
-        img_link = list(json_data['query']['pages'].values())[
-            0]['original']['source']
-        return img_link
-    except:
-        return 0
-
-
-class ColDef:
-    def __init__(self, name, width, textprops=None, border=None):
-        self.name = name
-        self.width = width
-        self.textprops = textprops if textprops else {}
-        self.border = border
-
-
-def plot_table(dataframe, col_defs, index_col, figsize, background_color='black', text_color='white'):
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.axis('off')
-    fig.patch.set_facecolor(background_color)
-
-    table_data = []
-    column_widths = [col.width for col in col_defs]
-    column_headers = [col.name for col in col_defs]
-
-    # Create table data
-    for _, row in dataframe.iterrows():
-        table_data.append([row[col.name] for col in col_defs])
-
-    # Plot the table
-    table = ax.table(cellText=table_data, colLabels=column_headers,
-                     cellLoc='center', loc='center')
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1.2, 1.2)
-
-    # Apply column definitions and styles
-    for key, cell in table.get_celld().items():
-        cell.set_edgecolor('white')
-        if key[0] == 0:
-            cell.set_facecolor(background_color)
-            cell.set_text_props(weight='bold', color=text_color)
-        else:
-            cell.set_facecolor(background_color)
-            cell.set_text_props(color=text_color)
-
-        if key[1] < len(col_defs):
-            col = col_defs[key[1]]
-            cell.set_width(col.width)
-            cell.set_text_props(**col.textprops)
-            if col.border:
-                if 'r' in col.border:
-                    cell.set_linewidth(1)
-                if 'l' in col.border:
-                    cell.set_linewidth(1)
-
-    return fig, ax
-
-
-def get_driver(driver, ctx):
-    try:
-        # setup embed
-        message_embed = discord.Embed(
-            title="temp_driver_title", description="", color=get_top_role_color(ctx.author))
-
-        url = 'https://en.wikipedia.org/wiki/List_of_Formula_One_drivers'
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
-        table = soup.find_all('table')
-        table = table[2]
-
-        driver_data = []
-
-        try:
-            for row in table.find_all('tr')[1:]:
-                columns = row.find_all('td')
-                flags = row.find('img', {'class': 'mw-file-element'})
-                if flags:
-                    nationality = flags['src']
-                if columns:
-                    driver_dict = {
-                        'name': parse_driver_name(columns[0].text.strip()),
-                        'nationality': nationality,
-                        'seasons_completed': columns[2].text.strip(),
-                        'championships': parse_championships(columns[3].text.strip()),
-                        'entries': parse_brackets(columns[4].text.strip()),
-                        'starts': parse_brackets(columns[5].text.strip()),
-                        'poles': parse_brackets(columns[6].text.strip()),
-                        'wins': parse_brackets(columns[7].text.strip()),
-                        'podiums': parse_brackets(columns[8].text.strip()),
-                        'fastest_laps': parse_brackets(columns[9].text.strip()),
-                        'points': parse_brackets(columns[10].text.strip())
-                    }
-                    driver_data.append(driver_dict)
-        except Exception as e:
-            message_embed.set_footer(f"Error getting data! {e}")
-
-        normalized_input = unidecode(driver).casefold()
-        # img_url = unidecode(driver).title()
-        wiki_image = get_wiki_image(driver)
-
-        # iterate through driver data to find a match
-        index = -1
-        for i in range(len(driver_data)):
-            normalized_name = unidecode(driver_data[i]['name']).casefold()
-            if normalized_name == normalized_input:
-                index = i
-                break
-        if index == -1:
-
-            message_embed.title = "Driver \"" + driver + "\" not found!"
-            message_embed.description = "Try a driver's full name!"
-            return message_embed
-            # message_embed.timestamp = datetime.now()
-            # message_embed.set_footer(text ='\u200b',icon_url="https://cdn.discordapp.com/attachments/884602392249770087/1059464532239581204/f1python128.png")
-        else:
-            if wiki_image != 0:
-                message_embed.set_image(url=wiki_image)
-                message_embed.set_thumbnail(
-                    url=f"https:{driver_data[index]['nationality']}")
-            message_embed.title = driver_data[index]['name']
-            message_embed.description = ""
-            message_embed.url = wikipedia.WikipediaPage(
-                title=wikipedia.search(driver, results=1)[0]).url
-            message_embed.add_field(
-                name="**Seasons Completed:** ", value=str(driver_data[index]['seasons_completed']))
-            message_embed.add_field(
-                name="**Championships:** ", value=str(driver_data[index]['championships']))
-            message_embed.add_field(
-                name="**Entries:** ", value=str(driver_data[index]['entries']))
-            message_embed.add_field(
-                name="**Starts:** ", value=str(driver_data[index]['starts']))
-            message_embed.add_field(
-                name="**Poles:** ", value=str(driver_data[index]['poles']))
-            message_embed.add_field(
-                name="**Wins:** ", value=str(driver_data[index]['wins']))
-            message_embed.add_field(
-                name="**Podiums:** ", value=str(driver_data[index]['podiums']))
-            message_embed.add_field(
-                name="**Fastest Laps:** ", value=str(driver_data[index]['fastest_laps']))
-            message_embed.add_field(
-                name="**Points:**", value=str(driver_data[index]['points']))
-
-            # message_embed.add_field(name = "Seasons Completed "+str(driver_data[index]['seasons_completed']),value=" ",inline = True)
-            # message_embed.add_field(name = ":trophy: Championships "+str(driver_data[index]['championships']),value=" ",inline = True)
-            # message_embed.add_field(name = ":checkered_flag: Entries "+str(driver_data[index]['entries']),value=" ",inline = True)
-            # message_embed.add_field(name = ":checkered_flag: Starts "+str(driver_data[index]['starts']),value=" ",inline = True)
-            # message_embed.add_field(name = ":stopwatch: Poles "+str(driver_data[index]['poles']),value=" ",inline = True)
-            # message_embed.add_field(name = ":first_place: Wins "+str(driver_data[index]['wins']),value=" ",inline = True)
-            # message_embed.add_field(name = ":medal: Podiums "+str(driver_data[index]['podiums']),value=" ",inline = True)
-            # message_embed.add_field(name = ":purple_square: Fastest Laps "+str(driver_data[index]['fastest_laps']),value=" ",inline = True)
-            # message_embed.add_field(name = ":chart_with_upwards_trend: Points "+str(driver_data[index]['points']),value=" ",inline = True)
-            # message_embed.timestamp = datetime.now()
-            # message_embed.set_footer(text ='\u200b',icon_url="https://cdn.discordapp.com/attachments/884602392249770087/1059464532239581204/f1python128.png")
-            # print(message_embed)
-            return message_embed
-    except:
-        print('Exception.')
-
-
-stat_map = {
-    'Starts': 'starts',
-    'Career Points': 'careerpoints',
-    'Wins': 'wins',
-    'Podiums': 'podiums',
-    'Poles': 'poles',
-    'Fastest Laps': 'fastestlaps',
-}
-
-
-def get_drivers_standings():
-    schedule = fastf1.get_event_schedule(
-        int(datetime.now().year), include_testing=False)
-    last_index = None
-    for index, row in schedule.iterrows():
-        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-            last_index = index
-
-    SEASON = curr_year
-    ROUND = last_index
-    ergast = Ergast()
-    standings = ergast.get_driver_standings(season=SEASON, round=ROUND)
-    return standings.content[0]
-
-
-def calculate_max_points_for_remaining_season():
-    curr_year = int(datetime.now().year)
-
-    schedule = fastf1.get_event_schedule(
-        int(datetime.now().year), include_testing=False)
-    last_index = None
-    for index, row in schedule.iterrows():
-        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-            last_index = index
-
-    SEASON = curr_year
-    ROUND = last_index
-    POINTS_FOR_SPRINT = 8 + 25 + 1  # Winning the sprint, race and fastest lap
-    POINTS_FOR_CONVENTIONAL = 25 + 1  # Winning the race and fastest lap
-    events = fastf1.events.get_event_schedule(SEASON)
-    events = events[events['RoundNumber'] > ROUND]
-
-    # Count how many sprints and conventional races are left
-    sprint_events = len(
-        events.loc[events["EventFormat"] == "sprint_qualifying"])
-    conventional_events = len(
-        events.loc[events["EventFormat"] == "conventional"])
-
-    # Calculate points for each
-    sprint_points = sprint_events * POINTS_FOR_SPRINT
-    conventional_points = conventional_events * POINTS_FOR_CONVENTIONAL
-
-    return sprint_points + conventional_points
-
-
-def calculate_who_can_win(driver_standings, max_points):
-    LEADER_POINTS = int(driver_standings.loc[0]['points'])
-
-    for i, _ in enumerate(driver_standings.iterrows()):
-        driver = driver_standings.loc[i]
-        driver_max_points = int(driver["points"]) + max_points
-        can_win = 'No' if driver_max_points < LEADER_POINTS else 'Yes'
-
-        driver_info = {
-            "Position": driver["position"],
-            "Driver": f"{driver['givenName']} {driver['familyName']}",
-            "Current Points": driver["points"],
-            "Theoretical max points": driver_max_points,
-            "Can win?": can_win
-        }
-
-        # Yield the dictionary for the driver
-        yield driver_info
-
-
-connection = sqlite3.connect('guild_roles.db')
-cursor = connection.cursor()
-
-# Create table to map guilds to roles
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS GuildRoles (
-        guild_id INTEGER NOT NULL,
-        role_id INTEGER NOT NULL,
-        PRIMARY KEY (guild_id, role_id)
-    )
-''')
-
-# Create table to map guilds to a single channel
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS GuildChannels (
-        guild_id INTEGER NOT NULL PRIMARY KEY,
-        channel_id INTEGER NOT NULL
-    )
-''')
-
-connection.commit()
-connection.close()
-
-
-def add_role_to_guild(guild_id, role_id):
-    connection = sqlite3.connect('guild_roles.db')
-    cursor = connection.cursor()
-
-    # Insert role_id if it doesn't exist
-    cursor.execute('''
-        INSERT OR IGNORE INTO GuildRoles (guild_id, role_id)
-        VALUES (?, ?)
-    ''', (guild_id, role_id))
-
-    connection.commit()
-    connection.close()
-
-
-def get_channel_and_roles_for_guild(guild_id):
-    connection = sqlite3.connect('guild_roles.db')
-    cursor = connection.cursor()
-
-    cursor.execute('''
-        SELECT channel_id FROM GuildChannels
-        WHERE guild_id = ?
-    ''', (guild_id,))
-
-    channel_id = cursor.fetchone()
-    if channel_id:
-        channel_id = channel_id[0]
-    else:
-        channel_id = None
-
-    cursor.execute('''
-        SELECT role_id FROM GuildRoles
-        WHERE guild_id = ?
-    ''', (guild_id,))
-
-    role_ids = [row[0] for row in cursor.fetchall()]
-    connection.close()
-
-    return channel_id, role_ids
-
-
-def remove_role_from_guild(guild_id, role_id):
-    connection = sqlite3.connect('guild_roles.db')
-    cursor = connection.cursor()
-
-    # Check if the role exists for the given guild_id
-    cursor.execute('''
-        SELECT 1 FROM GuildRoles
-        WHERE guild_id = ? AND role_id = ?
-    ''', (guild_id, role_id))
-
-    exists = cursor.fetchone()
-
-    if exists:
-        # Remove the role_id for the given guild_id
-        cursor.execute('''
-            DELETE FROM GuildRoles
-            WHERE guild_id = ? AND role_id = ?
-        ''', (guild_id, role_id))
-
-        connection.commit()
-        connection.close()
-        return True  # Indicate that the role was successfully removed
-    else:
-        connection.close()
-        return False  # Indicate that the role was not found in the database
 
 
 class Race(commands.Cog, guild_ids=Config().guilds):
@@ -409,21 +41,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     })
     async def radio(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(), round: options.RoundOption, session: options.SessionOption, year: options.SeasonOption3):
 
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         if str(round).isdigit():
             round = int(round)
@@ -517,7 +136,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
                 embed = discord.Embed(title=f"Team Radio list", description=f"1 to {length} refers to the chronological order of radios for this driver in the selected session",
                                       color=get_top_role_color(ctx.author))
-                msg = await ctx.respond(embed=embed, view=MyView())
+                msg = await ctx.respond(embed=embed, view=MyView(), ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Race Control data", integration_types={
         discord.IntegrationType.guild_install,
@@ -526,21 +145,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     async def racecontrol(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
                           session: options.SessionOption):
 
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
 
         from discord.ext.pages import Paginator, Page
         await utils.check_season(ctx, year)
@@ -578,24 +184,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     })
     async def stints(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
                      driver: options.DriverOption):
-
-        if type(round) == str and round.isdigit():
-            round = int(round)
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, 'R', laps=True, telemetry=True)
@@ -621,7 +211,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             title=f"Race Tyre Stints - {event['EventName']} ({event['EventDate'].year})", color=get_top_role_color(ctx.author)
         )
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="wdc-contenders", description="Shows a list of drivers who can still mathematically win the wdc.", integration_types={
         discord.IntegrationType.guild_install,
@@ -645,7 +235,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title='Theoretical WDC Contenders',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Result data for the session. Default last race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -663,24 +253,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             /results [year] [round] [session]
         """
 
-        if type(round) == str and round.isdigit():
-            round = int(round)
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
-
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, session, laps=True, telemetry=True, messages=True, weather=True)
 
@@ -695,7 +269,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f"{ev['EventDate'].year} {ev['EventName']} - {session}", color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="quizsetup")
     @default_permissions(administrator=True)
@@ -925,7 +499,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url=post.url)
         embed.set_footer(
             text=f"👍 {post.score} | 💬 {post.num_comments} | Posted by u/{post.author}")
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Race pitstops ranked by duration or filtered to a driver.", name="pitstops", integration_types={
         discord.IntegrationType.guild_install,
@@ -943,21 +517,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             /pitstops-ranked [season] [round] [filter]
         """
 
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         if not year == 'current':
             if int(year) < 2012:
                 raise commands.BadArgument(
@@ -983,7 +544,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Best ranked lap times per driver.", integration_types={
         discord.IntegrationType.guild_install,
@@ -999,21 +560,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         ----------
             /laptimes [season] [round] [tyre]
         """
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True)
@@ -1029,7 +577,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f"{event['EventDate'].year} {event['EventName']} Fastest Lap Times", color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(
         description="View fastest sectors and speed trap based on quick laps. Seasons >= 2018.", integration_types={
@@ -1039,22 +587,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     async def sectors(self, ctx: ApplicationContext, year: options.SeasonOption3,
                       round: options.RoundOption, tyre: options.TyreOption, session: options.SessionOption):
         """View min sector times and max speedtrap per driver. Based on recorded quicklaps only."""
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         ev = await stats.to_event(year, round)
+        await utils.check_season(ctx, year)
         yr, rd = ev["EventDate"].year, ev["RoundNumber"]
         s = await stats.load_session(ev, session, laps=True)
         data = stats.sectors(s, tyre)
@@ -1069,7 +605,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Sectors and Speed Trap: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Career stats for a driver. Enter Full Name of the driver.", integration_types={
         discord.IntegrationType.guild_install,
@@ -1080,7 +616,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         loop = asyncio.get_running_loop()
         result_embed = await loop.run_in_executor(None, get_driver, driver, ctx)
         # send final embed
-        await ctx.respond(embed=result_embed)
+        await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(
         name="track-incidents",
@@ -1091,21 +627,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     async def track_incidents(self, ctx: ApplicationContext,
                               year: options.SeasonOption3, round: options.RoundOption):
         """Outputs a table showing the lap number and event, such as Safety Car or Red Flag."""
-        if round == None and year == None or round == None and year == int(datetime.now().year):
-
-            schedule = fastf1.get_event_schedule(
-                int(datetime.now().year), include_testing=False)
-
-            for index, row in schedule.iterrows():
-
-                if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-                    number = row['RoundNumber']
-                    round = number
-        if year == None:
-            year = int(datetime.now().year)
-        if year < int(datetime.now().year) and round == None:
-            round = max(fastf1.get_event_schedule(
-                int(year), include_testing=False)['RoundNumber'])
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, "R", laps=True, messages=True)
@@ -1145,7 +668,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
             text=r"If you see erroneous data or want a detailed analysis of session events, use /racecontrol. No data represents the driver did not start the race.")
-        await ctx.respond(embed=embed, file=f)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
 
 def setup(bot: discord.Bot):

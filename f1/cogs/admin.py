@@ -1,25 +1,18 @@
-
+from f1.api.stats import roundnumber
 import asyncio
 import logging
-import sys
-import time
-import requests
 import discord
 from discord import ApplicationContext, Embed, default_permissions
 from discord.ext import commands
 from fastf1 import Cache as ff1_cache
-from io import BytesIO
-
-from f1 import utils
 from f1.api import fetch
-from f1.api.ergast import check_status
 from f1.config import Config
-from f1.target import MessageTarget
 from f1.api.stats import get_top_role_color
+from f1 import options
+from f1.api import stats
+import pandas as pd
+import sqlite3
 logger = logging.getLogger("f1-bot")
-
-# set global time bot started
-START_TIME = time.time()
 
 
 class Admin(commands.Cog, guild_ids=Config().guilds):
@@ -27,17 +20,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
     def __init__(self, bot: discord.Bot):
         self.bot = bot
-
-    
-
-    def get_uptime(self):
-        """Get running time since bot started. Return tuple (days, hours, minutes)."""
-        invoke_time = time.time()
-        uptime = invoke_time - START_TIME
-        days, rem = divmod(uptime, 86400)
-        hours, rem = divmod(rem, 3600)
-        mins, secs = divmod(rem, 60)
-        return (int(days), int(hours), int(mins), int(secs))
 
     async def _enable_cache(self, minutes: int):
         await asyncio.sleep(float(minutes * 60))
@@ -271,11 +253,65 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/reddit",
             value="Shows a random post from r/formuladank"
         )
+        emd.add_field(
+            name="/generate-cache",
+            value="Generates cache for a given f1 session and thus, speeds up some of the plotting functions.")
+        emd.add_field(
+            name="/silent-mode",
+            value="Makes the messages visible only to the user who issued the command.")
 
         embeds = [emd1, emd]
 
 # Send both embeds together in a single message
         await ctx.respond(embeds=embeds, ephemeral=True)
+
+    @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 session to speed up plotting.", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
+    async def cache(self,
+                    ctx: ApplicationContext, year: options.SeasonOption3,
+                    round: options.RoundOption, session: options.SessionOption):
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
+        await ctx.respond("Generating cache for the given session", ephemeral=True)
+        event = await stats.to_event(year, round)
+        s = await stats.load_session(event, session, laps=True, telemetry=True, weather=True, messages=True)
+
+    @commands.slash_command(name="silent-mode", description="Makes the messages visible only to the user who issued the command.")
+    @default_permissions(administrator=True)
+    async def ephemeral(self,
+                        ctx: ApplicationContext,
+                        silent_mode: options.EphemeralOption):
+        if ctx.guild.name is not None:
+            conn = sqlite3.connect("bot_settings.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                guild_id INTEGER PRIMARY KEY,
+                ephemeral_setting BOOLEAN NOT NULL
+            )
+            """)
+            conn.commit()
+            conn.close()
+            guild_id = ctx.guild.id
+
+    # Update the database with the setting
+            conn = sqlite3.connect("bot_settings.db")
+            cursor = conn.cursor()
+
+            cursor.execute("""
+            INSERT INTO settings (guild_id, ephemeral_setting)
+            VALUES (?, ?)
+            ON CONFLICT(guild_id) DO UPDATE SET ephemeral_setting = excluded.ephemeral_setting
+            """, (guild_id, silent_mode))
+
+            conn.commit()
+            conn.close()
+
+            await ctx.respond("Settings updated for this server!", ephemeral=True)
+        else:
+            await ctx.respond("You can only use this command after installing it on your server!", ephemeral=True)
 
 
 def setup(bot: discord.Bot):
