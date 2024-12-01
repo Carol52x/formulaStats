@@ -68,7 +68,7 @@ plottable==0.1.5
 prompt-toolkit==3.0.43
 psutil==5.9.8
 pure-eval==0.2.2
-py-cord==2.6.0
+py-cord==2.6.1
 pycodestyle==2.11.1
 pycord==0.1.1
 pycparser==2.21
