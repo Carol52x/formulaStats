@@ -14,6 +14,7 @@ from typing import Literal
 import discord
 import matplotlib.patheffects
 import fastf1
+from matplotlib.colors import to_rgba
 import fastf1.plotting
 import matplotlib
 import matplotlib.pyplot as plt
@@ -168,6 +169,12 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
 
     # Explore the lap data
     session.laps
+    circuit_info = session.get_circuit_info()
+    track_angle = circuit_info.rotation / 180 * np.pi
+    def rotate(xy, *, angle):
+        rot_mat = np.array([[np.cos(angle), np.sin(angle)],
+                            [-np.sin(angle), np.cos(angle)]])
+        return np.matmul(xy, rot_mat)
 
     if (d1 == None or d1 == ''):
         d1 = session.laps.pick_fastest()['Driver']
@@ -178,8 +185,8 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     driver_1 = d1
     driver_2 = d2
 
-    color_1 = 'green'
-    color_2 = 'red'
+    color_1 = fastf1.plotting.get_driver_color(driver_1, session=session)
+    color_2 = fastf1.plotting.get_driver_color(driver_2, session=session)
     # Find the laps
     laps_driver_1 = session.laps.pick_driver(driver_1)
     laps_driver_2 = session.laps.pick_driver(driver_2)
@@ -250,19 +257,34 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     x = np.array(telemetry['X'].values)
     y = np.array(telemetry['Y'].values)
 
-    # Convert the coordinates to points, and then concat them into segments
-    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    coords = np.column_stack((x, y))  # Combine x and y into a single array
+    rotated_coords = rotate(coords, angle=track_angle)
+    x_rotated, y_rotated = rotated_coords[:, 0], rotated_coords[:, 1]
+    points = np.array([x_rotated, y_rotated]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
     fastest_driver_array = telemetry['Fastest_driver_int'].to_numpy().astype(
         float)
 
     # The segments we just created can now be colored according to the fastest driver in a minisector
     cmap = ListedColormap([color_1, color_2])
+    rgba_colors = [to_rgba(color) for color in cmap.colors]
+
+# Check for identical colors and adjust alpha
+    adjusted_colors = []
+    for i, color in enumerate(rgba_colors):
+        if i > 0 and color[:3] == rgba_colors[i - 1][:3]:  # Compare RGB (ignore alpha for comparison)
+            # Reduce alpha if the colors are the same
+            new_color = (*color[:3], max(0, color[3] - 0.9))  # Reduce alpha by 0.5, ensure it's not negative
+        else:
+            new_color = color
+        adjusted_colors.append(new_color)
+
+    # Create a new colormap with adjusted colors
+    cmap = ListedColormap(adjusted_colors)
     lc_comp = LineCollection(
         segments, norm=plt.Normalize(1, cmap.N+1), cmap=cmap)
     lc_comp.set_array(fastest_driver_array)
     lc_comp.set_linewidth(5)
-
     # Create the plot
     plt.rcParams['figure.figsize'] = [18, 10]
     plt.rcParams["figure.autolayout"] = True
@@ -270,7 +292,6 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     # Plot the line collection and style the plot
     plt.gca().add_collection(lc_comp)
     plt.axis('equal')
-    plt.box(False)
     plt.tick_params(labelleft=False, left=False,
                     labelbottom=False, bottom=False)
 
