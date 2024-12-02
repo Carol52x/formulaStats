@@ -173,7 +173,10 @@ class Season(commands.Cog, guild_ids=Config().guilds):
     async def schedule(self, ctx):
         loop = asyncio.get_running_loop()
         message_embed = await loop.run_in_executor(None, schedule, ctx)
-        await ctx.respond(embed=message_embed, ephemeral=get_ephemeral_setting(ctx))
+        if type(message_embed) == str:
+            await ctx.respond(message_embed, ephemeral=get_ephemeral_setting(ctx))
+        else:
+            await ctx.respond(embed=message_embed, ephemeral=get_ephemeral_setting(ctx))
 
 
 def setup(bot: discord.Bot):
