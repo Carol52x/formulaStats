@@ -54,6 +54,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
+        if lap1 and int(lap1) > s.laps["LapNumber"].unique().max():
+            raise ValueError("Lap number out of range.")
+        if lap2 and int(lap2) > s.laps["LapNumber"].unique().max():
+            raise ValueError("Lap number out of range.")
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
         driver1, driver2 = drivers[0], drivers[1]
@@ -76,6 +80,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
+        if lap and int(lap) > s.laps["LapNumber"].unique().max():
+            raise ValueError("Lap number out of range.")
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
         driver1, driver2 = drivers[0], drivers[1]
@@ -234,6 +240,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         session = await stats.load_session(event, session, laps=True, telemetry=True)
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
+        if lap1 and int(lap1) > session.laps["LapNumber"].unique().max():
+            raise ValueError("Lap number out of range.")
+        if lap2 and int(lap2) > s.laps["LapNumber"].unique().max():
+            raise ValueError("Lap number out of range.")
         driver1, driver2 = drivers[0], drivers[1]
 
         loop = asyncio.get_running_loop()
@@ -713,6 +723,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
+        if lap and int(lap) > s.laps["LapNumber"].unique().max():
+            raise ValueError("Lap number out of range.")
         loop = asyncio.get_running_loop()
         f = await loop.run_in_executor(None, sectors_func, year, round, session, first, second, lap, event, s)
 
