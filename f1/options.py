@@ -112,7 +112,9 @@ SessionOption2 = Option(
     str,
     choices=[
         "Qualifying",
-        "Race"
+        "Race",
+        "Sprint",
+        "Sprint Qualifying/Sprint Shootout"
     ],
     default="Race",
     description="The session to view (default race)")

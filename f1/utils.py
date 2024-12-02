@@ -3,7 +3,6 @@ import logging
 from datetime import date, datetime
 from io import BytesIO
 from operator import itemgetter
-
 import matplotlib.pyplot as plt
 import pandas as pd
 from discord import ApplicationContext, Colour, File
@@ -12,11 +11,9 @@ from fastf1 import plotting
 from fastf1.core import Session
 from matplotlib.figure import Figure
 from tabulate import tabulate
-
 from f1.api.fetch import fetch
 from f1.config import CACHE_DIR
 from f1.errors import DriverNotFoundError, MessageTooLongError
-from f1.target import MessageTarget
 
 logger = logging.getLogger("f1-bot")
 
@@ -26,9 +23,8 @@ F1_RED = Colour.from_rgb(226, 36, 32)
 async def check_season(ctx: commands.Context | ApplicationContext, season):
     """Raise error if the given season is in the future. Otherwise returns the year as an int."""
     if is_future(season):
-        tgt = MessageTarget(ctx)
-        await tgt.send("Can't predict future :thinking:")
-        raise commands.BadArgument('Given season is in the future.')
+
+        await ctx.respond("Can't predict future! :thinking:", ephemeral=True)
 
 
 def convert_season(season):
@@ -333,12 +329,9 @@ def get_driver_or_team_color(id: str, session: Session, team_only=False, api_onl
             session.results["TeamName"] == id,
             "TeamColor"
         ].values[0])
-       
-    
-  
+
     if not api_only and (int(session.date.year) == current_year()):
-        
-       
+
         try:
             c = plotting.get_driver_color(id, session)
             return c
@@ -361,15 +354,15 @@ def map_track_status(status: str):
         "41": "SC ending",
         "124": "SC Deployed"
     }
-    
+
     # Initialize an empty list to collect descriptions
     descriptions = []
-    
+
     # Iterate over the keys in the dictionary
     for code, description in names.items():
         # Check if the code is in the status string
         if code in status:
             descriptions.append(description)
-    
+
     # Join descriptions with a comma or return "Unknown Status" if none found
     return ', '.join(descriptions) if descriptions else "Unknown Status"

@@ -83,7 +83,8 @@ class Config:
 
     def _get_guilds(self, debug=False):
         # Used for syncing slash commands instantly and limit bot scope
-        list_str = self.settings.get('GUILDS', 'LIST' if not debug else 'DEBUG')
+        list_str = self.settings.get(
+            'GUILDS', 'LIST' if not debug else 'DEBUG')
         if len(list_str) == 0:
             return None
         # Basic parsing of comma separated list of guilds
@@ -116,7 +117,8 @@ class Config:
                 # Base logger config
                 logger.propagate = False
                 logger.setLevel(level)
-                formatter = logging.Formatter('%(asctime)s %(name)s: %(levelname)8s %(message)s')
+                formatter = logging.Formatter(
+                    '%(asctime)s %(name)s: %(levelname)8s %(message)s')
 
                 # stdout log handler
                 console = logging.StreamHandler()
@@ -124,7 +126,8 @@ class Config:
                 logger.addHandler(console)
 
                 # log to file
-                file_handler = logging.FileHandler(LOG_FILE, encoding='utf-8', mode='w')
+                file_handler = logging.FileHandler(
+                    LOG_FILE, encoding='utf-8', mode='w')
                 file_handler.setFormatter(formatter)
                 logger.addHandler(file_handler)
 
@@ -139,7 +142,8 @@ class Config:
                     fastf1.set_log_level(logging.WARNING)
 
                 # suppress BS4 warning
-                warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
+                warnings.filterwarnings(
+                    'ignore', category=XMLParsedAsHTMLWarning)
 
                 return parsed
 

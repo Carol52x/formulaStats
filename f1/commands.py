@@ -10,8 +10,6 @@ import discord
 from discord.ext import commands
 from discord.activity import Activity, ActivityType
 from matplotlib import pyplot as plt
-
-from f1.target import MessageTarget
 from f1.config import Config
 
 logger = logging.getLogger("f1-bot")
@@ -69,23 +67,22 @@ async def handle_errors(ctx: commands.Context | discord.Interaction, err):
         f"Command failed: /{ctx.command} in {guild_name} {ctx.channel} by {ctx.user}")
     logger.error(f"Selected Options: {ctx.selected_options}")
     logger.error(f"Reason: {err}")
-    target = MessageTarget(ctx)
 
     # Catch TimeoutError
     if isinstance(err, asyncio.TimeoutError) or 'TimeoutError' in str(err):
-        await target.send("Response timed out. Check connection status.")
+        await ctx.respond("Response timed out. Check connection status.", ephemeral=True)
 
     # Invocation errors
     elif isinstance(err, discord.errors.ApplicationCommandInvokeError):
-        await target.send(f":x: {str(err.__cause__)}")
+        await ctx.respond(f":x: {str(err.__cause__)}", ephemeral=True)
 
     # Catch all other errors
     else:
         if isinstance(err, commands.CommandNotFound):
-            await target.send("Command not recognised.")
+            await ctx.respond("Command not recognised.", ephemeral=True)
         else:
-            await target.send(
-                f"Command failed: {err}"
+            await ctx.respond(
+                f"Command failed: {err}", ephemeral=True
             )
 
 
