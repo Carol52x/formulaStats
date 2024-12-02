@@ -18,16 +18,13 @@ import seaborn as sns
 from discord.commands import ApplicationContext
 from discord.ext import commands
 from matplotlib.collections import LineCollection
-from matplotlib.colors import  Normalize
+from matplotlib.colors import Normalize
 from f1.api.stats import roundnumber, sectors_func, tel_func, driver_func, const_func, time_func, heatmap_func, cornering_func, weather, h2h, averageposition
 from matplotlib.figure import Figure
 fastf1.plotting.setup_mpl(mpl_timedelta_support=True,
                           misc_mpl_mods=False, color_scheme='fastf1')
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 matplotlib.use('agg')
-
-request_delay = 0.5
-curr_year = int(datetime.datetime.now().year)
 
 logger = logging.getLogger("f1-bot")
 
@@ -57,6 +54,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
+        drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
+                   for d in (driver1, driver2)]
+        driver1, driver2 = drivers[0], drivers[1]
         loop = asyncio.get_running_loop()
         file = await loop.run_in_executor(None, cornering_func, year, round, session, driver1, driver2, lap1, lap2, distance1, distance2, event, s)
 
@@ -76,6 +76,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
+        drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
+                   for d in (driver1, driver2)]
+        driver1, driver2 = drivers[0], drivers[1]
         loop = asyncio.get_running_loop()
 
         file = await loop.run_in_executor(None, time_func, year, round, session, driver1, driver2, lap, event, s)
@@ -229,6 +232,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
         session = await stats.load_session(event, session, laps=True, telemetry=True)
+        drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
+                   for d in (driver1, driver2)]
+        driver1, driver2 = drivers[0], drivers[1]
 
         loop = asyncio.get_running_loop()
         # await interaction.followup.send(content='h2h')
@@ -238,7 +244,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
-            text="Please note that the Brake traces are in binary and therfore are not an accurate representation of the actual telemetry.")
+            text="Please note that the Brake traces are in binary and therfore are not an accurate representation of the actual telemetry.\nThere are also inherent inaccuracies with the way lap delta is calculated but at the moment there is no better way to calculate the said delta.")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="h2h", description="Head to Head stats.", integration_types={
@@ -249,6 +255,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         if year == None:
             year = int(datetime.datetime.now().year)
+        if session == "Sprint Qualifying/Sprint Shootout":
+            if year == 2023:
+                session = "Sprint Shootout"
+            else:
+                session = "Sprint Qualifying"
+        await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
         dc_embed, file = await loop.run_in_executor(None, h2h, year, session, ctx)
         await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
@@ -261,6 +273,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         if year == None:
             year = int(datetime.datetime.now().year)
+        if session == "Sprint Qualifying/Sprint Shootout":
+            if year == 2023:
+                session = "Sprint Shootout"
+            else:
+                session = "Sprint Qualifying"
         await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
         dc_embed, file = await loop.run_in_executor(None, averageposition, session, year, category, ctx)
@@ -958,6 +975,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, session, laps=True, telemetry=True)
+
         yr, rd = ev["EventDate"].year, ev["EventName"]
 
         # Check lap data support
@@ -974,6 +992,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Load each driver lap telemetry
         telemetry = {}
+        driver_laps = {}
         for d in drivers:
             try:
                 if lap:
@@ -981,15 +1000,17 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         d).pick_laps(int(lap)).iloc[0]
                 else:
                     driver_lap = s.laps.pick_drivers(d).pick_fastest()
+
                 telemetry[d] = driver_lap.get_car_data(
                     interpolate_edges=True).add_distance()
+                driver_laps[d] = driver_lap
             except Exception:
                 raise MissingDataError(f"Cannot get telemetry for {d}.")
 
         # Get interpolated delta between drivers
         # where driver2 is ref lap and driver1 is compared
-        delta = stats.compare_lap_telemetry_delta(
-            telemetry[drivers[1]], telemetry[drivers[0]])
+        delta = fastf1.utils.delta_time(
+            driver_laps[drivers[1]], driver_laps[drivers[0]])[0]
 
         # Mask the delta values to plot + green and - red
         ahead = np.ma.masked_where(delta >= 0., delta)
@@ -1016,6 +1037,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Driver lap delta: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
+        embed.set_footer(
+            text="Warning: This plot is actually not very accurate which is an inherent problem from the way this is calculated currently (There may not be a better way though.)")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="avg-lap-delta",

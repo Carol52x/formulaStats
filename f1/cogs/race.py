@@ -255,8 +255,9 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
+        await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
-        s = await stats.load_session(ev, session, laps=True, telemetry=True, messages=True, weather=True)
+        s = await stats.load_session(ev, session, laps=True, telemetry=False, messages=True, weather=False)
 
         data = await stats.format_results(s, session, year)
 

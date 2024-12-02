@@ -150,7 +150,11 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             last_round = last_index
         else:
             last_round = max(schedule.RoundNumber)
-        result = await ergast.get_team_standings(year, last_round)
+        try:
+            result = await ergast.get_team_standings(year, last_round)
+        except IndexError:
+            result = await ergast.get_team_standings(year, last_round-1)
+
         table, ax = stats.championship_table(result['data'], type="wcc")
         yr, rd = result['season'], result['round']
         ax.set_title(
