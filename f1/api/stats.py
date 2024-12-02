@@ -29,7 +29,7 @@ from discord.commands import ApplicationContext
 from fastf1.core import Lap, Laps, Session, SessionResults, Telemetry
 from fastf1.ergast import Ergast
 from fastf1.events import Event
-from f1 import  utils
+from f1 import utils
 from f1.api import ergast
 from f1.errors import MissingDataError
 from matplotlib.axes import Axes
@@ -198,10 +198,6 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
 
     telemetry_driver_1 = fastest_driver_1.get_telemetry()
     telemetry_driver_2 = fastest_driver_2.get_telemetry()
-
-    # Get the gap (delta time) between driver 1 and driver 2
-    delta_time, ref_tel, compare_tel = fastf1.utils.delta_time(
-        fastest_driver_1, fastest_driver_2)
 
     # Identify team colors
     team_driver_1 = laps_driver_1['Team'].iloc[0]
@@ -487,11 +483,6 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
     else:
         speed_text = f"{driver_2} {round(avg_speed_driver_2 - avg_speed_driver_1,2)}km/h faster"
 
-    ##############################
-    #
-    # Setting everything up
-    #
-    ##############################
     plt.rcParams["figure.figsize"] = [13, 4]
     plt.rcParams["figure.autolayout"] = True
 
@@ -503,12 +494,6 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
 
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(2)
-
-    ##############################
-    #
-    # Lineplot for speed
-    #
-    ##############################
 
     style1 = fastf1.plotting.get_driver_style(identifier=driver_1,
                                               style=['color', 'linestyle'],
@@ -544,11 +529,6 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
     ax[0].set(ylabel='Speed in km/h')
     ax[0].legend(loc="lower right")
 
-    ##############################
-    #
-    # Horizontal barplot for telemetry
-    #
-    ##############################
     for driver in [driver_1, driver_2]:
         driver_actions = all_actions.loc[all_actions['Driver'] == driver]
 
@@ -563,12 +543,6 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
 
             previous_action_end = previous_action_end + action['DistanceDelta']
 
-    ##############################
-    #
-    # Styling of the plot
-    #
-    ##############################
-    # Set x-label
     plt.xlabel('Track Distance in meters')
 
     # Invert y-axis
@@ -602,13 +576,13 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
 
     plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
                  d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")", size=20)
-    file = utils.plot_to_file(plt.gcf(), "plot")
+    file = utils.plot_to_file(fig, "plot")
     return file
 
 
 def heatmap_func(yr):
     ergast = Ergast()
-    races = ergast.get_race_schedule(yr)  # Races in year 2022
+    races = ergast.get_race_schedule(yr)
     results = []
     if yr == int(datetime.now().year):
         schedule = fastf1.get_event_schedule(yr, include_testing=False)
@@ -616,31 +590,52 @@ def heatmap_func(yr):
         for index, row in schedule.iterrows():
             if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
                 last_index = index
+        try:
+            for rnd, race in races['raceName'].items():
+                if rnd >= last_index:
+                    break
+                temp = ergast.get_race_results(season=yr, round=rnd + 1)
+                temp = temp.content[0]
 
-        for rnd, race in races['raceName'].items():
-            if rnd >= last_index:
-                break
-            temp = ergast.get_race_results(season=yr, round=rnd + 1)
-            temp = temp.content[0]
+        # If there is a sprint, get the results as well
+                sprint = ergast.get_sprint_results(season=yr, round=rnd + 1)
+                if sprint.content and sprint.description['round'][0] == rnd + 1:
+                    temp = pd.merge(
+                        temp, sprint.content[0], on='driverCode', how='left')
+            # Add sprint points and race points to get the total
+                    temp['points'] = temp['points_x'] + temp['points_y']
+                    temp.drop(columns=['points_x', 'points_y'], inplace=True)
 
-    # If there is a sprint, get the results as well
-            sprint = ergast.get_sprint_results(season=yr, round=rnd + 1)
-            if sprint.content and sprint.description['round'][0] == rnd + 1:
-                temp = pd.merge(
-                    temp, sprint.content[0], on='driverCode', how='left')
-        # Add sprint points and race points to get the total
-                temp['points'] = temp['points_x'] + temp['points_y']
-                temp.drop(columns=['points_x', 'points_y'], inplace=True)
+        # Add round no. and grand prix name
+                temp['round'] = rnd + 1
+                temp['race'] = race.removesuffix(' Grand Prix')
+                # Keep useful cols.
+                temp = temp[['round', 'race', 'driverCode', 'points']]
+                results.append(temp)
 
-    # Add round no. and grand prix name
-            temp['round'] = rnd + 1
-            temp['race'] = race.removesuffix(' Grand Prix')
-            # Keep useful cols.
-            temp = temp[['round', 'race', 'driverCode', 'points']]
-            results.append(temp)
+        except IndexError:
+            results = []
+            for rnd, race in races['raceName'].items():
+                if rnd >= last_index-1:
+                    break
+                temp = ergast.get_race_results(season=yr, round=rnd + 1)
+                temp = temp.content[0]
 
-    # Get results. Note that we use the round no. + 1, because the round no.
-    # starts from one (1) instead of zero (0)
+        # If there is a sprint, get the results as well
+                sprint = ergast.get_sprint_results(season=yr, round=rnd + 1)
+                if sprint.content and sprint.description['round'][0] == rnd + 1:
+                    temp = pd.merge(
+                        temp, sprint.content[0], on='driverCode', how='left')
+            # Add sprint points and race points to get the total
+                    temp['points'] = temp['points_x'] + temp['points_y']
+                    temp.drop(columns=['points_x', 'points_y'], inplace=True)
+
+        # Add round no. and grand prix name
+                temp['round'] = rnd + 1
+                temp['race'] = race.removesuffix(' Grand Prix')
+                # Keep useful cols.
+                temp = temp[['round', 'race', 'driverCode', 'points']]
+                results.append(temp)
 
     else:
         # For each race in the season
@@ -781,7 +776,7 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     ax.grid(True, alpha=0.1)
     ax.minorticks_on()
 
-    file = utils.plot_to_file(plt.gcf(), "plot")
+    file = utils.plot_to_file(fig, "plot")
     return file
 
 
@@ -835,7 +830,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     second_car = second_driver.get_car_data().add_distance()
 
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
-    fig, ax = plt.subplots(7, 1, figsize=(15, 10), gridspec_kw={
+    fig, ax = plt.subplots(7, 1, figsize=(15, 12), dpi=300, gridspec_kw={
         # Equal height for all subplots
         'height_ratios': [3, 3, 3, 3, 3, 3, 3],
         'hspace': 0.5  # Adjust spacing between subplots
@@ -849,10 +844,6 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
         lap2 = "Fastest Lap"
     else:
         lap2 = "Lap " + str(lap2)
-
-    # sn = session.event.get_session_name(sn)
-
-    # sn = session.event.get_session_name(sn)
 
     fig.suptitle(f"{yr} {event['EventName']}\n" +
                  drv1 + " (" + lap1 + ") vs " + drv2 + " (" + lap2 + ")", size=15)
@@ -904,7 +895,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
         delta.extend([float(delta_time[dt])*(-1)])
         dt += 1
 
-    ax[6].set_ylabel(drv1 + " ahead | " + drv2 + " ahead")
+    ax[6].set_ylabel(f"Delta (s)\n {drv1} | {drv2}")
 
     l2, = ax[0].plot(second_car['Distance'],
                      second_car['Speed'], **style2)
@@ -919,12 +910,12 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     ax[3].plot(first_car['Distance'], first_car['Throttle'], **style1)
     ax[6].plot(first_car['Distance'], delta, color='white')
 
-    ax[0].set_ylabel("Speed [km/h]")
-    ax[1].set_ylabel("RPM [#]")
-    ax[2].set_ylabel("Gear [#]")
-    ax[3].set_ylabel("Throttle [%]")
-    ax[4].set_ylabel(f"Brake [%]\n {drv2} | {drv1}")
-    ax[5].set_ylabel("DRS")
+    ax[0].set_ylabel("Speed (km/h)")
+    ax[1].set_ylabel("RPM (#)")
+    ax[2].set_ylabel("Gear (#)")
+    ax[3].set_ylabel("Throttle (%)")
+    ax[4].set_ylabel(f"Brake (%)\n {drv2} | {drv1}")
+    ax[5].set_ylabel("DRS (Binary)")
 
     ax[0].get_xaxis().set_ticklabels([])
     ax[1].get_xaxis().set_ticklabels([])
@@ -944,7 +935,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     ax[4].fill_between(first_car['Distance'], first_car['Brake'],
                        step="pre", **style1, alpha=1)
 
-    plt.subplots_adjust(left=0.06, right=0.99, top=0.9, bottom=0.05)
+    plt.subplots_adjust(left=0.15, right=0.99, top=0.9, bottom=0.05)
 
     ax[2].get_yaxis().set_major_locator(MaxNLocator(integer=True))
 
@@ -966,14 +957,13 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     ax[5].minorticks_on()
     ax[6].grid(which="minor", alpha=0.1)
     ax[6].minorticks_on()
-
-    image = io.BytesIO()
     plt.tight_layout()
-    file = utils.plot_to_file(plt.gcf(), "plot")
+    file = utils.plot_to_file(fig, "plot")
     return file
 
 
 def driver_func(yr):
+
     import datetime
     schedule = fastf1.get_event_schedule(yr, include_testing=False)
     if yr == int(datetime.datetime.now().year):
@@ -1003,44 +993,79 @@ def driver_func(yr):
     driver_team_mapping = {}
     driver_point_mapping = {}
 
-    # Initate a loop through all the rounds
-    for i in range(1, rounds + 1):
+    try:
+        for i in range(1, rounds + 1):
 
-        # Make request to driverStandings endpoint for the current round
-        race = client.ergast_retrieve(f'{yr}/{i}/driverStandings')
-        session = fastf1.get_session(yr, 1, 'R')
+            # Make request to driverStandings endpoint for the current round
+            race = client.ergast_retrieve(f'{yr}/{i}/driverStandings')
+            session = fastf1.get_session(yr, 1, 'R')
 
-        # Get the standings from the result
-        standings = race['StandingsTable']['StandingsLists'][0]['DriverStandings']
+            # Get the standings from the result
+            standings = race['StandingsTable']['StandingsLists'][0]['DriverStandings']
 
-        # Initiate a dictionary to store the current rounds' standings in
-        current_round = {'round': i}
+            # Initiate a dictionary to store the current rounds' standings in
+            current_round = {'round': i}
 
-        # Loop through all the drivers to collect their information
-        for i in range(len(standings)):
-            try:
-                driver = standings[i]['Driver']['code']
-            except:
-                driver = " ".join(word[0].upper()+word[1:] for word in (
-                    standings[i]['Driver']['driverId'].replace("_", " ")).split(" "))
-            try:
+            # Loop through all the drivers to collect their information
+            for i in range(len(standings)):
+                try:
+                    driver = standings[i]['Driver']['code']
+                except:
+                    driver = " ".join(word[0].upper()+word[1:] for word in (
+                        standings[i]['Driver']['driverId'].replace("_", " ")).split(" "))
+                try:
 
-                position = standings[i]['position']
-            except:
-                break
-            points = standings[i]['points']
+                    position = standings[i]['position']
+                except:
+                    break
+                points = standings[i]['points']
 
-            # Store the drivers' position
-            current_round[driver] = int(position)
+                # Store the drivers' position
+                current_round[driver] = int(position)
 
-            # Create mapping for driver-team to be used for the coloring of the lines
-            driver_team_mapping[driver] = standings[i]['Constructors'][0]['name']
+                # Create mapping for driver-team to be used for the coloring of the lines
+                driver_team_mapping[driver] = standings[i]['Constructors'][0]['name']
 
-            driver_point_mapping[driver] = points
+                driver_point_mapping[driver] = points
+            all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
+                current_round, index=[0])], ignore_index=True)
+    except IndexError:
+        for i in range(1, rounds):
 
-        # Append the current round to our fial dataframe
-        all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
-            current_round, index=[0])], ignore_index=True)
+            # Make request to driverStandings endpoint for the current round
+            race = client.ergast_retrieve(f'{yr}/{i}/driverStandings')
+            session = fastf1.get_session(yr, 1, 'R')
+
+            # Get the standings from the result
+            standings = race['StandingsTable']['StandingsLists'][0]['DriverStandings']
+
+            # Initiate a dictionary to store the current rounds' standings in
+            current_round = {'round': i}
+
+            # Loop through all the drivers to collect their information
+            for i in range(len(standings)):
+                try:
+                    driver = standings[i]['Driver']['code']
+                except:
+                    driver = " ".join(word[0].upper()+word[1:] for word in (
+                        standings[i]['Driver']['driverId'].replace("_", " ")).split(" "))
+                try:
+
+                    position = standings[i]['position']
+                except:
+                    break
+                points = standings[i]['points']
+
+                # Store the drivers' position
+                current_round[driver] = int(position)
+
+                # Create mapping for driver-team to be used for the coloring of the lines
+                driver_team_mapping[driver] = standings[i]['Constructors'][0]['name']
+
+                driver_point_mapping[driver] = points
+
+            all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
+                current_round, index=[0])], ignore_index=True)
 
     rounds = i
 
@@ -1134,7 +1159,7 @@ def driver_func(yr):
             textcoords="offset points"
         )
 
-    file = utils.plot_to_file(plt.gcf(), "plot")
+    file = utils.plot_to_file(fig, "plot")
     return file
 
 
@@ -1168,39 +1193,72 @@ def const_func(yr):
     constructor_team_mapping = {}
     constructor_point_mapping = {}
 
-    # Initate a loop through all the rounds
-    for i in range(1, rounds + 1):
-        try:
-            # Make request to driverStandings endpoint for the current round
-            race = client.ergast_retrieve(f'{yr}/{i}/constructorStandings')
+    try:
+        for i in range(1, rounds + 1):
+            try:
+                # Make request to driverStandings endpoint for the current round
+                race = client.ergast_retrieve(f'{yr}/{i}/constructorStandings')
 
-            # Get the standings from the result
-            standings = race['StandingsTable']['StandingsLists'][0]['ConstructorStandings']
+                # Get the standings from the result
+                standings = race['StandingsTable']['StandingsLists'][0]['ConstructorStandings']
 
-            # Initiate a dictionary to store the current rounds' standings in
-            current_round = {'round': i}
+                # Initiate a dictionary to store the current rounds' standings in
+                current_round = {'round': i}
 
-            # Loop through all the drivers to collect their information
-            for i in range(len(standings)):
-                constructor = standings[i]['Constructor']['name']
+                # Loop through all the drivers to collect their information
+                for i in range(len(standings)):
+                    constructor = standings[i]['Constructor']['name']
 
-                position = standings[i]['position']
+                    position = standings[i]['position']
 
-                points = standings[i]['points']
+                    points = standings[i]['points']
 
-                # Store the drivers' position
-                current_round[constructor] = int(position)
+                    # Store the drivers' position
+                    current_round[constructor] = int(position)
 
-                # Create mapping for driver-team to be used for the coloring of the lines
-                constructor_team_mapping[constructor] = standings[i]['Constructor']['name']
+                    # Create mapping for driver-team to be used for the coloring of the lines
+                    constructor_team_mapping[constructor] = standings[i]['Constructor']['name']
 
-                constructor_point_mapping[constructor] = points
+                    constructor_point_mapping[constructor] = points
 
-            # Append the current round to our fial dataframe
-            all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
-                current_round, index=[0])], ignore_index=True)
-        except:
-            break
+                # Append the current round to our fial dataframe
+                all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
+                    current_round, index=[0])], ignore_index=True)
+            except:
+                break
+    except IndexError:
+        for i in range(1, rounds):
+            try:
+                # Make request to driverStandings endpoint for the current round
+                race = client.ergast_retrieve(f'{yr}/{i}/constructorStandings')
+
+                # Get the standings from the result
+                standings = race['StandingsTable']['StandingsLists'][0]['ConstructorStandings']
+
+                # Initiate a dictionary to store the current rounds' standings in
+                current_round = {'round': i}
+
+                # Loop through all the drivers to collect their information
+                for i in range(len(standings)):
+                    constructor = standings[i]['Constructor']['name']
+
+                    position = standings[i]['position']
+
+                    points = standings[i]['points']
+
+                    # Store the drivers' position
+                    current_round[constructor] = int(position)
+
+                    # Create mapping for driver-team to be used for the coloring of the lines
+                    constructor_team_mapping[constructor] = standings[i]['Constructor']['name']
+
+                    constructor_point_mapping[constructor] = points
+
+                # Append the current round to our fial dataframe
+                all_championship_standings = pd.concat([all_championship_standings, pd.DataFrame(
+                    current_round, index=[0])], ignore_index=True)
+            except:
+                break
 
     all_championship_standings = all_championship_standings.set_index('round')
 
@@ -1298,7 +1356,7 @@ def const_func(yr):
 
     # Save the plot
     # plt.show()
-    file = utils.plot_to_file(plt.gcf(), "plot")
+    file = utils.plot_to_file(fig, "plot")
     return file
 
 
@@ -1311,23 +1369,53 @@ def h2h(year, session_type, ctx):
     driver_country = {}
     outstring = ''
     schedule = fastf1.get_event_schedule(year, include_testing=False)
-    if year == int(datetime.datetime.now().year):
-        max_index = roundnumber(None, year)[0]
+    if session_type == "Sprint" and year < 2023:
+        schedule = schedule[schedule['EventFormat'] == 'sprint']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint'
+    elif session_type == "Sprint" and year == 2023:
+        schedule = schedule[schedule['EventFormat'] == 'sprint_shootout']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_shootout'
+    elif session_type == "Sprint" and year >= 2024:
+        schedule = schedule[schedule['EventFormat'] == 'sprint_qualifying']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_qualifying'
+    elif session_type == "Sprint Shootout":
+        schedule = schedule[schedule['EventFormat'] == 'sprint_shootout']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_shootout'
+    elif session_type == "Sprint Qualifying":
+        schedule = schedule[schedule['EventFormat'] == 'sprint_qualifying']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_qualifying'
     else:
-        max_index = max(schedule.RoundNumber)
+        schedule = schedule
+        if year == int(datetime.datetime.now().year):
+            max_index = roundnumber(None, year)[0]
+        else:
+            max_index = max(schedule.RoundNumber)
+        result_setting = 'conventional'
+        scheduleiteration = range(min(schedule.RoundNumber), max_index)
 
-    for c in range(min(schedule.RoundNumber), max_index):
+    for c in scheduleiteration:
 
         session = fastf1.get_session(
             year, c, session_type)
-        session.load(laps=False, telemetry=False,
-                     weather=False, messages=False)
+        if result_setting in ['sprint_qualifying', 'sprint_shootout']:
+
+            session.load(laps=True, telemetry=False,
+                         weather=False, messages=True)
+        else:
+            session.load(laps=False, telemetry=False,
+                         weather=False, messages=False)
+
         results = session.results
         for i in check_list.keys():
             check_list.update({i: False})
 
-        for i in results['TeamId']:
-            team_results = results.loc[lambda df: df['TeamId'] == i]
+        for i in results['TeamName']:
+            team_results = results.loc[lambda df: df['TeamName'] == i]
 
             if len(team_results.index) < 2:
                 break
@@ -1355,7 +1443,7 @@ def h2h(year, session_type, ctx):
 
             # figure out which races to ignore
             both_drivers_finished = True
-            if (session_type == 'Race'):
+            if (session_type == 'Race' or session_type == 'Sprint'):
                 dnf = ['D', 'E', 'W', 'F', 'N']
                 for driver in team_results.index:
                     if ((team_results.loc[driver, 'ClassifiedPosition']) in dnf) or (not ((team_results.loc[driver, 'Status'] == 'Finished') or ('+' in team_results.loc[driver, 'Status']))):
@@ -1379,7 +1467,6 @@ def h2h(year, session_type, ctx):
                 team_list.get(i).get(pairing).update({curr_abbr: curr_value})
     data, colors, team_names = team_list, color_list, team_fullName
 
-    plt.clf()
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(1, figsize=(13, 9))
 
@@ -1408,9 +1495,6 @@ def h2h(year, session_type, ctx):
             else:
                 color = "#ffffff"
             ax.barh(pairing, driver_wins, color=color,)  # edgecolor = 'black')
-
-            ax.text(0, offset, team.replace("_", " ").title(), ha='center', fontsize=10,  path_effects=[
-                matplotlib.patheffects.withStroke(linewidth=2, foreground="black")])
 
             # label the bars
             for i in range(len(drivers)):
@@ -1470,22 +1554,50 @@ def h2h(year, session_type, ctx):
 def averageposition(session_type, year, category, ctx):
     import datetime
     schedule = fastf1.get_event_schedule(year=year, include_testing=False)
-    first_index = min(schedule.RoundNumber)
-    if year == int(datetime.datetime.now().year):
-        max_index = roundnumber(None, year)[0]
+    if session_type == "Sprint" and year < 2023:
+        schedule = schedule[schedule['EventFormat'] == 'sprint']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint'
+    elif session_type == "Sprint" and year == 2023:
+        schedule = schedule[schedule['EventFormat'] == 'sprint_shootout']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_shootout'
+    elif session_type == "Sprint" and year >= 2024:
+        schedule = schedule[schedule['EventFormat'] == 'sprint_qualifying']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_qualifying'
+    elif session_type == "Sprint Shootout":
+        schedule = schedule[schedule['EventFormat'] == 'sprint_shootout']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_shootout'
+    elif session_type == "Sprint Qualifying":
+        schedule = schedule[schedule['EventFormat'] == 'sprint_qualifying']
+        scheduleiteration = schedule['RoundNumber'].tolist()
+        result_setting = 'sprint_qualifying'
     else:
-        max_index = max(schedule.RoundNumber)
+        schedule = schedule
+        if year == int(datetime.datetime.now().year):
+            max_index = roundnumber(None, year)[0]
+        else:
+            max_index = max(schedule.RoundNumber)
+        result_setting = 'conventional'
+        scheduleiteration = range(min(schedule.RoundNumber), max_index)
     driver_positions = {}
     driver_average = {}
     driver_colors = {}
     driver_racesParticipated = {}
 
-    for i in range(first_index, max_index+1):
+    for i in scheduleiteration:
         event = fastf1.get_session(year, i, session_type)
-        event.load(laps=False, telemetry=False, weather=False, messages=False)
+        if result_setting in ['sprint_qualifying', 'sprint_shootout']:
+
+            event.load(laps=True, telemetry=False,
+                       weather=False, messages=True)
+        else:
+            event.load(laps=False, telemetry=False,
+                       weather=False, messages=False)
         results = event.results
         results.dropna(subset=['Position'], inplace=True)
-        # print(results)
 
         for driver in event.drivers:
             if (category == 'Drivers'):
@@ -1520,9 +1632,6 @@ def averageposition(session_type, year, category, ctx):
 
             driver_colors.update(
                 {currDriver_abbreviation: results.loc[driver, 'TeamColor']})
-    # print(driver_positions)
-    # print(driver_colors)
-    # print(driver_racesParticipated)
     for key in driver_positions.keys():
         try:
             driver_average.update({key: driver_positions.get(
@@ -1530,7 +1639,6 @@ def averageposition(session_type, year, category, ctx):
         except:
             print('div by 0')
     driver_positions, driver_colors = driver_average, driver_colors
-    plt.clf()
     driver_positions = dict(
         sorted(driver_positions.items(), key=lambda x: x[1]))
 
@@ -1573,13 +1681,9 @@ def averageposition(session_type, year, category, ctx):
     ax.spines['right'].set_visible(False)
     ax.minorticks_off()
 
-    # testing for possible median bars
-    # plt.barh("VER", 5, color='none', edgecolor='blue', hatch="/", linewidth=1,alpha=0.6)
     annotated = False
     for driver in driver_positions.keys():
         curr_color = driver_colors.get(driver)
-        # print(curr_color)
-        # print(curr_color == 'nan')
         if ((curr_color != 'nan') and (curr_color != '')):
             plt.barh(driver, driver_positions.get(
                 driver), color=f'#{curr_color}')
@@ -1594,8 +1698,6 @@ def averageposition(session_type, year, category, ctx):
     for i, position in enumerate(driver_positions.values()):
         ax.text(position + 0.1, i,
                 f"   {str(round(position,2))}", va='center',  fontsize=20)
-
-    plt.rcParams['savefig.dpi'] = 300
     file = utils.plot_to_file(fig, "image")
     description = "DNS/DNF excluded from calculation"
     title = f"Average {category} {session_type} Finish Position {year}"
@@ -1644,12 +1746,11 @@ def schedule(ctx):
         if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
             number = row['RoundNumber']
             next_event = number+1
+    out_string = "No more Racing for this season!"
 
+    if (len(schedule) < next_event):
+        raise IndexError
     try:
-
-        if (len(schedule) <= next_event):
-            raise IndexError
-
         race_name = schedule.loc[next_event, "EventName"]
 
         message_embed.title = "Race Schedule for " + race_name
@@ -1671,10 +1772,6 @@ def schedule(ctx):
                 f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
                 f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
             }
-
-        time_until = schedule.loc[next_event, "Session5Date"].tz_convert(
-            'America/New_York') - now.tz_localize('America/New_York')
-        out_string = countdown(time_until.total_seconds())
 
         location = schedule.loc[next_event, "Location"]
 
@@ -1703,10 +1800,9 @@ def schedule(ctx):
         message_embed.set_image(url=get_circuit_image(
             location, country).replace(" ", "%20"))
 
-    except:
+        return message_embed
+    except IndexError:
         return out_string
-
-    return message_embed
 
 
 def get_circuit_image(location, country):
@@ -1940,7 +2036,6 @@ def get_drivers_standings():
 
 
 def calculate_max_points_for_remaining_season():
-    curr_year = int(datetime.now().year)
 
     schedule = fastf1.get_event_schedule(
         int(datetime.now().year), include_testing=False)
@@ -2280,8 +2375,6 @@ async def format_results(session: Session, name: str, year):
     res_df['Driver'] = res_df['Driver'].str.replace("_", " ")
     res_df['Driver'] = res_df['Driver'].str.title()
 
-    # FP1, FP2, FP3
-    ###############
     if _session_type == "P":
         # Reload the session to fetch missing lap info
         await asyncio.to_thread(session.load, laps=True, telemetry=False,
@@ -2311,8 +2404,6 @@ async def format_results(session: Session, name: str, year):
 
         return fp
 
-    # QUALI / SS
-    ############
     if _session_type == "Q":
         res_df["Pos"] = res_df["Pos"].astype(int)
         qs_res = res_df.loc[:, ["Pos", "Code",
@@ -2324,9 +2415,6 @@ async def format_results(session: Session, name: str, year):
 
         del res_df
         return qs_res
-
-    # RACE / SPRINT
-    ###############
 
     # Get leader finish time
     leader_time = res_df["Time"].iloc[0]
@@ -2646,32 +2734,6 @@ def pos_change(session: Session):
         "Start", "Finish", "Diff"]].astype(int)
 
     return diff
-
-
-def compare_lap_telemetry_delta(ref_lap: Telemetry, comp_lap: Telemetry) -> np.ndarray:
-    """Takes two lap `Telemetry` and returns an array with the time delta
-    in seconds between `comp_lap` and `ref_lap` for each data sample.
-
-    E.g. negative values = ref ahead
-
-    Values are interpolated based on "Distance" samples.
-    """
-
-    if not any("Distance" in df.columns for df in (ref_lap, comp_lap)):
-        ref_lap = ref_lap.add_distance()
-        comp_lap = comp_lap.add_distance()
-
-    # Convert Time to seconds for interpolation
-    ref_times = ref_lap["Time"].dt.total_seconds().to_numpy()
-    comp_times = comp_lap["Time"].dt.total_seconds().to_numpy()
-
-    # Interpolates the comp_lap times to fill missing samples from ref_lap
-    # so they can be compared without NaT if the shapes are not equal
-    comp_interp = np.interp(
-        ref_lap["Distance"].values, comp_lap["Distance"].values, comp_times)
-
-    del ref_lap, comp_lap
-    return comp_interp - ref_times
 
 
 def get_dnf_results(session: Session):
