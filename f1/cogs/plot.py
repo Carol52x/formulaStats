@@ -291,6 +291,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         """Get a color coded Gear shift changes track mapping """
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
+
         # Load laps and telemetry data
         await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
@@ -298,45 +299,60 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if not session.f1_api_support:
             raise MissingDataError("Lap data not available before 2018.")
 
-        # Filter laps to the driver's fastest and get telemetry for the lap
+        # Get circuit info and rotation angle
+        circuit_info = session.get_circuit_info()
+        track_angle = circuit_info.rotation / 180 * np.pi
+        def rotate(xy, *, angle):
+            rot_mat = np.array([[np.cos(angle), np.sin(angle)],
+                                [-np.sin(angle), np.cos(angle)]])
+            return np.matmul(xy, rot_mat)
 
+        # Filter laps to the driver's fastest and get telemetry for the lap
         lap = session.laps.pick_fastest()
         tel = lap.get_telemetry()
         x = np.array(tel['X'].values)
         y = np.array(tel['Y'].values)
+
+        # Rotate the track coordinates
+        coords = np.column_stack((x, y))  # Combine x and y into a single array
+        rotated_coords = rotate(coords, angle=track_angle)
+        x_rotated, y_rotated = rotated_coords[:, 0], rotated_coords[:, 1]
+
+        # Prepare for visualization
         cmap = colormaps['Paired']
-        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        points = np.array([x_rotated, y_rotated]).T.reshape(-1, 1, 2)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         gear = tel['nGear'].to_numpy().astype(float)
 
-# Create a figure and subplot
+        # Create a figure and subplot
         fig, ax = plt.subplots(sharex=True, sharey=True)
 
-# Create a LineCollection
+        # Create a LineCollection
         lc_comp = LineCollection(
             segments, norm=plt.Normalize(1, cmap.N+1), cmap=cmap)
         lc_comp.set_array(gear)
         lc_comp.set_linewidth(4)
 
-# Add the LineCollection to the subplot
+        # Add the LineCollection to the subplot
         ax.add_collection(lc_comp)
 
-# Set axis properties
+        # Set axis properties
         ax.axis('equal')
         ax.tick_params(labelleft=False, left=False, labelbottom=False)
 
-# Set title
+        # Set title
         title = plt.suptitle(
             f"Fastest Lap Gear Shift Visualization\n"
             f"{lap['Driver']} - {session.event['EventName']} {session.event.year}"
         )
 
-# Add colorbar
+        # Add colorbar
         cbar = plt.colorbar(mappable=lc_comp, label="Gear",
                             boundaries=np.arange(1, 10))
         cbar.set_ticks(np.arange(1.5, 9.5))
         cbar.set_ticklabels(np.arange(1, 9))
 
+        # Save the plot to a file
         file = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'Gear Shift plot: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
@@ -348,9 +364,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def tyre_strats(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
-        await utils.check_season(ctx, year)
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
+        await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
         session.load()
@@ -655,14 +671,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         speed = car["Speed"]
         del lap, car
 
-        fig = Figure(figsize=(12, 8), dpi=DPI, layout="constrained")
-        ax = fig.subplots(sharex=True, sharey=True)
-        ax.axis("off")
+        fig, ax = plt.subplots(sharex=True, sharey=True)
 
         # Plot the track and map segments to colors
         ax.plot(rotated_pos_x, rotated_pos_y, color="black",
                 linestyle="-", linewidth=8, zorder=0)
         ax.axis('equal')
+        ax.tick_params(labelleft=False, left=False, labelbottom=False)
 
         norm = Normalize(speed.min(), speed.max())
         lc = LineCollection(segs, cmap="plasma", norm=norm,
@@ -670,11 +685,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         lc.set_array(speed)
         speed_line = ax.add_collection(lc)
 
-        # Add the color bar at a better position
+        
         # Adjusted for more spacing
-        cax = fig.add_axes([0.25, 0.02, 0.5, 0.025])
-        fig.colorbar(speed_line, cax=cax, location="bottom",
-                     label="Speed (km/h)")
+        
+        plt.colorbar(lc, label="Speed (km/h)")
 
         fig.suptitle(
             f"{drv_id} Track Speed - {ev['EventDate'].year} {ev['EventName']}", size=16)
