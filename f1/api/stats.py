@@ -2032,6 +2032,9 @@ def get_drivers_standings():
     ROUND = last_index
     ergast = Ergast()
     standings = ergast.get_driver_standings(season=SEASON, round=ROUND)
+    if standings.content == []: #check for late updates of ergast data
+        standings = ergast.get_driver_standings(season=SEASON, round=ROUND-1)
+
     return standings.content[0]
 
 
@@ -2046,8 +2049,8 @@ def calculate_max_points_for_remaining_season():
 
     SEASON = int(datetime.now().year)
     ROUND = last_index
-    POINTS_FOR_SPRINT = 8 + 25 + 1  # Winning the sprint, race and fastest lap
-    POINTS_FOR_CONVENTIONAL = 25 + 1  # Winning the race and fastest lap
+    POINTS_FOR_SPRINT = 8 + 25  
+    POINTS_FOR_CONVENTIONAL = 25 
     events = fastf1.events.get_event_schedule(SEASON)
     events = events[events['RoundNumber'] > ROUND]
 
@@ -2188,7 +2191,7 @@ def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
 
     """
     try:
-        default_ephemeral = True
+        default_ephemeral = False
         if ctx.guild.name is not None:
             guild_id = ctx.guild_id
 
@@ -2210,7 +2213,7 @@ def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
         else:
             return True
     except:
-        return True
+        return False
 
 
 def get_session_type(name: str):
@@ -2459,8 +2462,16 @@ async def filter_pitstops(year, round, filter: str = None, driver: str = None) -
         ff1_erg.get_pit_stops,
         season=year, round=round,
         driver=driver, limit=1000)
+    res_fallback = await asyncio.to_thread(
+        ff1_erg.get_pit_stops,
+        season=year, round=round-1,
+        driver=driver, limit=1000)
+    
+    if res.content == [] and year == int(datetime.now().year):
+        data = res_fallback.content[0]
 
-    data = res.content[0]
+    else:
+        data = res.content[0]
 
     # Group the rows
     # Show all stops for a driver, which can then be filtered
