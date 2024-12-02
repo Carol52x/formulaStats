@@ -289,10 +289,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
     })
     async def gear(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
         """Get a color coded Gear shift changes track mapping """
-        await utils.check_season(ctx, year)
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         # Load laps and telemetry data
+        await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
         if not session.f1_api_support:
