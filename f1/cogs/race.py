@@ -218,24 +218,28 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def whocanwinwdc(self, ctx: ApplicationContext):
+        try:
 
-        loop = asyncio.get_running_loop()
-        driver_standings = await loop.run_in_executor(None, get_drivers_standings)
+            loop = asyncio.get_running_loop()
+            driver_standings = await loop.run_in_executor(None, get_drivers_standings)
 
-# Get the maximum amount of points
-        points = await loop.run_in_executor(None, calculate_max_points_for_remaining_season)
+    # Get the maximum amount of points
+            points = await loop.run_in_executor(None, calculate_max_points_for_remaining_season)
 
-        contenders = []
+            contenders = []
 
-    # Iterate over the generator object and extract the relevant information
-        for contender in await loop.run_in_executor(None, calculate_who_can_win, driver_standings, points):
-            contenders.append(contender)
-        a = stats.plot_chances(contenders)
-        f = utils.plot_to_file(a, "plot")
-        embed = discord.Embed(title='Theoretical WDC Contenders',
-                              color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+        # Iterate over the generator object and extract the relevant information
+            for contender in await loop.run_in_executor(None, calculate_who_can_win, driver_standings, points):
+                contenders.append(contender)
+            a = stats.plot_chances(contenders)
+            f = utils.plot_to_file(a, "plot")
+            embed = discord.Embed(title='Theoretical WDC Contenders',
+                                color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Season has finished or is yet to start!", ephemeral=get_ephemeral_setting(ctx))
+
 
     @commands.slash_command(description="Result data for the session. Default last race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -520,10 +524,9 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
-        if not year == 'current':
-            if int(year) < 2012:
-                raise commands.BadArgument(
-                    message="Pitstop data unavailable before 2012.")
+        
+        if int(year) < 2012:
+            await ctx.respond('Pitstop data is not available for seasons before 2012.', ephemeral=True)
         await utils.check_season(ctx, year)
 
         # Get event info to match race name idenfifiers from command
