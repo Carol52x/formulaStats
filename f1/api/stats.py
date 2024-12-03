@@ -188,8 +188,8 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     color_1 = fastf1.plotting.get_driver_color(driver_1, session=session)
     color_2 = fastf1.plotting.get_driver_color(driver_2, session=session)
     # Find the laps
-    laps_driver_1 = session.laps.pick_driver(driver_1)
-    laps_driver_2 = session.laps.pick_driver(driver_2)
+    laps_driver_1 = session.laps.pick_drivers(driver_1)
+    laps_driver_2 = session.laps.pick_drivers(driver_2)
 
     if (lap1 == None or lap1 == ''):
         fastest_driver_1 = laps_driver_1.pick_fastest()
@@ -406,7 +406,7 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
     # Setting parameters
     driver_1, driver_2 = d1, d2
 
-    car_data = laps.pick_driver(
+    car_data = laps.pick_drivers(
         driver_1).pick_fastest().get_car_data().add_distance()
     dist = car_data['Distance']
     maxdist = dist[len(dist)-1]
@@ -423,8 +423,8 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
     distance_min, distance_max = dist1, dist2
 
     # Extracting the laps
-    laps_driver_1 = laps.pick_driver(driver_1)
-    laps_driver_2 = laps.pick_driver(driver_2)
+    laps_driver_1 = laps.pick_drivers(driver_1)
+    laps_driver_2 = laps.pick_drivers(driver_2)
 
     if (lap1 == None or lap1 == ''):
         telemetry_driver_1 = laps_driver_1.pick_fastest().get_car_data().add_distance()
@@ -755,9 +755,9 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
 
     while (i < len(drivers)):
         if (lap == None or lap == ''):
-            fast = session.laps.pick_driver(drivers[i]).pick_fastest()
+            fast = session.laps.pick_drivers(drivers[i]).pick_fastest()
         else:
-            driver_laps = session.laps.pick_driver(drivers[i])
+            driver_laps = session.laps.pick_drivers(drivers[i])
             fast = driver_laps[driver_laps['LapNumber'] == int(lap)].iloc[0]
         car_data = fast.get_car_data()
         t = car_data['Time']
@@ -816,7 +816,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     drv1 = d1
     drv2 = d2
 
-    first_driver = laps.pick_driver(drv1)
+    first_driver = laps.pick_drivers(drv1)
     first_driver_info = session.get_driver(drv1)
     my_styles = [
         {'linestyle': 'solid', 'color': 'auto', 'custom_arg': True},
@@ -830,20 +830,20 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
                                               style=['color', 'linestyle'],
                                               session=session)
 
-    second_driver = laps.pick_driver(drv2)
+    second_driver = laps.pick_drivers(drv2)
     second_driver_info = session.get_driver(drv2)
 
     if (lap1 == None or lap1 == ''):
-        first_driver = laps.pick_driver(drv1).pick_fastest()
+        first_driver = laps.pick_drivers(drv1).pick_fastest()
     else:
-        driver_laps = session.laps.pick_driver(drv1)
+        driver_laps = session.laps.pick_drivers(drv1)
         first_driver = driver_laps[driver_laps['LapNumber'] == int(
             lap1)].iloc[0]
 
     if (lap2 == None or lap2 == ''):
-        second_driver = laps.pick_driver(drv2).pick_fastest()
+        second_driver = laps.pick_drivers(drv2).pick_fastest()
     else:
-        driver_laps = session.laps.pick_driver(drv2)
+        driver_laps = session.laps.pick_drivers(drv2)
         second_driver = driver_laps[driver_laps['LapNumber'] == int(
             lap2)].iloc[0]
 
