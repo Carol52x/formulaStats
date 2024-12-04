@@ -38,13 +38,6 @@ async def on_ready():
     await watcher.start()
 
 
-@bot.event
-async def on_message(message: discord.Message):
-    if re.match(r'^' + bot.command_prefix + r'?\s*$', message.content):
-        await message.reply(f"No subcommand provided. Try {bot.command_prefix}help [command].")
-    await bot.process_commands(message)
-
-
 def handle_command(ctx: commands.Context | discord.Interaction):
     if ctx.guild:
         guild_name = ctx.guild.name
