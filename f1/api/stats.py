@@ -171,6 +171,7 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     session.laps
     circuit_info = session.get_circuit_info()
     track_angle = circuit_info.rotation / 180 * np.pi
+
     def rotate(xy, *, angle):
         rot_mat = np.array([[np.cos(angle), np.sin(angle)],
                             [-np.sin(angle), np.cos(angle)]])
@@ -272,9 +273,11 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
 # Check for identical colors and adjust alpha
     adjusted_colors = []
     for i, color in enumerate(rgba_colors):
-        if i > 0 and color[:3] == rgba_colors[i - 1][:3]:  # Compare RGB (ignore alpha for comparison)
+        # Compare RGB (ignore alpha for comparison)
+        if i > 0 and color[:3] == rgba_colors[i - 1][:3]:
             # Reduce alpha if the colors are the same
-            new_color = (*color[:3], max(0, color[3] - 0.9))  # Reduce alpha by 0.5, ensure it's not negative
+            # Reduce alpha by 0.5, ensure it's not negative
+            new_color = (*color[:3], max(0, color[3] - 0.9))
         else:
             new_color = color
         adjusted_colors.append(new_color)
@@ -2053,7 +2056,7 @@ def get_drivers_standings():
     ROUND = last_index
     ergast = Ergast()
     standings = ergast.get_driver_standings(season=SEASON, round=ROUND)
-    if standings.content == []: #check for late updates of ergast data
+    if standings.content == []:  # check for late updates of ergast data
         standings = ergast.get_driver_standings(season=SEASON, round=ROUND-1)
 
     return standings.content[0]
@@ -2070,8 +2073,8 @@ def calculate_max_points_for_remaining_season():
 
     SEASON = int(datetime.now().year)
     ROUND = last_index
-    POINTS_FOR_SPRINT = 8 + 25  
-    POINTS_FOR_CONVENTIONAL = 25 
+    POINTS_FOR_SPRINT = 8 + 25
+    POINTS_FOR_CONVENTIONAL = 25
     events = fastf1.events.get_event_schedule(SEASON)
     events = events[events['RoundNumber'] > ROUND]
 
@@ -2221,10 +2224,12 @@ def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
             cursor = conn.cursor()
 
             try:
-                cursor.execute("SELECT ephemeral_setting FROM settings WHERE guild_id = ?", (guild_id,))
+                cursor.execute(
+                    "SELECT ephemeral_setting FROM settings WHERE guild_id = ?", (guild_id,))
                 result = cursor.fetchone()
                 if result is not None:
-                    return bool(result[0])  # Return the fetched ephemeral setting
+                    # Return the fetched ephemeral setting
+                    return bool(result[0])
                 else:
                     return default_ephemeral  # Guild not found, return default
             except Exception as e:
@@ -2232,7 +2237,7 @@ def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
             finally:
                 conn.close()
         else:
-            return True
+            return False
     except:
         return False
 
@@ -2487,7 +2492,7 @@ async def filter_pitstops(year, round, filter: str = None, driver: str = None) -
         ff1_erg.get_pit_stops,
         season=year, round=round-1,
         driver=driver, limit=1000)
-    
+
     if res.content == [] and year == int(datetime.now().year):
         data = res_fallback.content[0]
 
@@ -2509,10 +2514,8 @@ async def filter_pitstops(year, round, filter: str = None, driver: str = None) -
     df["duration"] = df["duration"].transform(
         lambda x: f"{x.total_seconds():.3f}")
 
-    # Add driver abbreviations and numbers from driver info dict
-    df[["No", "Code"]] = df.apply(lambda x: pd.Series({
-        "No": drv_info[x.driverId]["permanentNumber"],
-        "Code": drv_info[x.driverId]["code"],
+    df["Code"] = df.apply(lambda x: pd.Series({
+        "Code": drv_info[x.driverId]["code"]
     }), axis=1)
 
     # Get row indices for best/worst stop if provided
