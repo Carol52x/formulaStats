@@ -2661,6 +2661,7 @@ def fastest_laps(session: Session, tyre: str = None):
     fastest["LapTime"] = fastest["LapTime"].apply(
         lambda x: utils.format_timedelta(x))
     fastest[["Lap", "ST"]] = fastest[["Lap", "ST"]].fillna(0.0).astype(int)
+    fastest.dropna(subset=['Tyre'], inplace=True)
 
     return fastest.loc[:, ["Rank", "Driver", "LapTime", "Delta", "Lap", "Tyre", "ST"]]
 
