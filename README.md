@@ -1,46 +1,46 @@
 # formulaStats
 
-Discord bot to view F1 stats. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot)
+formulaStats is a discord bot implementation to view F1 statistics and other visuals inside discord embeds via slash commands. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot). formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1), [Jolpica/Ergast API (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1) and [openf1](https://github.com/br-g/openf1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.
 
 
+## Usage
+
+Invite the bot via [this link](https://discord.com/oauth2/authorize?client_id=1290361750520070225). You have the option to either add it your account (which allows you to use the bot anywhere, including DMs) or to a server. Please note that quiz functionality and toggling silent mode (aka ephemeral messaging) is only available when you add it to a server and you **require** adminstrator privileges in the server to use these features for safety measures. When you add it to a server, the silent-mode is enabled by default, unless disabled by any adminstrator. Use `/help` to find the command list. While using the slash commands, the  `year` parameter is the current season, the `round` parameter is the last *completed* race weekend and the `session` parameter is the main race, when left blank. Other commands have extra parameters where the default parameters are documentioned on the description area.
+
+## Some Notes
+
+Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. There are some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therfore, will be mentioned in the embed footer, if any. Potential bugs can be reported via opening an issue on this repository or DMing `carol520` on discord.
+
+`/quiz` can only work after issuing `/quizsetup` and following the prompts, by an admin in the server. Same goes for `/silent-mode` as mentioned previously.
 
 
-## Installation
+## Running your own instance
 
-The application requires **Python 3.11+**. 
+If you wish to run your own instance of the bot, here is an example setup of running the bot locally with python's virtual environment:
+
+**Setting things up**
+The application requires **Python 3.11+**, **FFmpeg**, **reddit developer credentials (for the `/reddit`command)** and other dependencies as mentioned in the `requirements.txt` file.
 
 ```bash
 git clone https://github.com/Carol52x/formulaStats.git
 cd formulaStats/
-poetry shell
-pip install -r requirements.txt --no-deps
-```
-
-
-**After install**:
+````
 
 Rename `.env.example` to `.env`
+Fill in `.env` file and optionally, optionally configure in `config.ini`
 
-Fill in `.env` file and optionally, configure in `config.ini`
+```bash
+python -m venv f1bot 
+f1bot\Scripts\activate
+pip install -r requirements.txt
+python -m main
+```
 
-## Usage
-
-To start the bot run `python -m main`. This will attempt to connect using the env Token (see installation above).
-
-The console will display log messages according to the level specified in `config.ini` and also output to `logs/f1-bot.log`.
-
-Edit `config.ini` to change message display behaviour or restrict the bot to certain Guilds - this will only sync slash commands to the listed servers rather than being globally available (note this will prevent commands being accessible via DM). There may be a delay or some commands missing as Discord syncs the commands to your server.
-
-### Cache
-
-The application relies on caching both to speed up command processing and to respect API limits. Additionally the FastF1 library includes its own data cache.
+**After install**
 
 A `/cache` directory will be created in the project root when the bot is running. This may become large over time with session telemetry (~100 MB per race weekend). You can manually delete the `/cache` folder or specific subfolders, or a script is provided in the root directory: `python -m flushcache`. Make sure the bot is not running. A new cache will be created during the next startup.
 
 
-# Commands
 
 
-
-The bot uses Discord slash commands. Once the commands have synced with your Guild or user, they can be accessed with `/command-name`.
 
