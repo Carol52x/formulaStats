@@ -11,7 +11,7 @@ You have the option to either add it your account (which allows you to use the b
 
 ## Some Notes
 
-Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therfore, will be mentioned in the embed footer, if any. 
+Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therefore, will be mentioned in the embed footer, if any. 
 
 `/quiz` can only work after issuing `/quizsetup` and following the prompts, by an admin in the server. Same goes for `/silent-mode` as mentioned previously. Please note `/quiz` requires media permissions in the channel it is supposed to send a quiz in.
 
@@ -25,7 +25,7 @@ If you wish to run your own instance of the bot, here is an example setup of run
 
 **Setting things up**
 
-The application requires **Python 3.11+**, **FFmpeg**, **reddit developer credentials (for the `/reddit`command)** and other dependencies as mentioned in the `requirements.txt` file.
+The application requires **Python 3.11+**, **FFmpeg**, **Reddit developer credentials (for the `/reddit`command which uses [PRAW](https://github.com/praw-dev/asyncpraw)** and other dependencies as mentioned in the `requirements.txt` file.
 
 ```bash
 git clone https://github.com/Carol52x/formulaStats.git
