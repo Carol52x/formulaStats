@@ -11,7 +11,7 @@ Invite the bot via [this link](https://discord.com/oauth2/authorize?client_id=12
 
 Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therfore, will be mentioned in the embed footer, if any. 
 
-`/quiz` can only work after issuing `/quizsetup` and following the prompts, by an admin in the server. Same goes for `/silent-mode` as mentioned previously.
+`/quiz` can only work after issuing `/quizsetup` and following the prompts, by an admin in the server. Same goes for `/silent-mode` as mentioned previously. Please note `/quiz` requires media permissions in the channel it is supposed to send a quiz in.
 
 Potential bugs can be reported via opening an issue on this repository or DMing `carol520` on discord.
 
@@ -42,7 +42,7 @@ python -m main
 
 **After install**
 
-A `/cache` directory will be created in the project root when the bot is running. This may become large over time with session telemetry (~100 MB per race weekend). You can manually delete the `/cache` folder or specific subfolders, or a script is provided in the root directory: `python -m flushcache`. Make sure the bot is not running. A new cache will be created during the next startup. Some temp media files can also be generated if `/radio` is used and logs are stored in a `.txt` file in the logs folder.
+A `/cache` directory will be created in the project root when the bot is running. This may become large over time with session telemetry (~100 MB per race weekend). You can manually delete the `/cache` folder or specific subfolders, or a script is provided in the root directory: `python -m flushcache`. Make sure the bot is not running. A new cache will be created during the next startup. Some temp media files can also be generated if `/radio` is used and logs are stored in a `.txt` file in the logs folder. `bot_settings.db` and `guild_roles.db` are generated when `/silent-mode` and `/quizsetup` are used, respectively.
 
 
 
