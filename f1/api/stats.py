@@ -2199,23 +2199,10 @@ def remove_role_from_guild(guild_id, role_id):
 
 
 def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
-    """
-    Fetch the ephemeral setting for a guild.
-    If the guild ID doesn't exist in the database, return the default value (False).
-
-    Args:
-        guild_id (int): The ID of the guild.
-
-    Returns:
-        bool: The ephemeral setting for the guild (True or False).
-
-    """
     try:
-        default_ephemeral = False
+        default_ephemeral = True
         if ctx.guild.name is not None:
             guild_id = ctx.guild_id
-
-            # Default value if guild is not found
             conn = sqlite3.connect("bot_settings.db")
             cursor = conn.cursor()
 
@@ -2235,7 +2222,7 @@ def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
         else:
             return False
     except:
-        return False
+        return True
 
 
 def get_session_type(name: str):
