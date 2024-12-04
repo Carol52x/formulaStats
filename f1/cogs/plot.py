@@ -312,6 +312,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Get circuit info and rotation angle
         circuit_info = session.get_circuit_info()
         track_angle = circuit_info.rotation / 180 * np.pi
+
         def rotate(xy, *, angle):
             rot_mat = np.array([[np.cos(angle), np.sin(angle)],
                                 [-np.sin(angle), np.cos(angle)]])
@@ -391,13 +392,21 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         stints = stints.groupby(["Driver", "Stint", "Compound", "FreshTyre"])
         stints = stints.count().reset_index()
         stints = stints.rename(columns={"LapNumber": "StintLength"})
+        stints = stints[stints["Compound"] != "UNKNOWN"]
         fig, ax = plt.subplots(figsize=(10, 10))
-
+        added_compounds = set()
         for driver in drivers:
             driver_stints = stints.loc[stints["Driver"] == driver]
 
             previous_stint_end = 0
             for idx, row in driver_stints.iterrows():
+                compound = row["Compound"]
+        # Skip adding the compound to the legend if it has already been added
+                if compound not in added_compounds:
+                    added_compounds.add(compound)
+                    label = compound  # Set the label for the first occurrence
+                else:
+                    label = ""
                 hatch = '' if row["FreshTyre"] else '/'
                 plt.barh(
                     y=driver,
@@ -406,7 +415,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                     color=fastf1.plotting.get_compound_color(
                         row["Compound"], session),
                     edgecolor="black",
-                    hatch=hatch
+                    hatch=hatch,
+                    label=label
                 )
                 previous_stint_end += row["StintLength"]
 
@@ -418,6 +428,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
+        plt.legend(title="Compounds")
         plt.tight_layout()
         file = utils.plot_to_file(plt.gcf(), "plot")
         embed = discord.Embed(title=f'Tyre Strategies: {ev.EventName}',
@@ -611,7 +622,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load laps and telemetry data
         ev = await stats.to_event(year, round)
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        driver_laps = race.laps.pick_driver(
+        driver_laps = race.laps.pick_drivers(
             driver[0:3].upper()).pick_quicklaps().reset_index()
         fig, ax = plt.subplots(figsize=(8, 8))
 
@@ -695,9 +706,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         lc.set_array(speed)
         speed_line = ax.add_collection(lc)
 
-        
         # Adjusted for more spacing
-        
+
         plt.colorbar(lc, label="Speed (km/h)")
 
         fig.suptitle(
