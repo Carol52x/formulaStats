@@ -31,6 +31,7 @@ cd formulaStats/
 ````
 
 Rename `.env.example` to `.env`
+
 Fill in `.env` file and optionally configure in `config.ini`
 
 ```bash
