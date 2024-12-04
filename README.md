@@ -25,7 +25,7 @@ If you wish to run your own instance of the bot, here is an example setup of run
 
 **Setting things up**
 
-The application requires **Python 3.11+**, **FFmpeg**, **Reddit developer credentials (for the `/reddit`command which uses [PRAW](https://github.com/praw-dev/asyncpraw)** and other dependencies as mentioned in the `requirements.txt` file.
+The application requires **Python 3.11+**, **FFmpeg**, **Reddit developer credentials (for the `/reddit`command which uses [PRAW](https://github.com/praw-dev/asyncpraw))** and other dependencies as mentioned in the `requirements.txt` file.
 
 ```bash
 git clone https://github.com/Carol52x/formulaStats.git
