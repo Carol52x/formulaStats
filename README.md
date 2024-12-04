@@ -9,9 +9,12 @@ Invite the bot via [this link](https://discord.com/oauth2/authorize?client_id=12
 
 ## Some Notes
 
-Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therfore, will be mentioned in the embed footer, if any. Potential bugs can be reported via opening an issue on this repository or DMing `carol520` on discord.
+Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therfore, will be mentioned in the embed footer, if any. 
 
 `/quiz` can only work after issuing `/quizsetup` and following the prompts, by an admin in the server. Same goes for `/silent-mode` as mentioned previously.
+
+Potential bugs can be reported via opening an issue on this repository or DMing `carol520` on discord.
+
 
 
 ## Running your own instance
@@ -19,6 +22,7 @@ Some data (particularly which are sourced from Jolpica/Ergast API) take a day or
 If you wish to run your own instance of the bot, here is an example setup of running the bot locally with python's virtual environment:
 
 **Setting things up**
+
 The application requires **Python 3.11+**, **FFmpeg**, **reddit developer credentials (for the `/reddit`command)** and other dependencies as mentioned in the `requirements.txt` file.
 
 ```bash
