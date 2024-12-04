@@ -5,7 +5,9 @@ formulaStats is a discord bot implementation to view F1 statistics and other vis
 
 ## Usage
 
-Invite the bot via [this link](https://discord.com/oauth2/authorize?client_id=1290361750520070225). You have the option to either add it your account (which allows you to use the bot anywhere, including DMs) or to a server. Please note that quiz functionality and toggling silent mode (aka ephemeral messaging) is only available when you add it to a server and you **require** adminstrator privileges in the server to use these features for safety measures. When you add it to a server, the silent-mode is enabled by default, unless disabled by any adminstrator. Use `/help` to find the command list. While using the slash commands, the  `year` parameter is the current season, the `round` parameter is the last *completed* race weekend and the `session` parameter is the main race, when left blank. Other commands have extra parameters where the default parameters are documentioned in the description area. 
+Invite the bot via [this link](https://discord.com/oauth2/authorize?client_id=1290361750520070225). 
+
+You have the option to either add it your account (which allows you to use the bot anywhere, including DMs) or to a server. Please note that quiz functionality and toggling silent mode (aka ephemeral messaging) is only available when you add it to a server and you **require** adminstrator privileges in the server to use these features for safety measures. When you add it to a server, the silent-mode is enabled by default, unless disabled by any adminstrator. Use `/help` to find the command list. While using the slash commands, the  `year` parameter is the current season, the `round` parameter is the last *completed* race weekend and the `session` parameter is the main race, when left blank. Other commands have extra parameters where the default parameters are documentioned in the description area. 
 
 ## Some Notes
 
