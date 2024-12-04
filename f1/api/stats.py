@@ -45,6 +45,7 @@ from requests.packages.urllib3.util.retry import Retry
 from unidecode import unidecode
 from windrose import WindroseAxes
 import wikipedia
+import fitz
 fastf1.plotting.setup_mpl(mpl_timedelta_support=True,
                           misc_mpl_mods=False, color_scheme='fastf1')
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
