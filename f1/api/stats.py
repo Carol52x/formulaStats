@@ -1800,12 +1800,6 @@ def schedule(ctx):
             }
 
         location = schedule.loc[next_event, "Location"]
-
-        for key in converted_session_times.keys():
-            date_object = converted_session_times.get(
-                key).tz_convert('America/New_York')
-            converted_session_times.update({key: date_object})
-
         sessions_string = ''
         times_string = ''
 
