@@ -31,7 +31,7 @@ cd formulaStats/
 ````
 
 Rename `.env.example` to `.env`
-Fill in `.env` file and optionally, optionally configure in `config.ini`
+Fill in `.env` file and optionally configure in `config.ini`
 
 ```bash
 python -m venv f1bot 
