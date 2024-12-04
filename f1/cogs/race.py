@@ -234,11 +234,12 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             a = stats.plot_chances(contenders)
             f = utils.plot_to_file(a, "plot")
             embed = discord.Embed(title='Theoretical WDC Contenders',
-                                  color=get_top_role_color(ctx.author))
+                                color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         except:
             await ctx.respond("Season has finished or is yet to start!", ephemeral=get_ephemeral_setting(ctx))
+
 
     @commands.slash_command(description="Result data for the session. Default last race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -332,149 +333,144 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                 role.id in role_ids for role in ctx.author.roles)
 
             if not has_specific_role:
-                await ctx.respond("You don't have permissions to create a quiz.", ephemeral=True)
+                await ctx.respond("You don't have permission to create a quiz.", ephemeral=True)
                 return
 
-            try:
-                channel = ctx.guild.get_channel(channel_id)
+            # Fetch the channel to send the quiz
+            channel = ctx.guild.get_channel(channel_id)
+            await ctx.respond("Quiz Created!", ephemeral=True)
 
-                class QuizButton(Button):
-                    def __init__(self, label, style, answer):
-                        super().__init__(label=label, style=style)
-                        self.answer = answer
-                        count = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0, '4️⃣': 0}
-                        self.count = count
+            class QuizButton(Button):
+                def __init__(self, label, style, answer):
+                    super().__init__(label=label, style=style)
+                    self.answer = answer
+                    count = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0, '4️⃣': 0}
+                    self.count = count
 
-                    async def callback(self, interaction: discord.Interaction):
-                        await interaction.response.send_message(f"You selected {self.label}", ephemeral=True)
-                        self.view.selected_answer = self.label
-                        self.view.user_responses[interaction.user] = self.label
-                        self.count[self.label] += 1
+                async def callback(self, interaction: discord.Interaction):
+                    await interaction.response.send_message(f"You selected {self.label}", ephemeral=True)
+                    self.view.selected_answer = self.label
+                    self.view.user_responses[interaction.user] = self.label
+                    self.count[self.label] += 1
 
-                class QuizView(View):
+            class QuizView(View):
 
-                    def __init__(self, answer):
-                        super().__init__()
-                        self.answer = answer
-                        self.user_responses = defaultdict(int)
+                def __init__(self, answer):
+                    super().__init__()
+                    self.answer = answer
+                    self.user_responses = defaultdict(int)
 
-                    async def on_timeout(self):
-                        # Create a new view for displaying results
-                        result_view = View()
-                        option_counts = defaultdict(int)
+                async def on_timeout(self):
+                    # Create a new view for displaying results
+                    result_view = View()
+                    option_counts = defaultdict(int)
 
-                        # Count the responses
-                        for option in self.user_responses.values():
-                            option_counts[option] += 1
+                    # Count the responses
+                    for option in self.user_responses.values():
+                        option_counts[option] += 1
 
-                        # Update button styles and labels
-                        for item in self.children:
-                            if isinstance(item, QuizButton):
+                    # Update button styles and labels
+                    for item in self.children:
+                        if isinstance(item, QuizButton):
 
-                                style = discord.ButtonStyle.success if item.label == self.answer else discord.ButtonStyle.danger
-                                label = f"{item.label} ({item.count.get(item.label)})"
-                                result_view.add_item(QuizButton(
-                                    label=label, style=style, answer=item.answer))
+                            style = discord.ButtonStyle.success if item.label == self.answer else discord.ButtonStyle.danger
+                            label = f"{item.label} ({item.count.get(item.label)})"
+                            result_view.add_item(QuizButton(
+                                label=label, style=style, answer=item.answer))
 
-                        # Edit the message to remove the countdown field
-                        for item in result_view.children:
-                            if isinstance(item, QuizButton):
-                                item.disabled = True
+                    # Edit the message to remove the countdown field
+                    for item in result_view.children:
+                        if isinstance(item, QuizButton):
+                            item.disabled = True
 
-                        # Edit the message to remove the countdown field
-                        if self.message:
-                            embed = self.message.embeds[0]
+                    # Edit the message to remove the countdown field
+                    if self.message:
+                        embed = self.message.embeds[0]
 
-                            for index, field in enumerate(embed.fields):
-                                if "Time Remaining" in field.name:
-                                    embed.remove_field(index)
-                                    break
-                            if embed.image:
+                        for index, field in enumerate(embed.fields):
+                            if "Time Remaining" in field.name:
+                                embed.remove_field(index)
+                                break
+                        if embed.image:
 
-                                img_data1 = await image.read()
-                                img1 = discord.File(io.BytesIO(
-                                    img_data1), filename="quiz_image.png")
-                                embed.set_image(url="attachment://quiz_image.png")
-                                await self.message.edit(embed=embed, file=img1, view=result_view)
-                            else:
-                                await self.message.edit(embed=embed, view=result_view)
-                # Send quiz embed with custom question and options
-                embed = discord.Embed(title="You only have 10 seconds to answer!",
-                                      description=f"**{question}**", color=discord.Color.blurple())
-                embed.set_author(name='FormulaOne Quiz')
-                embed.add_field(name="1️⃣", value=option1, inline=False)
-                embed.add_field(name="2️⃣", value=option2, inline=False)
-                embed.add_field(name="3️⃣", value=option3, inline=False)
-                embed.add_field(name="4️⃣", value=option4, inline=False)
+                            img_data1 = await image.read()
+                            img1 = discord.File(io.BytesIO(
+                                img_data1), filename="quiz_image.png")
+                            embed.set_image(url="attachment://quiz_image.png")
+                            await self.message.edit(embed=embed, file=img1, view=result_view)
+                        else:
+                            await self.message.edit(embed=embed, view=result_view)
+            # Send quiz embed with custom question and options
+            embed = discord.Embed(title="You only have 10 seconds to answer!",
+                                  description=f"**{question}**", color=discord.Color.blurple())
+            embed.set_author(name='FormulaOne Quiz')
+            embed.add_field(name="1️⃣", value=option1, inline=False)
+            embed.add_field(name="2️⃣", value=option2, inline=False)
+            embed.add_field(name="3️⃣", value=option3, inline=False)
+            embed.add_field(name="4️⃣", value=option4, inline=False)
 
-            # Create the embed with the countdown timestamp
+        # Create the embed with the countdown timestamp
 
-                embed.set_footer(
-                    text='Only first 5 users to answer correctly are mentioned!')
-                # Set timestamp for live countdown
+            embed.set_footer(
+                text='Only first 5 users to answer correctly are mentioned!')
+            # Set timestamp for live countdown
 
-                embed2 = discord.Embed(title="Quiz starting in 10 seconds!",
-                                       description="", color=discord.Color.blurple())
+            embed2 = discord.Embed(title="Quiz starting in 10 seconds!",
+                                   description="", color=discord.Color.blurple())
+            await channel.send(embed=embed2, delete_after=10)
+            future_time = int(time.time()) + 20
+            embed.add_field(name="Time Remaining",
+                            value=f"<t:{future_time}:R>", inline=False)
+            await asyncio.sleep(10)
 
-                await channel.send(embed=embed2, delete_after=10)
-                await ctx.respond("Quiz Created!", ephemeral=True)
-                future_time = int(time.time()) + 20
-                embed.add_field(name="Time Remaining",
-                                value=f"<t:{future_time}:R>", inline=False)
-                await asyncio.sleep(10)
+            if image:
+                img_data = await image.read()
+                img = discord.File(io.BytesIO(img_data), filename="quiz_image.png")
+                embed.set_image(url="attachment://quiz_image.png")
 
-                if image:
-                    img_data = await image.read()
-                    img = discord.File(io.BytesIO(img_data),
-                                       filename="quiz_image.png")
-                    embed.set_image(url="attachment://quiz_image.png")
+            view = QuizView(answer)
+            buttons = [
+                QuizButton(
+                    label="1️⃣", style=discord.ButtonStyle.primary, answer=option1),
+                QuizButton(
+                    label="2️⃣", style=discord.ButtonStyle.primary, answer=option2),
+                QuizButton(
+                    label="3️⃣", style=discord.ButtonStyle.primary, answer=option3),
+                QuizButton(
+                    label="4️⃣", style=discord.ButtonStyle.primary, answer=option4)
+            ]
+            for button in buttons:
+                view.add_item(button)
 
-                view = QuizView(answer)
-                buttons = [
-                    QuizButton(
-                        label="1️⃣", style=discord.ButtonStyle.primary, answer=option1),
-                    QuizButton(
-                        label="2️⃣", style=discord.ButtonStyle.primary, answer=option2),
-                    QuizButton(
-                        label="3️⃣", style=discord.ButtonStyle.primary, answer=option3),
-                    QuizButton(
-                        label="4️⃣", style=discord.ButtonStyle.primary, answer=option4)
-                ]
-                for button in buttons:
-                    view.add_item(button)
+            if image:
+                quiz_message = await channel.send(embed=embed, file=img, view=view)
+            else:
+                quiz_message = await channel.send(embed=embed, view=view)
 
-                if image:
-                    quiz_message = await channel.send(embed=embed, file=img, view=view)
-                else:
-                    quiz_message = await channel.send(embed=embed, view=view)
+            await asyncio.sleep(10)
+            await view.on_timeout()
 
-                await asyncio.sleep(10)
-                await view.on_timeout()
+            correct_answers = 0
+            winners = []
+            for user, user_answer in view.user_responses.items():
+                if user_answer == answer:
+                    winners.append(user)
+                    correct_answers += 1
 
-                correct_answers = 0
-                winners = []
-                for user, user_answer in view.user_responses.items():
-                    if user_answer == answer:
-                        winners.append(user)
-                        correct_answers += 1
+            winner_embed = discord.Embed(
+                title="Quiz Results", color=discord.Color.blurple())
+            if not fact:
+                fact = ""
+            d = {"1️⃣": option1, "2️⃣": option2, "3️⃣": option3, "4️⃣": option4}
+            if correct_answers == 0:
+                winner_embed.description = f"No one answered correctly. The correct answer was **||{d.get(answer)}. {fact}||**"
+            else:
+                winner_embed.description = f"The correct answer was **||{d.get(answer)}. {fact}||**. {correct_answers} {'person' if correct_answers == 1 else 'people'} answered correctly:"
+                for i, winner in enumerate(winners):
+                    if i < 5:  # Mention up to 5 winners
+                        winner_embed.description += f"\n{i + 1}. {winner.mention}"
 
-                winner_embed = discord.Embed(
-                    title="Quiz Results", color=discord.Color.blurple())
-                if not fact:
-                    fact = ""
-                d = {"1️⃣": option1, "2️⃣": option2,
-                     "3️⃣": option3, "4️⃣": option4}
-                if correct_answers == 0:
-                    winner_embed.description = f"No one answered correctly. The correct answer was **||{d.get(answer)}. {fact}||**"
-                else:
-                    winner_embed.description = f"The correct answer was **||{d.get(answer)}. {fact}||**. {correct_answers} {'person' if correct_answers == 1 else 'people'} answered correctly:"
-                    for i, winner in enumerate(winners):
-                        if i < 5:  # Mention up to 5 winners
-                            winner_embed.description += f"\n{i + 1}. {winner.mention}"
-
-                await quiz_message.reply(embed=winner_embed)
-            except discord.Forbidden:
-                await ctx.respond(f"I don't have enough permissions to send quizzes to <#{channel_id}>. I require media permissions for that!", ephemeral=True)
+            await quiz_message.reply(embed=winner_embed)
         else:
             await ctx.respond("Install this bot in your server to access quiz features!", ephemeral=True)
 
@@ -528,7 +524,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
-
+        
         if int(year) < 2012:
             await ctx.respond('Pitstop data is not available for seasons before 2012.', ephemeral=True)
         await utils.check_season(ctx, year)

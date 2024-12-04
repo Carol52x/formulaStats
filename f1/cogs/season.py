@@ -82,13 +82,15 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         await check_season(ctx, year)
 
         calender = await ergast.get_race_schedule2(year)
-        table, ax = stats.plot_race_schedule(calender['data'])
+        table, ax = stats.plot_race_schedule(calender['data'], year)
         ax.set_title(f"{year} Calender").set_fontsize(12)
         f = utils.plot_to_file(table, "plot")
 
         embed = discord.Embed(
             title=f'Calender {year}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
+        if year > 2020:
+            embed.set_footer(text="The highlighted events are Sprint weekends.")
 
         await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
@@ -177,6 +179,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             await ctx.respond(message_embed, ephemeral=get_ephemeral_setting(ctx))
         else:
             await ctx.respond(embed=message_embed, ephemeral=get_ephemeral_setting(ctx))
+
 
 
 def setup(bot: discord.Bot):
