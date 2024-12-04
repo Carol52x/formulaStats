@@ -10,6 +10,7 @@ import aiohttp
 from f1 import utils
 from f1.api.fetch import fetch, BASE_URL
 from f1.errors import MissingDataError
+import fastf1
 
 
 logger = logging.getLogger("f1-bot")
@@ -392,19 +393,7 @@ async def get_race_schedule2(year):
             'season': standings['season'],
             'data': []
         }
-        if not year < 2005:
-            
-            for race in races:
-                results['data'].append(
-                    {
-                        'Round': int(race['round']),
-                        'Circuit': race['Circuit']['circuitName'],
-                        'Date': utils.date_parser(race['date']),
-                        'Time': utils.time_parser(race['time']),
-                        'Country': race['Circuit']['Location']['country']
-                    }
-                )
-        else:
+        if year < 2005:
             for race in races:
                 results['data'].append(
                     {
@@ -415,6 +404,34 @@ async def get_race_schedule2(year):
                         'Country': race['Circuit']['Location']['country']
                     }
                 )
+            
+            
+        elif year > 2020:
+            
+            for race in races:
+                eventformat=fastf1.get_event_schedule(year, include_testing=False).get_event_by_round(int(race['round']))
+                results['data'].append(
+                    {
+                        'Round': int(race['round']),
+                        'Circuit': race['Circuit']['circuitName'],
+                        'Date': utils.date_parser(race['date']),
+                        'Time': utils.time_parser(race['time']),
+                        'Country': race['Circuit']['Location']['country'],
+                        'Event Format' : eventformat['EventFormat']
+                    }
+                )
+        else:
+            for race in races:
+                results['data'].append(
+                    {
+                        'Round': int(race['round']),
+                        'Circuit': race['Circuit']['circuitName'],
+                        'Date': utils.date_parser(race['date']),
+                        'Time': utils.time_parser(race['time']),
+                        'Country': race['Circuit']['Location']['country']
+                    }
+                )
+        
         return results
     raise MissingDataError()
 

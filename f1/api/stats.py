@@ -2199,8 +2199,19 @@ def remove_role_from_guild(guild_id, role_id):
 
 
 def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
+    """
+    Fetch the ephemeral setting for a guild.
+    If the guild ID doesn't exist in the database, return the default value (False).
+
+    Args:
+        guild_id (int): The ID of the guild.
+
+    Returns:
+        bool: The ephemeral setting for the guild (True or False).
+
+    """
     try:
-        default_ephemeral = True
+        default_ephemeral = False
         if ctx.guild.name is not None:
             guild_id = ctx.guild_id
 
@@ -2906,9 +2917,10 @@ def championship_table(data: list[dict], type: Literal["wcc", "wdc"]) -> tuple[F
     return table.figure, table.ax
 
 
-def plot_race_schedule(data):
-    # Convert the data to a DataFrame
+def plot_race_schedule(data, year):
+    
     df = pd.DataFrame(data)
+    
 
     # Define column definitions for the table
     col_defs = [
@@ -2917,9 +2929,15 @@ def plot_race_schedule(data):
         ColDef("Circuit", width=1.0, textprops={"ha": "left"}),
         ColDef("Date", width=0.8, textprops={"ha": "left"})
     ]
-
-    # Plot the table
-    table = plot_table(df, col_defs, "Round", figsize=(10, 8))
+    if year > 2020:
+        df2 = df.drop(columns=["Event Format"], errors="ignore")
+    else:
+        df2 = df
+    table = plot_table(df2, col_defs, "Round", figsize=(10, 8))
+    if year > 2020:
+        for i, row in df.iterrows():
+            if row['Event Format'] != 'conventional':
+                table.rows[i].set_hatch("//").set_facecolor("#b138dd").set_alpha(0.35)
 
     return table.figure, table.ax
 
@@ -3015,8 +3033,13 @@ def plot_chances(data):
         ColDef("Can win?", width=0.8, textprops={"ha": "left"})
     ]
 
-    # Plot the table
-    table = plot_table(df, col_defs, "Position", figsize=(10, 8))
+    if (df["Can win?"] == "Yes").sum() == 1:
+        idx = df[df["Can win?"] == "Yes"].index[0]
+        table = plot_table(df, col_defs, "Position", figsize=(10, 8))
+        table.rows[idx].set_hatch("//").set_facecolor("#FFD700").set_alpha(0.35)
+    else:
+        # Plot the table without any highlights
+        table = plot_table(df, col_defs, "Position", figsize=(10, 8))
 
     return table.figure
 
