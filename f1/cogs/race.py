@@ -39,22 +39,27 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def radio(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(), round: options.RoundOption, session: options.SessionOption, year: options.SeasonOption3):
+    async def radio(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(), round: options.RoundOption, session: options.SessionOption, year: options.SeasonOption5):
 
+        from discord.ext.pages import Paginator, Page
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         if str(round).isdigit():
             round = int(round)
         ev = fastf1.get_event(year=year, gp=round)
-        session1 = fastf1.get_session(year, ev['EventName'], session)
-        session1.load(telemetry=False, laps=False, weather=False)
+        s = fastf1.get_session(year, ev['EventName'], session)
+        s.load(telemetry=False, laps=False, weather=False)
         if not driver.isdigit():
 
-            driver_number = session1.get_driver(
+            driver_number = s.get_driver(
                 driver[0:3].upper())['DriverNumber']
+            driver_name = s.get_driver(
+                driver[0:3].upper())['LastName']
         else:
             driver_number = driver
+            driver_name = s.get_driver(
+                driver)['LastName']
 
         url = f"https://api.openf1.org/v1/sessions?location={ev['Location']}&session_name={session}&year={year}"
 
@@ -66,77 +71,61 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                         a = data[0]['session_key']
 
         url = f"https://api.openf1.org/v1/team_radio?session_key={a}&driver_number={driver_number}"
-        import json
-        import base64
+        import subprocess
+
+        def create_video(mp3_bytes, image_bytes, output_file):
+
+            with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
+                mp3_temp.write(mp3_bytes)
+                image_temp.write(image_bytes)
+            command = [
+                'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
+                '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
+                '-shortest', output_file
+            ]
+            subprocess.run(command, check=True)
+
+        async def send_video(mp3_url: str, image_url: str):
+            async with aiohttp.ClientSession() as session:
+                # Download the MP3 file
+                async with session.get(mp3_url) as response:
+                    mp3_bytes = await response.read()
+
+                # Download the image file
+                async with session.get(image_url) as response:
+                    image_bytes = await response.read()
+
+            output_file = "output.mp4"
+            create_video(
+                mp3_bytes, image_bytes, output_file)
+
+            with open(output_file, "rb") as video_file:
+                return discord.File(video_file, filename="output.mp4")
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
                     length = len(data)
-
-                    options1 = []
-                    for i in range(1, int(length)+1):
-                        options1.append(discord.SelectOption(
-                            label=str(i),
-                            description=f"Pick radio number {i}"
-                        ))
-
-                    class MyView(discord.ui.View):
-                        def __init__(self):
-                            super().__init__()
-                            self.radio_url = None
-
-                        @discord.ui.select(  # the decorator that lets you specify the properties of the select menu
-                            placeholder=0,  # the placeholder text that will be displayed if nothing is selected
-                            min_values=1,  # the minimum number of values that must be selected by the users
-                            max_values=1,  # the maximum number of values that can be selected by the users
-                            options=options1
+                    mypage = []
+                    for i in range(0, length):
+                        embed = discord.Embed(
+                            title=f"{ev['EventDate'].year} {ev['EventName']} Radios for {driver_name.title()}",
+                            color=get_top_role_color(ctx.author)
                         )
-                        # the function called when the user is done selecting options
-                        async def select_callback(self, select, interaction):
-                            await interaction.response.send_message(f"You selected {select.values[0]}", ephemeral=True)
+                        mp3_url = data[i]['recording_url']
+                        file = await send_video(mp3_url, s.get_driver(driver[0:3].upper())['HeadshotUrl'])
 
-                            value = int(select.values[0])
+                        mypage.append(Page(embeds=[embed], files=[file]))
 
-                            mp3_url = data[value-1]['recording_url']
-                            import subprocess
-
-                            def create_video(mp3_bytes, image_bytes, output_file):
-
-                                with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
-                                    mp3_temp.write(mp3_bytes)
-                                    image_temp.write(image_bytes)
-                                command = [
-                                    'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
-                                    '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
-                                    '-shortest', output_file
-                                ]
-                                subprocess.run(command, check=True)
-
-                            async def send_video(ctx, mp3_url: str, image_url: str):
-                                async with aiohttp.ClientSession() as session:
-                                    # Download the MP3 file
-                                    async with session.get(mp3_url) as response:
-                                        mp3_bytes = await response.read()
-
-                                    # Download the image file
-                                    async with session.get(image_url) as response:
-                                        image_bytes = await response.read()
-
-                                output_file = "output.mp4"
-
-                                # Create the video from the MP3 and image
-                                create_video(
-                                    mp3_bytes, image_bytes, output_file)
-
-                                with open(output_file, "rb") as video_file:
-                                    await msg.edit(file=discord.File(video_file, filename="output.mp4"))
-                            await send_video(ctx, mp3_url, session1.get_driver(driver[0:3].upper())['HeadshotUrl'])
-
-                embed = discord.Embed(title=f"Team Radio list", description=f"1 to {length} refers to the chronological order of radios for this driver in the selected session",
-                                      color=get_top_role_color(ctx.author))
-                msg = await ctx.respond(embed=embed, view=MyView(), ephemeral=get_ephemeral_setting(ctx))
+                    paginator = Paginator(
+                        pages=mypage, timeout=None, author_check=False)
+                    try:
+                        await paginator.respond(ctx.interaction)
+                    except discord.Forbidden:
+                        return
+                    except discord.HTTPException:
+                        return
 
     @commands.slash_command(description="Race Control data", integration_types={
         discord.IntegrationType.guild_install,
@@ -234,12 +223,11 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             a = stats.plot_chances(contenders)
             f = utils.plot_to_file(a, "plot")
             embed = discord.Embed(title='Theoretical WDC Contenders',
-                                color=get_top_role_color(ctx.author))
+                                  color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         except:
             await ctx.respond("Season has finished or is yet to start!", ephemeral=get_ephemeral_setting(ctx))
-
 
     @commands.slash_command(description="Result data for the session. Default last race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -338,22 +326,26 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
             try:
                 channel = ctx.guild.get_channel(channel_id)
+
                 class QuizButton(Button):
                     def __init__(self, label, style, answer):
                         super().__init__(label=label, style=style)
                         self.answer = answer
                         count = {"1️⃣": 0, "2️⃣": 0, "3️⃣": 0, '4️⃣': 0}
                         self.count = count
+
                     async def callback(self, interaction: discord.Interaction):
                         await interaction.response.send_message(f"You selected {self.label}", ephemeral=True)
                         self.view.selected_answer = self.label
                         self.view.user_responses[interaction.user] = self.label
                         self.count[self.label] += 1
+
                 class QuizView(View):
                     def __init__(self, answer):
                         super().__init__()
                         self.answer = answer
                         self.user_responses = defaultdict(int)
+
                     async def on_timeout(self):
                         # Create a new view for displaying results
                         result_view = View()
@@ -383,7 +375,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                                 img_data1 = await image.read()
                                 img1 = discord.File(io.BytesIO(
                                     img_data1), filename="quiz_image.png")
-                                embed.set_image(url="attachment://quiz_image.png")
+                                embed.set_image(
+                                    url="attachment://quiz_image.png")
                                 await self.message.edit(embed=embed, file=img1, view=result_view)
                             else:
                                 await self.message.edit(embed=embed, view=result_view)
@@ -460,7 +453,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def meme2(self, ctx: ApplicationContext):
+    async def reddit(self, ctx: ApplicationContext):
         import asyncpraw
         import random
 
@@ -492,7 +485,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def pitstops(self, ctx: ApplicationContext, year: options.SeasonOption, round: options.RoundOption,
+    async def pitstops(self, ctx: ApplicationContext, year: options.SeasonOption4, round: options.RoundOption,
                        filter: options.RankedPitstopFilter, driver: options.DriverOption):
         """Display pitstops for the race ranked by `filter` or `driver`.
 
@@ -506,31 +499,30 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
-        
-        if int(year) < 2012:
-            await ctx.respond('Pitstop data is not available for seasons before 2012.', ephemeral=True)
         await utils.check_season(ctx, year)
 
         # Get event info to match race name idenfifiers from command
         event = await stats.to_event(year, round)
         yr, rd = event["EventDate"].year, event["RoundNumber"]
 
-        # Process pitstop data
-        data = await stats.filter_pitstops(yr, rd, filter, driver)
+        try:
+            data = await stats.filter_pitstops(yr, rd, filter, driver)
 
 
 # Join the formatted pitstop times into a single string
 
-        table, ax = stats.pitstops_table(data)
-        ax.set_title(
-            f"{yr} {event['EventName']} | Pitstops ({filter})"
-        ).set_fontsize(13)
+            table, ax = stats.pitstops_table(data)
+            ax.set_title(
+                f"{yr} {event['EventName']} | Pitstops ({filter})"
+            ).set_fontsize(13)
 
-        f = utils.plot_to_file(table, "plot")
-        embed = discord.Embed(
-            title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+            f = utils.plot_to_file(table, "plot")
+            embed = discord.Embed(
+                title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Pitstop data for this event isn't available at the moment. Please try again later.")
 
     @commands.slash_command(description="Best ranked lap times per driver.", integration_types={
         discord.IntegrationType.guild_install,
