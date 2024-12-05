@@ -1902,19 +1902,6 @@ def get_fia_doc(doc=None):
     return images
 
 
-def countdown(totalseconds):
-    out_string = ""
-    days = int(totalseconds // 86400)
-    totalseconds %= 86400
-    hours = int(totalseconds // 3600)
-    totalseconds %= 3600
-    minutes = int(totalseconds // 60)
-    seconds = totalseconds % 60
-    seconds = int(seconds // 1)
-    out_string += f"{days} days, {hours} hours, {minutes} minutes, and {seconds} seconds until the race!"
-    return out_string
-
-
 def parse_driver_name(name):
     return name.strip().replace("~", "").replace("*", "").replace("^", "")
 
@@ -2220,7 +2207,7 @@ def get_ephemeral_setting(ctx: ApplicationContext) -> bool:
             finally:
                 conn.close()
         else:
-            return False
+            return True
     except:
         return True
 
@@ -2261,7 +2248,7 @@ def plot_table(df: pd.DataFrame, col_defs: list[ColDef], idx: str, figsize: tupl
     return table
 
 
-def plot_table2(df: pd.DataFrame, col_defs: list[ColDef], idx: str, figsize: tuple[float]):
+def plot_race_control_table(df: pd.DataFrame, col_defs: list[ColDef], idx: str, figsize: tuple[float]):
     """Returns plottable table from data."""
 
     fig = Figure(figsize=figsize, dpi=200, layout="tight")
@@ -2471,16 +2458,8 @@ async def filter_pitstops(year, round, filter: str = None, driver: str = None) -
         ff1_erg.get_pit_stops,
         season=year, round=round,
         driver=driver, limit=1000)
-    res_fallback = await asyncio.to_thread(
-        ff1_erg.get_pit_stops,
-        season=year, round=round-1,
-        driver=driver, limit=1000)
 
-    if res.content == [] and year == int(datetime.now().year):
-        data = res_fallback.content[0]
-
-    else:
-        data = res.content[0]
+    data = res.content[0]
 
     # Group the rows
     # Show all stops for a driver, which can then be filtered
@@ -2905,9 +2884,8 @@ def championship_table(data: list[dict], type: Literal["wcc", "wdc"]) -> tuple[F
 
 
 def plot_race_schedule(data, year):
-    
+
     df = pd.DataFrame(data)
-    
 
     # Define column definitions for the table
     col_defs = [
@@ -2924,7 +2902,8 @@ def plot_race_schedule(data, year):
     if year > 2020:
         for i, row in df.iterrows():
             if row['Event Format'] != 'conventional':
-                table.rows[i].set_hatch("//").set_facecolor("#b138dd").set_alpha(0.35)
+                table.rows[i].set_hatch(
+                    "//").set_facecolor("#b138dd").set_alpha(0.35)
 
     return table.figure, table.ax
 
@@ -3000,7 +2979,8 @@ def racecontrol(messages, session):
         end_idx = min((i + 1) * max_per_file, len(messages))
         file_messages = messages.iloc[start_idx:end_idx]
 
-        fig = plot_table2(file_messages, col_defs, "Time", figsize=figsize)
+        fig = plot_race_control_table(
+            file_messages, col_defs, "Time", figsize=figsize)
         files.append(fig.figure)
 
     return files
@@ -3023,7 +3003,8 @@ def plot_chances(data):
     if (df["Can win?"] == "Yes").sum() == 1:
         idx = df[df["Can win?"] == "Yes"].index[0]
         table = plot_table(df, col_defs, "Position", figsize=(10, 8))
-        table.rows[idx].set_hatch("//").set_facecolor("#FFD700").set_alpha(0.35)
+        table.rows[idx].set_hatch(
+            "//").set_facecolor("#FFD700").set_alpha(0.35)
     else:
         # Plot the table without any highlights
         table = plot_table(df, col_defs, "Position", figsize=(10, 8))

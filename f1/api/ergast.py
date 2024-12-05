@@ -51,7 +51,7 @@ async def race_info(season, rnd):
     ------
     `MissingDataError`
     """
-    url=f'{BASE_URL}/{season}/{rnd}'
+    url = f'{BASE_URL}/{season}/{rnd}'
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             soup = await response.json()
@@ -180,11 +180,11 @@ async def get_driver_standings(season, rnd=None):
         url = f'{BASE_URL}/{season}/{rnd}/driverStandings'
     else:
         url = f'{BASE_URL}/{season}/driverStandings'
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             standings = await response.json()  # Get the JSON response
-    
+
     if standings:
         results = {
             'season': standings['MRData']['StandingsTable']['season'],
@@ -201,7 +201,7 @@ async def get_driver_standings(season, rnd=None):
                 'Wins': int(standing['wins']),
             }
             results['data'].append(driver_info)
-        
+
         return results
     else:
         raise MissingDataError()
@@ -244,7 +244,7 @@ async def get_team_standings(season, rnd=None):
         async with session.get(url) as response:
             standings = await response.json()
     if standings:
-        
+
         results = {
             'season': standings['MRData']['StandingsTable']['season'],
             'round': standings['MRData']['StandingsTable']['round'],
@@ -317,50 +317,7 @@ async def get_all_drivers_and_teams(season):
     raise MissingDataError()
 
 
-async def get_race_schedule():
-    """Get full race calendar with circuit names and date as dict.
-
-    Returns
-    -------
-    `res` : dict
-        {
-            'season': str,
-            'data': list[dict] [{
-                'Round': int,
-                'Circuit': str,
-                'Date': str,
-                'Time': str,
-                'Country': str,
-            }]
-        }
-
-    Raises
-    ------
-    `MissingDataError`
-        if API response unavailable.
-    """
-    url = f'{BASE_URL}/current'
-    soup = await get_soup(url)
-    if soup:
-        races = soup.find_all('race')
-        results = {
-            'season': soup.racetable['season'],
-            'data': []
-        }
-        for race in races:
-            results['data'].append(
-                {
-                    'Round': int(race['round']),
-                    'Circuit': race.circuit.circuitname.string,
-                    'Date': utils.date_parser(race.date.string),
-                    'Time': utils.time_parser(race.time.string),
-                    'Country': race.location.country.string,
-                }
-            )
-        return results
-    raise MissingDataError()
-
-async def get_race_schedule2(year):
+async def get_race_schedule(year):
     """Get full race calendar with circuit names and date as dict.
 
     Returns
@@ -400,16 +357,16 @@ async def get_race_schedule2(year):
                         'Round': int(race['round']),
                         'Circuit': race['Circuit']['circuitName'],
                         'Date': utils.date_parser(race['date']),
-                        
+
                         'Country': race['Circuit']['Location']['country']
                     }
                 )
-            
-            
+
         elif year > 2020:
-            
+
             for race in races:
-                eventformat=fastf1.get_event_schedule(year, include_testing=False).get_event_by_round(int(race['round']))
+                eventformat = fastf1.get_event_schedule(
+                    year, include_testing=False).get_event_by_round(int(race['round']))
                 results['data'].append(
                     {
                         'Round': int(race['round']),
@@ -417,7 +374,7 @@ async def get_race_schedule2(year):
                         'Date': utils.date_parser(race['date']),
                         'Time': utils.time_parser(race['time']),
                         'Country': race['Circuit']['Location']['country'],
-                        'Event Format' : eventformat['EventFormat']
+                        'Event Format': eventformat['EventFormat']
                     }
                 )
         else:
@@ -431,7 +388,7 @@ async def get_race_schedule2(year):
                         'Country': race['Circuit']['Location']['country']
                     }
                 )
-        
+
         return results
     raise MissingDataError()
 
