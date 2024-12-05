@@ -94,11 +94,6 @@ async def on_application_command(ctx: discord.Interaction):
 
 
 @bot.event
-async def on_command_completion(ctx: commands.Context):
-    await ctx.message.add_reaction(u'🏁')
-
-
-@bot.event
 async def on_application_command_completion(ctx: discord.Interaction):
     gc.collect()
 
