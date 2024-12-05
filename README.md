@@ -1,17 +1,22 @@
 # formulaStats
 
-formulaStats is a discord bot implementation to view F1 statistics and other visuals inside discord embeds via slash commands. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot). formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1), [Jolpica/Ergast API (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1) and [openf1](https://github.com/br-g/openf1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.
+formulaStats is a discord bot implementation to view F1 statistics and other visuals inside discord embeds via slash commands. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot). formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1), [Jolpica (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1) and [openf1](https://github.com/br-g/openf1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.
 
 
 ## Usage
 
 Invite the bot via [this link](https://discord.com/oauth2/authorize?client_id=1290361750520070225). 
 
-You have the option to either add it your account (which allows you to use the bot anywhere, including DMs) or to a server. Please note that quiz functionality and toggling silent mode (aka ephemeral messaging) is only available when you add it to a server and you **require** adminstrator privileges in the server to use these features for safety measures. When you add it to a server, the silent-mode is enabled by default, unless disabled by any adminstrator. Use `/help` to find the command list. While using the slash commands, the  `year` parameter is the current season, the `round` parameter is the last *completed* race weekend and the `session` parameter is the main race, when left blank. Other commands have extra parameters where the default parameters are documentioned in the description area. 
+You have the option to either add it your account (which allows you to use the bot anywhere, including DMs) or to a server. Please note that quiz functionality and toggling silent mode (aka ephemeral messaging) is only available when you add it to a server and you **require** adminstrator privileges in the server to set up these features, for safety measures. 
+
+When you add it to a server, silent-mode is enabled by default. Use `/help` to find the command list and documentation. When you use it via user-install, the messages are by default ephemeral to avoid `discord.Forbidden` exceptions.
+
+While using the slash commands, by default, the  `year` parameter is the current season, the `round` parameter is the last *completed* race weekend and the `session` parameter is the main race. Other commands have extra parameters where the default parameters are documentioned in the description area.  `round` parameter can either be the round number of the event, the circuit name or the name of the country where the event takes place. `Driver` parameter(s) can either be the last name, driver number or the three-letter code of the driver. However, please note `/career` **requires** full name of the driver to avoid scenarios where two different drivers share the same last name.
+
 
 ## Some Notes
 
-Some data (particularly which are sourced from Jolpica/Ergast API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therefore, will be mentioned in the embed footer, if any. 
+Some data (particularly which are sourced from Jolpica API) take a day or two after the race to update, while data sourced from fastf1 usually updates in about an hour after the given session ends. It is recommended to use `/generate-cache` for a particular F1 session to accelerate the plotting commands for that session as some of them take a while to complete. Some commands have a limited set of parameters to choose from due to the limitations of the aforementioned data sources. There are also some inherent inaccuracies (which probably do not have a quick fix solution at the moment) with the way some particular data is calculated and therefore, will be mentioned in the embed footer, if any. 
 
 `/quiz` can only work after issuing `/quizsetup` and following the prompts, by an admin in the server. Same goes for `/silent-mode` as mentioned previously. Please note `/quiz` requires media permissions in the channel it is supposed to send a quiz in.
 
