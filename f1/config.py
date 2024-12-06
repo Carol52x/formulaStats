@@ -72,7 +72,7 @@ class Config:
 
         # Instantiate a single bot instance
         bot = commands.Bot(
-            command_prefix=f"{self.settings['BOT']['PREFIX']}f1 ",
+            command_prefix="!f1",
             guilds=self.guilds,
             debug_guilds=self._get_guilds(debug=True),
             help_command=commands.DefaultHelpCommand(dm_help=True),
