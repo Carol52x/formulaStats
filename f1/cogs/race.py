@@ -507,25 +507,26 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         # Get event info to match race name idenfifiers from command
         event = await stats.to_event(year, round)
         yr, rd = event["EventDate"].year, event["RoundNumber"]
+        if year > 2017:
+            s = await stats.load_session(event, "R", laps=True, telemetry=True)
+            data = await stats.filter_pitstops(yr, rd, s, filter, driver)
+            text = "The stationary times are an appromixation and thus, may be anomalous."
+        else:
+            data = await stats.filter_pitstops(yr, rd, filter=filter, driver=driver)
+            text = ""
 
-        try:
-            data = await stats.filter_pitstops(yr, rd, filter, driver)
+        table, ax = stats.pitstops_table(data, year)
+        ax.set_title(
+            f"{yr} {event['EventName']} | Pitstops ({filter})"
+        ).set_fontsize(13)
 
+        f = utils.plot_to_file(table, "plot")
+        embed = discord.Embed(
+            title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
+        embed.set_image(url="attachment://plot.png")
 
-# Join the formatted pitstop times into a single string
-
-            table, ax = stats.pitstops_table(data)
-            ax.set_title(
-                f"{yr} {event['EventName']} | Pitstops ({filter})"
-            ).set_fontsize(13)
-
-            f = utils.plot_to_file(table, "plot")
-            embed = discord.Embed(
-                title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
-            embed.set_image(url="attachment://plot.png")
-            await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
-        except:
-            await ctx.respond("Pitstop data for this event isn't available at the moment. Please try again later.")
+        embed.set_footer(text=text)
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Best ranked lap times per driver.", integration_types={
         discord.IntegrationType.guild_install,
