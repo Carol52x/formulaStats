@@ -249,7 +249,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
-        s = await stats.load_session(ev, session, laps=True, telemetry=False, messages=True, weather=False)
+        if session in ["Practice 1", "Practice 2", "Practice 3", "Qualifying", "Sprint", "Race"]:
+            s = await stats.load_session(ev, session, laps=False, telemetry=False, messages=False, weather=False)
+        else:
+            s = await stats.load_session(ev, session, laps=True, telemetry=False, messages=True, weather=False)
 
         data = await stats.format_results(s, session, year)
 
@@ -313,7 +316,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             channel_id, role_ids = get_channel_and_roles_for_guild(guild_id)
 
             if channel_id is None or role_ids is None:
-                await ctx.respond("Quiz setup is not configured for this server.", ephemeral=True)
+                await ctx.respond("Quiz setup is not configured for this server. Use /quizsetup.", ephemeral=True)
                 return
 
             # Check if the user has any of the specific roles
