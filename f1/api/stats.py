@@ -2538,7 +2538,7 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
     df["Code"] = df.apply(lambda x: pd.Series({
         "Code": drv_info[x.driverId]["code"]
     }), axis=1)
-
+    df.dropna(inplace=True)
     # Get row indices for best/worst stop if provided
     if filter.lower() == "best":
         df = df.loc[[df["duration"].astype(float).idxmin()]]
