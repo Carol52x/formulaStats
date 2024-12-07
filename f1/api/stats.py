@@ -2440,44 +2440,98 @@ async def format_results(session: Session, name: str, year):
     return res_df.loc[:, ["Pos", "Driver", "Team", "Grid", "Finish", "Pts", "Status"]]
 
 
-async def filter_pitstops(year, round, filter: str = None, driver: str = None) -> pd.DataFrame:
-    """Return the best ranked pitstops for a race. Optionally restrict results to a `driver` (surname, number or code).
-
-    Use `filter`: `['Best', 'Worst', 'Ranked']` to only show the fastest or slowest stop.
-    If not specified the best stop per driver will be used.
-
-    Returns
-    ------
-    `DataFrame`: `[Code, Stop, Lap, Duration]`
-    """
-
-    # Create a dict with driver info from all drivers in the session
+async def filter_pitstops(year, round, s=None, filter: str = None, driver: str = None) -> pd.DataFrame:
     drv_lst = await ergast.get_all_drivers(year, round)
     drv_info = {d["driverId"]: d for d in drv_lst}
-
+    drv_codes = {d['code']: d for d in drv_lst}
+    drv_id_mapping = {d['driverId']: d['code'] for d in drv_lst}
+    drv_laps = []
     if driver is not None:
         driver = utils.find_driver(driver, drv_lst)["driverId"]
+        if s:
+            box_laps = s.laps.pick_drivers(utils.find_driver(driver, drv_lst)['code']).pick_box_laps()
+            for i in range(0, len(box_laps['PitInTime'].dropna(inplace=False))):
+                try:
+                    box_laps2 = box_laps.dropna(subset=['PitInTime'])
+                    pit_in_time = box_laps['PitInTime'].dropna(inplace=False).iloc[i]
+                    lap_number = box_laps2['LapNumber'].iloc[i]
+                    pit_out_time = box_laps['PitOutTime'].dropna(inplace=False).iloc[i]
+                    stationary_period = box_laps.get_car_data().slice_by_time(pit_in_time, pit_out_time)
+                    stationary_period = stationary_period[stationary_period['Speed'] == 0]
+                    total_stationary_time = (max(stationary_period['SessionTime']) -
+                                             min(stationary_period['SessionTime'])).total_seconds()+0.239
 
-    # Run FF1 I/O in separate thread
+                    if total_stationary_time > 1.8:
+                        drv_laps.append([lap_number, total_stationary_time])
+                except:
+                    continue
+
+    def get_stationary_time(row):
+        import builtins
+        lap = row['lap']
+        for lap_data in drv_laps:
+            if str(int(lap_data[0])) == str(lap):
+                return builtins.round(lap_data[1], 3)
+            else:
+                if str(int(lap_data[0])) == str(int(lap)+1):
+                    return builtins.round(lap_data[1], 3)
+
+    def get_stationary_time2(row):
+        import builtins
+        driver = drv_id_mapping.get(row['driverId'])
+        lap = row['lap']
+        if driver in drv_lap:
+            for lap_data in drv_lap[driver]:
+                if str(int(lap_data[0])) == str(lap):
+                    return builtins.round(lap_data[1], 3)
+                else:
+                    str(int(lap_data[0])) == str(int(lap)+1)
+                    return builtins.round(lap_data[1], 3)
+
     res = await asyncio.to_thread(
         ff1_erg.get_pit_stops,
         season=year, round=round,
         driver=driver, limit=1000)
 
     data = res.content[0]
-
-    # Group the rows
-    # Show all stops for a driver, which can then be filtered
-    if driver is not None:
+    if driver is not None and s is not None:
         row_mask = data["driverId"] == driver
-    # Get the fastest stop for each driver when no specific driver is given
+        data['Stationary Time'] = data.apply(get_stationary_time, axis=1)
+    elif driver is not None and s is None:
+        row_mask = data["driverId"] == driver
+    elif driver is None and s is not None:
+        drv_lap = {}
+
+        for j in drv_codes.keys():
+            box_laps = s.laps.pick_drivers(j).pick_box_laps()
+            for i in range(0, len(box_laps['PitInTime'].dropna(inplace=False))):
+                try:
+                    drv = box_laps['Driver'].iloc[i]
+                    if drv not in drv_lap:
+                        drv_lap[drv] = []
+                    box_laps2 = box_laps.dropna(subset=['PitInTime'])
+                    pit_in_time = box_laps['PitInTime'].dropna(inplace=False).iloc[i]
+                    lap_number = box_laps2['LapNumber'].iloc[i]
+                    pit_out_time = box_laps['PitOutTime'].dropna(inplace=False).iloc[i]
+                    stationary_period = box_laps.get_car_data().slice_by_time(pit_in_time, pit_out_time)
+                    stationary_period = stationary_period[stationary_period['Speed'] == 0]
+                    total_stationary_time = (max(stationary_period['SessionTime']) -
+                                             min(stationary_period['SessionTime'])).total_seconds()+0.239
+                    if total_stationary_time > 1.8:
+                        drv_lap[j].append([lap_number, total_stationary_time])
+
+                except:
+                    continue
+        row_mask = data.groupby("driverId")["duration"].idxmin()
+        data['Stationary Time'] = data.apply(get_stationary_time2, axis=1)
+
     else:
         row_mask = data.groupby("driverId")["duration"].idxmin()
-
-    df = data.loc[row_mask].sort_values(by="duration").reset_index(drop=True)
+    if year > 2017:
+        df = data.loc[row_mask].sort_values(by="Stationary Time").reset_index(drop=True)
+    else:
+        df = data.loc[row_mask].sort_values(by="duration").reset_index(drop=True)
     del data
-
-    # Convert timedelta into seconds for stop duration
     df["duration"] = df["duration"].transform(
         lambda x: f"{x.total_seconds():.3f}")
 
@@ -2490,10 +2544,11 @@ async def filter_pitstops(year, round, filter: str = None, driver: str = None) -
         df = df.loc[[df["duration"].astype(float).idxmin()]]
     if filter.lower() == "worst":
         df = df.loc[[df["duration"].astype(float).idxmax()]]
-
-    # Presentation
-    df.columns = df.columns.str.capitalize()
-    return df.loc[:, ["Code", "Stop", "Lap", "Duration"]]
+    df.columns = df.columns.str.title()
+    if year > 2017:
+        return df.loc[:, ["Code", "Stop", "Lap", "Duration", "Stationary Time"]]
+    else:
+        return df.loc[:, ["Code", "Stop", "Lap", "Duration"]]
 
 
 async def tyre_stints(session: Session, driver: str = None):
@@ -2844,14 +2899,24 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
     return table.figure, table.ax
 
 
-def pitstops_table(results: pd.DataFrame) -> tuple[Figure, Axes]:
+def pitstops_table(results: pd.DataFrame, year) -> tuple[Figure, Axes]:
     """Returns matplotlib table from pitstops results DataFrame."""
-    col_defs = [
-        ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="r"),
-        ColDef("Stop", width=0.25),
-        ColDef("Lap", width=0.25),
-        ColDef("Duration", width=0.5, textprops={"ha": "right"}, border="l"),
-    ]
+    if year > 2017:
+        col_defs = [
+            ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="r"),
+            ColDef("Stop", width=0.25),
+            ColDef("Lap", width=0.25),
+            ColDef("Duration", width=0.5),
+            ColDef("Stationary Time", width=0.5, textprops={"ha": "right"}, border="l")
+
+        ]
+    else:
+        col_defs = [
+            ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="r"),
+            ColDef("Stop", width=0.25),
+            ColDef("Lap", width=0.25),
+            ColDef("Duration", width=0.5, textprops={"ha": "right"}, border="l")
+        ]
 
     # Different sizes depending on amound of data shown with filters
     size = (5, (results["Code"].size / 3.333) + 1)
