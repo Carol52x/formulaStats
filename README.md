@@ -30,7 +30,7 @@ If you wish to run your own instance of the bot, here is an example setup of run
 
 **Setting things up**
 
-The application requires **Python 3.11+**, **FFmpeg**, **Reddit developer credentials (for the `/reddit`command which uses [PRAW](https://github.com/praw-dev/asyncpraw))** and other dependencies as mentioned in the `requirements.txt` file.
+The application requires **[Python 3.11+](https://www.python.org/downloads/release/python-3110/)**, **[FFmpeg](https://www.ffmpeg.org/) (for the `/radio` commands which converts audio files to video files for mobile discord users)** and **[Reddit developer credentials](https://developers.reddit.com/) (for the `/reddit`command which uses [AsyncPRAW](https://github.com/praw-dev/asyncpraw))**.
 
 ```bash
 git clone https://github.com/Carol52x/formulaStats.git
