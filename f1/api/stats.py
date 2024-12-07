@@ -1435,8 +1435,13 @@ def h2h(year, session_type, ctx):
         else:
             session.load(laps=False, telemetry=False,
                          weather=False, messages=False)
+        try:
 
-        results = session.results
+            results = session.results
+            if results["DriverNumber"].size < len(session.drivers):
+                raise Exception
+        except:
+            break
         for i in check_list.keys():
             check_list.update({i: False})
 
