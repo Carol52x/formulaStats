@@ -800,10 +800,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Get lap data and count occurance of each compound
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, session, laps=True)
-        t_count = s.laps["Compound"].value_counts()
+        stints=s.laps
+        stints = stints[stints["Compound"] != "UNKNOWN"]
+        t_count = stints["Compound"].value_counts()
 
         # Calculate percentages and sort
-        t_percent = t_count / len(s.laps) * 100
+        t_percent = t_count / len(stints) * 100
         sorted_count = t_count.sort_values(ascending=False)
         sorted_percent = t_percent.loc[sorted_count.index]
 
