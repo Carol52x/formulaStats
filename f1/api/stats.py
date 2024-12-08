@@ -72,6 +72,7 @@ last_request_time = 0
 request_count = 0
 hour_start_time = time.time()
 
+
 class customEmbed:
 
     # embed.set_image(url=None)
@@ -157,6 +158,17 @@ class ErgastClient:
 
 
 client = ErgastClient()
+
+
+def get_random_color():
+    used_colors = set()
+    import random
+    while True:
+        # Generate a random color hex code
+        color = f'#{random.randint(0, 0xFFFFFF):06x}'
+        if color not in used_colors:
+            used_colors.add(color)
+            return color
 
 
 def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
@@ -1385,7 +1397,8 @@ def const_func(yr):
     return file
 
 
-def h2h(year, session_type, ctx):
+def h2h(year, session_type, ctx, include_dnfs):
+    import re
     import datetime
     team_list = {}
     color_list = {}
@@ -1422,6 +1435,10 @@ def h2h(year, session_type, ctx):
             max_index = max(schedule.RoundNumber)
         result_setting = 'conventional'
         scheduleiteration = range(min(schedule.RoundNumber), max_index)
+    if year < 2018:
+        string = "LastName"
+    else:
+        string = "Abbreviation"
 
     for c in scheduleiteration:
 
@@ -1458,28 +1475,32 @@ def h2h(year, session_type, ctx):
 
             drivers = []
             for j in team_results.index:
-                drivers.append(team_results.loc[j, 'Abbreviation'])
-            drivers = sorted(drivers)
+                drivers.append(team_results.loc[j, string])
+            try:
+                drivers = sorted(drivers)
+            except:
+                raise Exception
             pairing = ''.join(drivers)
 
             if (team_list.get(i).get(pairing) is None):
                 team_list.get(i).update({pairing: {}})
 
-            for abbreviation in team_results['Abbreviation']:
+            for abbreviation in team_results[string]:
                 if team_list.get(i).get(pairing).get(abbreviation) is None:
                     team_list.get(i).get(pairing).update({abbreviation: 0})
 
-            curr_abbr = team_results.loc[team_results.index[0], 'Abbreviation']
+            curr_abbr = team_results.loc[team_results.index[0], string]
 
-            # figure out which races to ignore
             both_drivers_finished = True
             if (session_type == 'Race' or session_type == 'Sprint'):
+
                 dnf = ['D', 'E', 'W', 'F', 'N']
-                for driver in team_results.index:
-                    if ((team_results.loc[driver, 'ClassifiedPosition']) in dnf) or (not ((team_results.loc[driver, 'Status'] == 'Finished') or ('+' in team_results.loc[driver, 'Status']))):
-                        # for testing
-                        # outstring += (f'{pairing}: Skipping {session}\nReason: {team_results.loc[driver,'Abbreviation']} did ({team_results.loc[driver,'ClassifiedPosition']},{team_results.loc[driver,'Status']})\n')
-                        both_drivers_finished = False
+                if include_dnfs is False:
+                    for driver in team_results.index:
+                        if ((team_results.loc[driver, 'ClassifiedPosition']) in dnf) or (not ((team_results.loc[driver, 'Status'] == 'Finished') or ('+' in team_results.loc[driver, 'Status']))):
+                            # for testing
+                            # outstring += (f'{pairing}: Skipping {session}\nReason: {team_results.loc[driver,'Abbreviation']} did ({team_results.loc[driver,'ClassifiedPosition']},{team_results.loc[driver,'Status']})\n')
+                            both_drivers_finished = False
 
             # if (team_list.get(i).get(pairing).get(curr_abbr) is None):
             #     team_list.get(i).get(pairing).update({curr_abbr:0})
@@ -1496,7 +1517,6 @@ def h2h(year, session_type, ctx):
                 curr_value = team_list.get(i).get(pairing).get(curr_abbr)
                 team_list.get(i).get(pairing).update({curr_abbr: curr_value})
     data, colors, team_names = team_list, color_list, team_fullName
-
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(1, figsize=(13, 9))
 
@@ -1523,7 +1543,7 @@ def h2h(year, session_type, ctx):
             if not ((colors.get(team).lower() == 'nan') or (colors.get(team).lower() == '')):
                 color = f'#{colors.get(team).lower()}'
             else:
-                color = "#ffffff"
+                color = get_random_color()
             ax.barh(pairing, driver_wins, color=color,)  # edgecolor = 'black')
 
             # label the bars
@@ -1581,7 +1601,8 @@ def h2h(year, session_type, ctx):
     return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
 
 
-def averageposition(session_type, year, category, ctx):
+def averageposition(session_type, year, category, ctx, include_dnfs):
+
     import datetime
     schedule = fastf1.get_event_schedule(year=year, include_testing=False)
     if session_type == "Sprint" and year < 2023:
@@ -1631,22 +1652,28 @@ def averageposition(session_type, year, category, ctx):
 
         for driver in event.drivers:
             if (category == 'Drivers'):
-                currDriver_abbreviation = results.loc[driver, 'Abbreviation']
+                currDriver_abbreviation = results.loc[driver, 'LastName']
             else:
                 currDriver_abbreviation = results.loc[driver, 'TeamName']
-
-            if driver_positions.get(currDriver_abbreviation) is None:
-                driver_positions.update({currDriver_abbreviation: 0})
+            try:
+                if driver_positions.get(currDriver_abbreviation) is None:
+                    driver_positions.update({currDriver_abbreviation: 0})
+            except:
+                break
 
             if driver_racesParticipated.get(currDriver_abbreviation) is None:
-                driver_racesParticipated.update({currDriver_abbreviation: 0})
+                driver_racesParticipated.update(
+                    {currDriver_abbreviation: 0})
 
-            if session_type == 'Race':
+            if (session_type == 'Race' or session_type == 'Sprint') and include_dnfs is True:
+                currDriver_position = results.loc[driver, 'Position']
+            elif (session_type == 'Race' or session_type == 'Sprint') and include_dnfs is False:
                 currDriver_position = results.loc[driver, 'ClassifiedPosition']
             else:
                 currDriver_position = results.loc[driver, 'Position']
 
-            currDriver_total = driver_positions.get(currDriver_abbreviation)
+            currDriver_total = driver_positions.get(
+                currDriver_abbreviation)
 
             if (type(currDriver_position) is str):
                 if (currDriver_position.isnumeric()):
@@ -1673,8 +1700,6 @@ def averageposition(session_type, year, category, ctx):
         sorted(driver_positions.items(), key=lambda x: x[1]))
 
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
-    # set directory for later use
-    # create the bar plot and size
     fig, ax = plt.subplots(figsize=(16.8, 10.5))
 
     # setting x-axis label, title
@@ -1718,12 +1743,11 @@ def averageposition(session_type, year, category, ctx):
             plt.barh(driver, driver_positions.get(
                 driver), color=f'#{curr_color}')
         else:
+
             if not annotated:
-                plt.figtext(
-                    0.91, 0.01, "*Some color data is unavailable", ha="center")
                 annotated = True
-            plt.barh(driver, driver_positions.get(driver), color='#ffffff')
-    # add f1buddy pfp
+            plt.barh(driver, driver_positions.get(
+                driver), color=get_random_color())
 
     for i, position in enumerate(driver_positions.values()):
         ax.text(position + 0.1, i,
@@ -1777,54 +1801,54 @@ def schedule(ctx):
             number = row['RoundNumber']
             next_event = number+1
     out_string = "No more Racing for this season!"
-
-    if (len(schedule) < next_event):
-        raise IndexError
     try:
-        race_name = schedule.loc[next_event, "EventName"]
+        if (len(schedule) < next_event):
+            raise IndexError
 
-        message_embed.title = "Race Schedule for " + race_name
+            race_name = schedule.loc[next_event, "EventName"]
 
-        if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
-            converted_session_times = {
-                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
-                f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
-                f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
-                f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
-                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
-            }
+            message_embed.title = "Race Schedule for " + race_name
 
-        else:
-            converted_session_times = {
-                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
-                f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
-                f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
-                f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
-                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
-            }
+            if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
+                converted_session_times = {
+                    f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                    f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                    f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                    f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                    f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+                }
 
-        location = schedule.loc[next_event, "Location"]
-        sessions_string = ''
-        times_string = ''
+            else:
+                converted_session_times = {
+                    f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                    f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                    f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                    f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                    f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+                }
 
-        for key in converted_session_times.keys():
-            # Convert timestamp to datetime object
-            timestamp = converted_session_times.get(key).timestamp()
-            abc = int(timestamp)
-            times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
-            sessions_string += key + '\n'
+            location = schedule.loc[next_event, "Location"]
+            sessions_string = ''
+            times_string = ''
 
-        message_embed.add_field(
-            name="Session", value=sessions_string, inline=True)
-        message_embed.add_field(
-            name="Time", value=times_string, inline=True)
-        message_embed.add_field(
-            name="Track Layout", value="", inline=False)
-        country = schedule.loc[next_event, "Country"]
-        message_embed.set_image(url=get_circuit_image(
-            location, country).replace(" ", "%20"))
+            for key in converted_session_times.keys():
+                # Convert timestamp to datetime object
+                timestamp = converted_session_times.get(key).timestamp()
+                abc = int(timestamp)
+                times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
+                sessions_string += key + '\n'
 
-        return message_embed
+            message_embed.add_field(
+                name="Session", value=sessions_string, inline=True)
+            message_embed.add_field(
+                name="Time", value=times_string, inline=True)
+            message_embed.add_field(
+                name="Track Layout", value="", inline=False)
+            country = schedule.loc[next_event, "Country"]
+            message_embed.set_image(url=get_circuit_image(
+                location, country).replace(" ", "%20"))
+
+            return message_embed
     except IndexError:
         return out_string
 
