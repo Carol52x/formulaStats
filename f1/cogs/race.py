@@ -600,58 +600,6 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         # send final embed
         await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(
-        name="track-incidents",
-        description="Summary of race events including Safety Cars and retirements.", integration_types={
-            discord.IntegrationType.guild_install,
-            discord.IntegrationType.user_install,
-        })
-    async def track_incidents(self, ctx: ApplicationContext,
-                              year: options.SeasonOption3, round: options.RoundOption):
-        """Outputs a table showing the lap number and event, such as Safety Car or Red Flag."""
-        round = roundnumber(round, year)[0]
-        year = roundnumber(round, year)[1]
-        await utils.check_season(ctx, year)
-        ev = await stats.to_event(year, round)
-        s = await stats.load_session(ev, "R", laps=True, messages=True)
-        # Assuming 'incidents' is previously defined as shown in your snippet
-
-        if not s.f1_api_support:
-            raise MissingDataError("Track status data unavailable.")
-
-        # Get the driver DNFs
-        dnfs = stats.get_dnf_results(s)
-        # Combine driver code and dnf reason into single column for merging
-        dnfs["Event"] = dnfs.apply(
-            lambda row: f"Retired: {row['Abbreviation']} ({row['Status']})", axis=1)
-        dnfs = dnfs.loc[:, ["LapNumber", "Event"]]
-
-        # Get track status events grouped by lap number
-        track_events = stats.get_track_events(s)
-
-        if dnfs["Event"].size == 0 and track_events["Event"].size == 0:
-            raise MissingDataError("No track events in this race.")
-
-        # Combine the driver retirements and track status events
-        incidents = pd.concat([
-            dnfs.loc[:, ["LapNumber", "Event"]],
-            track_events.loc[:, ["LapNumber", "Event"]]
-        ], ignore_index=True).sort_values(by="LapNumber").reset_index(drop=True)
-        incidents["LapNumber"] = incidents["LapNumber"]
-        incidents["LapNumber"] = incidents["LapNumber"].fillna("No data")
-        table, ax = stats.incidents_table(incidents)
-        ax.set_title(
-            f"{ev['EventDate'].year} {ev['EventName']}\nTrack Incidents"
-        ).set_fontsize(12)
-
-        f = utils.plot_to_file(table, "plot")
-        embed = discord.Embed(
-            title=f"{ev['EventDate'].year} {ev['EventName']} Track Incidents", color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        embed.set_footer(
-            text=r"If you see erroneous data or want a detailed analysis of session events, use /racecontrol. No data represents the driver did not start the race.")
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
-
 
 def setup(bot: discord.Bot):
     bot.add_cog(Race(bot))

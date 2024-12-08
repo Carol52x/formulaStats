@@ -221,11 +221,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd.add_field(
-            name="/track-incidents",
-            value="Summary of race events including Safety Cars and retirements."
-        )
-
-        emd.add_field(
             name="/wcc",
             value="Constructors Championship standings."
         )
