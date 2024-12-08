@@ -10,6 +10,7 @@ RankedPitstopFilter = Option(
     str, choices=["Best", "Worst", "Ranked"],
     default="Ranked", description="Which stops to view (default ranked)")
 
+
 class DriverOptionRequired(Option):
     def __init__(self, input_type=str, description="Driver number, 3-letter code or surname", **kwargs) -> None:
         super().__init__(input_type, description, **kwargs)
@@ -24,20 +25,14 @@ driveroption2 = Option(
 EphemeralOption = Option(
     bool,
     choices=[True, False],
+    description="default false",
     default=True)
 
-
-SectorFilter = Option(
-    str,
-    choices=["Time", "Speed"],
-    description="The type of data to show",
-    required=True
-)
-
-LaptimeFilter = Option(
-    str,
-    choices=["Fastest", "Slowest", "Top 5", "Bottom 5", "Ranked"],
-    default="Ranked")
+DNFoption = Option(
+    bool,
+    choices=[True, False],
+    description="Choose whether to include DNFs (default false)",
+    default=False)
 
 SeasonOption = Option(
     int,
