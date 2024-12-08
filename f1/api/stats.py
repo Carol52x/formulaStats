@@ -72,9 +72,6 @@ last_request_time = 0
 request_count = 0
 hour_start_time = time.time()
 
-pd.set_option('display.max_columns', None)
-
-
 class customEmbed:
 
     # embed.set_image(url=None)
