@@ -1805,50 +1805,50 @@ def schedule(ctx):
         if (len(schedule) < next_event):
             raise IndexError
 
-            race_name = schedule.loc[next_event, "EventName"]
+        race_name = schedule.loc[next_event, "EventName"]
 
-            message_embed.title = "Race Schedule for " + race_name
+        message_embed.title = "Race Schedule for " + race_name
 
-            if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
-                converted_session_times = {
-                    f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
-                    f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
-                    f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
-                    f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
-                    f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
-                }
+        if (schedule.loc[next_event, "EventFormat"] == 'conventional'):
+            converted_session_times = {
+                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                f":two: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                f":three: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+            }
 
-            else:
-                converted_session_times = {
-                    f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
-                    f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
-                    f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
-                    f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
-                    f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
-                }
+        else:
+            converted_session_times = {
+                f":one: {schedule.loc[next_event, 'Session1']}": schedule.loc[next_event, "Session1Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session2']}": schedule.loc[next_event, "Session2Date"],
+                f":stopwatch: {schedule.loc[next_event, 'Session3']}": schedule.loc[next_event, "Session3Date"],
+                f":race_car: {schedule.loc[next_event, 'Session4']}": schedule.loc[next_event, "Session4Date"],
+                f":checkered_flag: {schedule.loc[next_event, 'Session5']}": schedule.loc[next_event, "Session5Date"]
+            }
 
-            location = schedule.loc[next_event, "Location"]
-            sessions_string = ''
-            times_string = ''
+        location = schedule.loc[next_event, "Location"]
+        sessions_string = ''
+        times_string = ''
 
-            for key in converted_session_times.keys():
-                # Convert timestamp to datetime object
-                timestamp = converted_session_times.get(key).timestamp()
-                abc = int(timestamp)
-                times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
-                sessions_string += key + '\n'
+        for key in converted_session_times.keys():
+            # Convert timestamp to datetime object
+            timestamp = converted_session_times.get(key).timestamp()
+            abc = int(timestamp)
+            times_string += f"<t:{abc}:R> <t:{abc}:F>\n"
+            sessions_string += key + '\n'
 
-            message_embed.add_field(
-                name="Session", value=sessions_string, inline=True)
-            message_embed.add_field(
-                name="Time", value=times_string, inline=True)
-            message_embed.add_field(
-                name="Track Layout", value="", inline=False)
-            country = schedule.loc[next_event, "Country"]
-            message_embed.set_image(url=get_circuit_image(
-                location, country).replace(" ", "%20"))
+        message_embed.add_field(
+            name="Session", value=sessions_string, inline=True)
+        message_embed.add_field(
+            name="Time", value=times_string, inline=True)
+        message_embed.add_field(
+            name="Track Layout", value="", inline=False)
+        country = schedule.loc[next_event, "Country"]
+        message_embed.set_image(url=get_circuit_image(
+            location, country).replace(" ", "%20"))
 
-            return message_embed
+        return message_embed
     except IndexError:
         return out_string
 
