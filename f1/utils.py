@@ -339,30 +339,3 @@ def get_driver_or_team_color(id: str, session: Session, team_only=False, api_onl
             pass
 
     return f"#{session.get_driver(id)['TeamColor']}"
-
-
-def map_track_status(status: str):
-    """Return descriptions of track status codes, handling multiple codes."""
-    # Define the mapping dictionary
-    names = {
-        "12": "Yellow Flag(s)",
-        "4": "Safety Car",
-        "45": "Red Flag",
-        "28": "Virtual Safety Car",
-        "1": "Green Flag",
-        "14": "VSC ending",
-        "41": "SC ending",
-        "124": "SC Deployed"
-    }
-
-    # Initialize an empty list to collect descriptions
-    descriptions = []
-
-    # Iterate over the keys in the dictionary
-    for code, description in names.items():
-        # Check if the code is in the status string
-        if code in status:
-            descriptions.append(description)
-
-    # Join descriptions with a comma or return "Unknown Status" if none found
-    return ', '.join(descriptions) if descriptions else "Unknown Status"
