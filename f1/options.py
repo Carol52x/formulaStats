@@ -6,6 +6,9 @@ from discord import Option
 DriverOption = Option(
     str, default=None, description="Driver number, 3-letter code or surname")
 
+RankedPitstopFilter = Option(
+    str, choices=["Best", "Worst", "Ranked"],
+    default="Ranked", description="Which stops to view (default ranked)")
 
 class DriverOptionRequired(Option):
     def __init__(self, input_type=str, description="Driver number, 3-letter code or surname", **kwargs) -> None:
