@@ -72,6 +72,8 @@ last_request_time = 0
 request_count = 0
 hour_start_time = time.time()
 
+pd.set_option('display.max_columns', None)
+
 
 class customEmbed:
 
@@ -2360,7 +2362,7 @@ async def format_results(session: Session, name: str, year):
             "Position": "Pos",
             "DriverNumber": "No",
             "Abbreviation": "Code",
-            "DriverId": "Driver",
+            "FullName": "Driver",
             "GridPosition": "Grid",
             "TeamName": "Team"
         })
@@ -2460,7 +2462,8 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
                     pit_out_time = box_laps['PitOutTime'].dropna(
                         inplace=False).iloc[i]
                     accurate_lap = box_laps.get_car_data().fill_missing()
-                    stationary_period = accurate_lap.slice_by_time(pit_in_time, pit_out_time)
+                    stationary_period = accurate_lap.slice_by_time(
+                        pit_in_time, pit_out_time)
                     stationary_period = stationary_period[stationary_period['Speed'] == 0]
                     total_stationary_time = (max(stationary_period['SessionTime']) -
                                              min(stationary_period['SessionTime'])).total_seconds()+0.239  # adding time for better accuracy
@@ -2855,6 +2858,7 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
         dnfs = results.loc[~results["Status"].isin(
             ["+1 Lap", "Finished"]), "Pos"].astype(int).values
         results = results.drop("Status", axis=1)
+        results = results[~results.index.duplicated(keep='first')]
         col_defs = base_defs + [
             pos_def,
             ColDef(name="Code", width=0.4),
@@ -2884,7 +2888,6 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
     table = plot_table(df=results, col_defs=col_defs, idx=idx, figsize=size)
     del results
 
-    # Highlight DNFs in race
     if get_session_type(name) == "R":
         for i in dnfs:
             table.rows[i - 1].set_facecolor((0, 0, 0, 0.38)
