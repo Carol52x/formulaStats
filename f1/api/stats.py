@@ -2449,17 +2449,21 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
     if driver is not None:
         driver = utils.find_driver(driver, drv_lst)["driverId"]
         if s:
-            box_laps = s.laps.pick_drivers(utils.find_driver(driver, drv_lst)['code']).pick_box_laps()
+            box_laps = s.laps.pick_drivers(utils.find_driver(
+                driver, drv_lst)['code']).pick_box_laps()
             for i in range(0, len(box_laps['PitInTime'].dropna(inplace=False))):
                 try:
                     box_laps2 = box_laps.dropna(subset=['PitInTime'])
-                    pit_in_time = box_laps['PitInTime'].dropna(inplace=False).iloc[i]
+                    pit_in_time = box_laps['PitInTime'].dropna(
+                        inplace=False).iloc[i]
                     lap_number = box_laps2['LapNumber'].iloc[i]
-                    pit_out_time = box_laps['PitOutTime'].dropna(inplace=False).iloc[i]
-                    stationary_period = box_laps.get_car_data().slice_by_time(pit_in_time, pit_out_time)
+                    pit_out_time = box_laps['PitOutTime'].dropna(
+                        inplace=False).iloc[i]
+                    accurate_lap = box_laps.get_car_data().fill_missing()
+                    stationary_period = accurate_lap.slice_by_time(pit_in_time, pit_out_time)
                     stationary_period = stationary_period[stationary_period['Speed'] == 0]
                     total_stationary_time = (max(stationary_period['SessionTime']) -
-                                             min(stationary_period['SessionTime'])).total_seconds()+0.239
+                                             min(stationary_period['SessionTime'])).total_seconds()+0.239  # adding time for better accuracy
 
                     if total_stationary_time > 1.8:
                         drv_laps.append([lap_number, total_stationary_time])
@@ -2485,8 +2489,9 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
                 if str(int(lap_data[0])) == str(lap):
                     return builtins.round(lap_data[1], 3)
                 else:
-                    str(int(lap_data[0])) == str(int(lap)+1)
-                    return builtins.round(lap_data[1], 3)
+                    if str(int(lap_data[0])) == str(int(lap)+1):
+                        str(int(lap_data[0])) == str(int(lap)+1)
+                        return builtins.round(lap_data[1], 3)
 
     res = await asyncio.to_thread(
         ff1_erg.get_pit_stops,
@@ -2497,6 +2502,7 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
     if driver is not None and s is not None:
         row_mask = data["driverId"] == driver
         data['Stationary Time'] = data.apply(get_stationary_time, axis=1)
+        data.dropna(inplace=True)
     elif driver is not None and s is None:
         row_mask = data["driverId"] == driver
     elif driver is None and s is not None:
@@ -2510,9 +2516,11 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
                     if drv not in drv_lap:
                         drv_lap[drv] = []
                     box_laps2 = box_laps.dropna(subset=['PitInTime'])
-                    pit_in_time = box_laps['PitInTime'].dropna(inplace=False).iloc[i]
+                    pit_in_time = box_laps['PitInTime'].dropna(
+                        inplace=False).iloc[i]
                     lap_number = box_laps2['LapNumber'].iloc[i]
-                    pit_out_time = box_laps['PitOutTime'].dropna(inplace=False).iloc[i]
+                    pit_out_time = box_laps['PitOutTime'].dropna(
+                        inplace=False).iloc[i]
                     stationary_period = box_laps.get_car_data().slice_by_time(pit_in_time, pit_out_time)
                     stationary_period = stationary_period[stationary_period['Speed'] == 0]
                     total_stationary_time = (max(stationary_period['SessionTime']) -
@@ -2522,15 +2530,21 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
 
                 except:
                     continue
+
         row_mask = data.groupby("driverId")["duration"].idxmin()
         data['Stationary Time'] = data.apply(get_stationary_time2, axis=1)
 
     else:
         row_mask = data.groupby("driverId")["duration"].idxmin()
     if year > 2017:
-        df = data.loc[row_mask].sort_values(by="Stationary Time").reset_index(drop=True)
+        df = data
+        df = df.sort_values(
+            by="Stationary Time").reset_index(drop=True)
+        df.dropna(inplace=True)
     else:
-        df = data.loc[row_mask].sort_values(by="duration").reset_index(drop=True)
+        df = data.loc[row_mask].sort_values(
+            by="duration").reset_index(drop=True)
+
     del data
     df["duration"] = df["duration"].transform(
         lambda x: f"{x.total_seconds():.3f}")
@@ -2538,12 +2552,18 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
     df["Code"] = df.apply(lambda x: pd.Series({
         "Code": drv_info[x.driverId]["code"]
     }), axis=1)
-    df.dropna(inplace=True)
-    # Get row indices for best/worst stop if provided
+
     if filter.lower() == "best":
-        df = df.loc[[df["duration"].astype(float).idxmin()]]
+        if year > 2017:
+            df = df.loc[[df["Stationary Time"].astype(float).idxmin()]]
+        else:
+            df = df.loc[[df["duration"].astype(float).idxmin()]]
+
     if filter.lower() == "worst":
-        df = df.loc[[df["duration"].astype(float).idxmax()]]
+        if year > 2017:
+            df = df.loc[[df["Stationary Time"].astype(float).idxmax()]]
+        else:
+            df = df.loc[[df["duration"].astype(float).idxmax()]]
     df.columns = df.columns.str.title()
     if year > 2017:
         return df.loc[:, ["Code", "Stop", "Lap", "Duration", "Stationary Time"]]
@@ -2817,32 +2837,6 @@ def get_dnf_results(session: Session):
     return dnfs
 
 
-def get_track_events(session: Session):
-    """Return a DataFrame with lap number and event description, e.g. safety cars."""
-
-    incidents = (
-        Laps(session.laps.loc[:, ["LapNumber", "TrackStatus"]].dropna())
-        .pick_track_status("123456789", how="any")
-        .groupby("LapNumber").min()
-        .reset_index()
-    )
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    # Map the status codes to names
-    incidents["Event"] = incidents["TrackStatus"].apply(utils.map_track_status)
-
-    # Mark the first occurance of consecutive status events by comparing against neighbouring row
-    # Allows filtering to keep only the first lap where the status occured until the next change
-    incidents["Change"] = (incidents["Event"] !=
-                           incidents["Event"].shift(1)).astype(int)
-    incidents["Event"] = incidents["Event"].str.split(', ')
-
-    # Explode the lists into separate rows while repeating the LapNumber
-    incidents = incidents.explode("Event").reset_index(drop=True)
-
-    return incidents[incidents["Change"] == 1]
-
-
 def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
     """Return a formatted matplotlib table from a session results dataframe.
 
@@ -2903,19 +2897,23 @@ def pitstops_table(results: pd.DataFrame, year) -> tuple[Figure, Axes]:
     """Returns matplotlib table from pitstops results DataFrame."""
     if year > 2017:
         col_defs = [
-            ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="r"),
+            ColDef("Code", width=0.4, textprops={
+                   "weight": "bold"}, border="r"),
             ColDef("Stop", width=0.25),
             ColDef("Lap", width=0.25),
             ColDef("Duration", width=0.5),
-            ColDef("Stationary Time", width=0.5, textprops={"ha": "right"}, border="l")
+            ColDef("Stationary Time", width=0.5,
+                   textprops={"ha": "right"}, border="l")
 
         ]
     else:
         col_defs = [
-            ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="r"),
+            ColDef("Code", width=0.4, textprops={
+                   "weight": "bold"}, border="r"),
             ColDef("Stop", width=0.25),
             ColDef("Lap", width=0.25),
-            ColDef("Duration", width=0.5, textprops={"ha": "right"}, border="l")
+            ColDef("Duration", width=0.5, textprops={
+                   "ha": "right"}, border="l")
         ]
 
     # Different sizes depending on amound of data shown with filters
@@ -3022,17 +3020,17 @@ def racecontrol(messages, session):
     messages = pd.DataFrame(messages)
     messages.drop(['Category', 'Status', 'Flag', 'Scope',
                   'Sector', 'RacingNumber'], axis=1, inplace=True)
-    max_per_file = 30
+    max_per_file = 20
     messages['Time'] = messages['Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
     num_files = (len(messages) // max_per_file) + 1
     files = []
     if session == 'Race' or session == 'Sprint':
+        messages = messages[['Time', 'Lap', 'Message']]
         col_defs = [
-
             ColDef("Time", width=0.2),
-            ColDef("Message", width=1.1, textprops={"ha": "left"}),
-            ColDef("Lap", width=0.07)
+            ColDef("Lap", width=0.07),
+            ColDef("Message", width=1.1, textprops={"ha": "left"})
         ]
         figsize = (20, 10)
     else:
@@ -3142,36 +3140,6 @@ def sectors_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
     table.columns["S3"].cells[df["Sector3Time"].idxmin()
                               ].text.set_color("#b138dd")
     table.columns["ST"].cells[df["ST"].idxmax()].text.set_color("#b138dd")
-    del df
-
-    return table.figure, table.ax
-
-
-def incidents_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
-    """Return table listing track retirements and status events."""
-    df = df.rename(columns={"LapNumber": "Lap"})
-    col_defs = [
-        ColDef("Lap", width=0.15, textprops={"weight": "bold"}, border="r"),
-        ColDef("Event", width=0.35)
-    ]
-    # Dynamic size
-    size = (7, 8)
-    table = plot_table(df, col_defs, "Lap", size)
-
-    # Styling
-    for cell in table.columns["Event"].cells:
-        if cell.content in ("Safety Car", "Virtual Safety Car", "Yellow Flag(s)", "SC  Deployed", "SC ending", "VSC ending"):
-            cell.text.set_color("#ffb300")
-            cell.text.set_alpha(0.84)
-        elif cell.content == "Red Flag":
-            cell.text.set_color("#e53935")
-            cell.text.set_alpha(0.84)
-        elif cell.content == "Green Flag":
-            cell.text.set_color("#43a047")
-            cell.text.set_alpha(0.84)
-        else:
-            cell.text.set_color((1, 1, 1, 0.5))
-
     del df
 
     return table.figure, table.ax
