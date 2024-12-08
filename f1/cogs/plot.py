@@ -242,7 +242,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                    for d in (driver1, driver2)]
         if lap1 and int(lap1) > session.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
-        if lap2 and int(lap2) > s.laps["LapNumber"].unique().max():
+        if lap2 and int(lap2) > session.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
         driver1, driver2 = drivers[0], drivers[1]
 
@@ -261,7 +261,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def h2hnew(self, ctx: ApplicationContext, year: options.SeasonOption2, session: options.SessionOption2):
+    async def h2hnew(self, ctx: ApplicationContext, year: options.SeasonOption2, session: options.SessionOption2, include_dnfs: options.DNFoption):
 
         if year == None:
             year = int(datetime.datetime.now().year)
@@ -272,14 +272,17 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 session = "Sprint Qualifying"
         await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
-        dc_embed, file = await loop.run_in_executor(None, h2h, year, session, ctx)
-        await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
+        try:
+            dc_embed, file = await loop.run_in_executor(None, h2h, year, session, ctx, include_dnfs)
+            await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Data for older seasons are very limited!")
 
     @commands.slash_command(name="avgpos", description="Average position of a driver or a team in a span of season.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def positions(self, ctx: ApplicationContext, category: options.category, session: options.SessionOption2, year: options.SeasonOption2):
+    async def positions(self, ctx: ApplicationContext, category: options.category, session: options.SessionOption2, year: options.SeasonOption2, include_dnfs: options.DNFoption):
 
         if year == None:
             year = int(datetime.datetime.now().year)
@@ -290,7 +293,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 session = "Sprint Qualifying"
         await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
-        dc_embed, file = await loop.run_in_executor(None, averageposition, session, year, category, ctx)
+        dc_embed, file = await loop.run_in_executor(None, averageposition, session, year, category, ctx, include_dnfs)
         await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Plot which gear is being used at which point of the track", integration_types={
@@ -800,7 +803,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Get lap data and count occurance of each compound
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, session, laps=True)
-        stints=s.laps
+        stints = s.laps
         stints = stints[stints["Compound"] != "UNKNOWN"]
         t_count = stints["Compound"].value_counts()
 
