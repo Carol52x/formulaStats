@@ -1596,7 +1596,7 @@ def h2h(year, session_type, ctx, include_dnfs):
     file = utils.plot_to_file(fig, "image")
     top_role_color = get_top_role_color(ctx.author)
     title = f"Teammate {session_type} Head to Head {year}"
-    description = "DNS/DNF excluded from calculation"
+    description = ""
 
     return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
 
@@ -1753,7 +1753,7 @@ def averageposition(session_type, year, category, ctx, include_dnfs):
         ax.text(position + 0.1, i,
                 f"   {str(round(position,2))}", va='center',  fontsize=20)
     file = utils.plot_to_file(fig, "image")
-    description = "DNS/DNF excluded from calculation"
+    description = ""
     title = f"Average {category} {session_type} Finish Position {year}"
     top_role_color = get_top_role_color(ctx.author)
 
