@@ -1,28 +1,7 @@
-import fastf1
 "Slash command parameter options."
 
 from discord import Option
-from datetime import datetime
-from datetime import date
-import pandas as pd
-import pytz
-current_date = date.today()
-current_year = int(datetime.now().year)
-schedule = fastf1.get_event_schedule(
-    int(datetime.now().year), include_testing=False)
-first_index = schedule.index[0]
-last_index = None
 
-for index, row in schedule.iterrows():
-
-    if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-        number = row['RoundNumber']
-        last_index = number
-first_round = schedule.loc[first_index, 'RoundNumber']
-last_round = last_index
-RankedPitstopFilter = Option(
-    str, choices=["Best", "Worst", "Ranked"],
-    default="Ranked", description="Which stops to view (default ranked)")
 
 DriverOption = Option(
     str, default=None, description="Driver number, 3-letter code or surname")
