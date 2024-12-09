@@ -61,8 +61,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
         driver1, driver2 = drivers[0], drivers[1]
-        loop = asyncio.get_running_loop()
-        file = await loop.run_in_executor(None, cornering_func, year, round, session, driver1, driver2, lap1, lap2, distance1, distance2, event, s)
+        file = await cornering_func(year, round, session, driver1, driver2, lap1, lap2, distance1, distance2, event, s)
 
         embed = discord.Embed(title=f'Cornering Analysis: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
@@ -85,9 +84,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
         driver1, driver2 = drivers[0], drivers[1]
-        loop = asyncio.get_running_loop()
-
-        file = await loop.run_in_executor(None, time_func, year, round, session, driver1, driver2, lap, event, s)
+        file = await time_func(year, round, session, driver1, driver2, lap, event, s)
 
         embed = discord.Embed(
             title=f'Speed Comparison (Time) {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
@@ -106,8 +103,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         race = await stats.load_session(event, session, weather=True, laps=True)
 
         await utils.check_season(ctx, year)
-        loop = asyncio.get_running_loop()
-        file = await loop.run_in_executor(None, weather, year, round, session, event, race)
+        file = await weather(year, round, session, event, race)
         embed = discord.Embed(title=f'Track Evolution: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
@@ -155,7 +151,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
     #
 
-        laps = session.laps
+        laps = await asyncio.to_thread(lambda: session.laps)
     # laps = laps.loc[laps['PitOutTime'].isna() & laps['PitInTime'].isna() & laps['LapTime'].notna()]
         laps['LapTimeSeconds'] = laps['LapTime'].dt.total_seconds()
 
@@ -239,15 +235,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         s = await stats.load_session(event, session, laps=True, telemetry=True)
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
-        if lap1 and int(lap1) > s.laps["LapNumber"].unique().max():
+
+        if lap1 and int(lap1) > await asyncio.to_thread(lambda: s.laps["LapNumber"].unique().max()):
             raise ValueError("Lap number out of range.")
-        if lap2 and int(lap2) > s.laps["LapNumber"].unique().max():
+        if lap2 and int(lap2) > await asyncio.to_thread(lambda: s.laps["LapNumber"].unique().max()):
             raise ValueError("Lap number out of range.")
         driver1, driver2 = drivers[0], drivers[1]
-
-        loop = asyncio.get_running_loop()
-        
-        f = await loop.run_in_executor(None, tel_func, year, round, session, driver1, driver2, lap1, lap2, event, s)
+        f = await tel_func(year, round, session, driver1, driver2, lap1, lap2, event, s)
 
         embed = discord.Embed(
             title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
@@ -270,9 +264,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             else:
                 session = "Sprint Qualifying"
         await utils.check_season(ctx, year)
-        loop = asyncio.get_running_loop()
         try:
-            dc_embed, file = await loop.run_in_executor(None, h2h, year, session, ctx, include_dnfs)
+            dc_embed, file = await h2h(year, session, ctx, include_dnfs)
             await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
         except:
             await ctx.respond("Data for older seasons are very limited!")
@@ -291,9 +284,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             else:
                 session = "Sprint Qualifying"
         await utils.check_season(ctx, year)
-        loop = asyncio.get_running_loop()
         try:
-            dc_embed, file = await loop.run_in_executor(None, averageposition, session, year, category, ctx, include_dnfs)
+            dc_embed, file = await averageposition(session, year, category, ctx, include_dnfs)
             await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
         except:
             await ctx.respond("Data unavailable.")
@@ -324,14 +316,14 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             return np.matmul(xy, rot_mat)
 
         # Filter laps to the driver's fastest and get telemetry for the lap
-        lap = session.laps.pick_fastest()
-        tel = lap.get_telemetry()
+        lap = await asyncio.to_thread(lambda: session.laps.pick_fastest())
+        tel = await asyncio.to_thread(lambda: lap.get_telemetry())
         x = np.array(tel['X'].values)
         y = np.array(tel['Y'].values)
 
         # Rotate the track coordinates
         coords = np.column_stack((x, y))  # Combine x and y into a single array
-        rotated_coords = rotate(coords, angle=track_angle)
+        rotated_coords = await asyncio.to_thread(rotate, coords, angle=track_angle)
         x_rotated, y_rotated = rotated_coords[:, 0], rotated_coords[:, 1]
 
         # Prepare for visualization
@@ -388,7 +380,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         session.load()
         if not session.f1_api_support:
             raise MissingDataError("Lap data not available before 2018.")
-        laps = session.laps
+        laps = await asyncio.to_thread(lambda: session.laps)
         drivers = session.drivers
         drivers = [session.get_driver(driver)["Abbreviation"]
                    for driver in drivers]
@@ -467,7 +459,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Plot the drivers position per lap
         for d in session.drivers:
-            laps = session.laps.pick_drivers(d)
+            laps = await asyncio.to_thread(lambda: session.laps.pick_drivers(d))
             id = laps["Driver"].iloc[0]
             style = fastf1.plotting.get_driver_style(identifier=id,
                                                      style=[
@@ -509,7 +501,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         s = await stats.load_session(ev, session, laps=True)
 
         # Get the fastest lap per driver
-        fastest_laps = stats.fastest_laps(s)
+        fastest_laps = await stats.fastest_laps(s)
         # Filter out race start incidents
         if stats.get_session_type(session) == "R":
             fastest_laps = fastest_laps.loc[fastest_laps["Lap"] > 5]
@@ -565,7 +557,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
         if not race.f1_api_support:
             raise MissingDataError("Lap data not available before 2018.")
-        laps = race.laps.pick_quicklaps()
+        laps = await asyncio.to_thread(lambda: race.laps.pick_quicklaps())
 
         transformed_laps = laps.copy()
         transformed_laps.loc[:,
@@ -627,8 +619,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load laps and telemetry data
         ev = await stats.to_event(year, round)
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        driver_laps = race.laps.pick_drivers(
-            driver[0:3].upper()).pick_quicklaps().reset_index()
+        driver_laps = await asyncio.to_thread(lambda: race.laps.pick_drivers(
+            driver[0:3].upper()).pick_quicklaps().reset_index())
         fig, ax = plt.subplots(figsize=(8, 8))
 
         sns.scatterplot(data=driver_laps,
@@ -682,9 +674,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Filter laps to the driver's fastest and gettitle='', telemetry for the lap
         drv_id = utils.find_driver(driver, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
-        lap = session.laps.pick_drivers(drv_id).pick_fastest()
-        pos = lap.get_pos_data()
-        car = lap.get_car_data()
+        lap = await asyncio.to_thread(lambda: session.laps.pick_drivers(drv_id).pick_fastest())
+        pos = await asyncio.to_thread(lambda: lap.get_pos_data())
+        car = await asyncio.to_thread(lambda: lap.get_car_data())
         circuit_info = session.get_circuit_info()
         angle = circuit_info.rotation / 180 * np.pi
         # Reshape positional data to 3-d array of [X, Y] segments on track
@@ -741,7 +733,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if lap and int(lap) > s.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
         loop = asyncio.get_running_loop()
-        f = await loop.run_in_executor(None, sectors_func, year, round, session, first, second, lap, event, s)
+        f = await sectors_func(year, round, session, first, second, lap, event, s)
 
         # Check API support
 
@@ -763,7 +755,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load session results data
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, "R")
-        data = stats.pos_change(s)
+        data = await asyncio.to_thread(lambda: stats.pos_change(s))
 
         fig = Figure(figsize=(10, 5), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()
@@ -805,7 +797,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Get lap data and count occurance of each compound
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, session, laps=True)
-        stints = s.laps
+        stints = await asyncio.to_thread(lambda: s.laps)
         stints = stints[stints["Compound"] != "UNKNOWN"]
         t_count = stints["Compound"].value_counts()
 
@@ -854,7 +846,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                    for d in (first, second)]
 
         # Group laps using only quicklaps to exclude pitstops and slow laps
-        laps = s.laps.pick_drivers(drivers).pick_quicklaps()
+        laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(drivers).pick_quicklaps())
         times = laps.loc[:, ["Driver", "LapNumber",
                              "LapTime"]].groupby("Driver")
         del laps
@@ -913,10 +905,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "Session does not support lap data before 2018.")
 
         # Get the point finishers
-        point_finishers = s.drivers[:10]
+        point_finishers = await asyncio.to_thread(lambda: s.drivers[:10])
 
-        laps = s.laps.pick_drivers(
-            point_finishers).pick_quicklaps().set_index("Driver")
+        laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(
+            point_finishers).pick_quicklaps().set_index("Driver"))
         # Convert laptimes to seconds for seaborn compatibility
         laps["LapTime (s)"] = laps["LapTime"].dt.total_seconds()
         labels = [s.get_driver(d)["Abbreviation"] for d in point_finishers]
@@ -971,7 +963,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, "R", laps=True)
 
-        data = stats.tyre_performance(s)
+        data = await asyncio.to_thread(lambda: stats.tyre_performance(s))
         compounds = data["Compound"].unique()
 
         fig = Figure(figsize=(10, 5), dpi=DPI, layout="constrained")
@@ -1039,13 +1031,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         for d in drivers:
             try:
                 if lap:
-                    driver_lap = s.laps.pick_drivers(
-                        d).pick_laps(int(lap)).iloc[0]
+                    driver_lap = asyncio.to_thread(lambda: s.laps.pick_drivers(
+                        d).pick_laps(int(lap))).iloc[0]
                 else:
-                    driver_lap = s.laps.pick_drivers(d).pick_fastest()
+                    driver_lap = await asyncio.to_thread(lambda: s.laps.pick_drivers(d).pick_fastest())
 
-                telemetry[d] = driver_lap.get_car_data(
-                    interpolate_edges=True).add_distance()
+                telemetry[d] = await asyncio.to_thread(lambda: driver_lap.get_car_data(
+                    interpolate_edges=True).add_distance())
                 driver_laps[d] = driver_lap
             except Exception:
                 raise MissingDataError(f"Cannot get telemetry for {d}.")
@@ -1085,10 +1077,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="avg-lap-delta",
-                            description="Bar chart comparing average time per driver with overall race average as a delta.", integration_types={
-                                discord.IntegrationType.guild_install,
-                                discord.IntegrationType.user_install,
-                            })
+                            description="Bar chart comparing average time per driver with overall race average as a delta.",
+                            integration_types={discord.IntegrationType.guild_install, discord.IntegrationType.user_install})
     async def avg_lap_delta(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
         """Get the overall average lap time of the session and plot the delta for each driver."""
         round = roundnumber(round, year)[0]
@@ -1103,30 +1093,26 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if not s.f1_api_support:
             raise MissingDataError("Lap data not available for the session.")
 
-        # Get the overall session average
-        session_avg: pd.Timedelta = s.laps.pick_wo_box()["LapTime"].mean()
+        # Get the overall session average lap time
+        session_avg = await asyncio.to_thread(lambda: s.laps.pick_wo_box()["LapTime"].mean())
 
         fig = Figure(figsize=(10, 6), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()
 
-        # Plot the average lap delta to session average for each driver
-        for d in s.drivers:
-            laps = (s.laps
-                    .pick_drivers(d)
-                    .pick_wo_box()
-                    .pick_laps(range(5, s.total_laps + 1))
-                    .loc[:, ["Driver", "LapTime"]])
-            driver_avg: pd.Timedelta = laps["LapTime"].mean()
+        # Filter the laps for valid drivers
+        valid_laps = s.laps.pick_wo_box().pick_laps(range(5, s.total_laps + 1))
 
-            # Filter out non-runners
+        # Group by driver and calculate average lap time for each driver
+        driver_avg_laps = valid_laps.groupby("Driver")["LapTime"].mean()
+
+        # Calculate the delta for each driver to the session average and plot
+        for driver_id, driver_avg in driver_avg_laps.items():
             if pd.isna(driver_avg):
-                continue
+                continue  # Skip non-runners
 
             delta = session_avg.total_seconds() - driver_avg.total_seconds()
-            driver_id = laps["Driver"].iloc[0]
             ax.bar(x=driver_id, height=delta, width=0.75,
                    color=utils.get_driver_or_team_color(driver_id, s, api_only=True))
-            del laps
 
         ax.minorticks_on()
         ax.tick_params(axis="x", which="minor", bottom=False)
@@ -1135,9 +1121,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.grid(True, which="both", axis="y")
         ax.set_xlabel("Finishing Order")
         ax.set_ylabel("Delta (s)")
-        ax.set_title(
-            f"{yr} {rd}\nDelta to Average ({utils.format_timedelta(session_avg)})").set_fontsize(16)
+        ax.set_title(f"{yr} {rd}\nDelta to Average ({utils.format_timedelta(session_avg)})").set_fontsize(16)
 
+        # Save the plot to a file
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'Average lap delta: {ev.EventName} ',
                               color=get_top_role_color(ctx.author))
