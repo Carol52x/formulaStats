@@ -171,7 +171,7 @@ def get_random_color():
             return color
 
 
-def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
+async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     d1 = d1[0:3].upper()
     d2 = d2[0:3].upper()
 
@@ -181,7 +181,7 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
 
     # Explore the lap data
-    session.laps
+    await asyncio.to_thread(lambda: session.laps)
     circuit_info = session.get_circuit_info()
     track_angle = circuit_info.rotation / 180 * np.pi
 
@@ -217,8 +217,8 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
         fastest_driver_2 = laps_driver_2[laps_driver_2['LapNumber'] == int(
             lap2)].iloc[0]
 
-    telemetry_driver_1 = fastest_driver_1.get_telemetry()
-    telemetry_driver_2 = fastest_driver_2.get_telemetry()
+    telemetry_driver_1 = await asyncio.to_thread(lambda: fastest_driver_1.get_telemetry())
+    telemetry_driver_2 = await asyncio.to_thread(lambda: fastest_driver_2.get_telemetry())
 
     # Identify team colors
     team_driver_1 = laps_driver_1['Team'].iloc[0]
@@ -333,10 +333,10 @@ def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     return file
 
 
-def weather(year, location, session, event, race):
+async def weather(year, location, session, event, race):
 
     race_name = race.event.EventName
-    df = race.laps
+    df = await asyncio.to_thread(lambda: race.laps)
 
 # load dataframe of df (by Final Position in ascending order)
     df = df.sort_values(by=['LapNumber', 'Position'], ascending=[
@@ -398,20 +398,27 @@ def weather(year, location, session, event, race):
             normed=True, opening=0.8, edgecolor='white')
     wax.set_legend()
     ax[1, 1].title.set_text('Wind Direction (°) and Speed(m/s)')
-    image = io.BytesIO()
     fig.set_tight_layout(False)
+    ax[0, 0].grid(which="minor", alpha=0.1)
+    ax[0, 0].minorticks_on()
+    ax[0, 1].grid(which="minor", alpha=0.1)
+    ax[0, 1].minorticks_on()
+    ax[1, 0].grid(which="minor", alpha=0.1)
+    ax[1, 0].minorticks_on()
+    ax[1, 1].grid(which="minor", alpha=0.1)
+    ax[1, 1].minorticks_on()
 
     file = utils.plot_to_file(fig, "plot")
     return file
 
 
-def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session):
+async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session):
 
     d1 = d1[0:3].upper()
     d2 = d2[0:3].upper()
 
     # Get the laps
-    laps = session.laps
+    laps = await asyncio.to_thread(lambda: session.laps)
 
     if (d1 == None or d1 == ''):
         d1 = laps.pick_fastest()['Driver']
@@ -422,8 +429,8 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
     # Setting parameters
     driver_1, driver_2 = d1, d2
 
-    car_data = laps.pick_drivers(
-        driver_1).pick_fastest().get_car_data().add_distance()
+    car_data = await asyncio.to_thread(lambda: laps.pick_drivers(
+        driver_1).pick_fastest().get_car_data().add_distance())
     dist = car_data['Distance']
     maxdist = dist[len(dist)-1]
 
@@ -439,22 +446,22 @@ def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session)
     distance_min, distance_max = dist1, dist2
 
     # Extracting the laps
-    laps_driver_1 = laps.pick_drivers(driver_1)
-    laps_driver_2 = laps.pick_drivers(driver_2)
+    laps_driver_1 = await asyncio.to_thread(lambda: laps.pick_drivers(driver_1))
+    laps_driver_2 = await asyncio.to_thread(lambda: laps.pick_drivers(driver_2))
 
     if (lap1 == None or lap1 == ''):
-        telemetry_driver_1 = laps_driver_1.pick_fastest().get_car_data().add_distance()
+        telemetry_driver_1 = await asyncio.to_thread(lambda: laps_driver_1.pick_fastest().get_car_data().add_distance())
     else:
         temp_laps1 = laps_driver_1[laps_driver_1['LapNumber'] == int(
             lap1)].iloc[0]
-        telemetry_driver_1 = temp_laps1.get_car_data().add_distance()
+        telemetry_driver_1 = await asyncio.to_thread(lambda: temp_laps1.get_car_data().add_distance())
 
     if (lap2 == None or lap2 == ''):
-        telemetry_driver_2 = laps_driver_2.pick_fastest().get_car_data().add_distance()
+        telemetry_driver_2 = await asyncio.to_thread(lambda: laps_driver_2.pick_fastest().get_car_data().add_distance())
     else:
         temp_laps2 = laps_driver_2[laps_driver_2['LapNumber'] == int(
             lap2)].iloc[0]
-        telemetry_driver_2 = temp_laps2.get_car_data().add_distance()
+        telemetry_driver_2 = await asyncio.to_thread(lambda: temp_laps2.get_car_data().add_distance())
 
     # Identifying the team for coloring later on
     team_driver_1 = laps_driver_1.reset_index().loc[0, 'Team']
@@ -749,7 +756,7 @@ def heatmap_func(yr):
     return file
 
 
-def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
+async def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     drivers = [driver1[0:3].upper(), driver2[0:3].upper()]
 
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
@@ -764,18 +771,14 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     car_data = 0
 
     i = 0
-    for z in drivers:
-        style = fastf1.plotting.get_driver_style(identifier=drivers[i],
-                                                 style=['color', 'linestyle'],
-                                                 session=session)
 
     while (i < len(drivers)):
         if (lap == None or lap == ''):
-            fast = session.laps.pick_drivers(drivers[i]).pick_fastest()
+            fast = await asyncio.to_thread(lambda: session.laps.pick_drivers(drivers[i]).pick_fastest())
         else:
-            driver_laps = session.laps.pick_drivers(drivers[i])
+            driver_laps = await asyncio.to_thread(lambda: session.laps.pick_drivers(drivers[i]))
             fast = driver_laps[driver_laps['LapNumber'] == int(lap)].iloc[0]
-        car_data = fast.get_car_data()
+        car_data = await asyncio.to_thread(lambda: fast.get_car_data())
         t = car_data['Time']
         vCar = car_data['Speed']
         style = fastf1.plotting.get_driver_style(identifier=drivers[i],
@@ -817,17 +820,17 @@ def time_func(yr, rc, sn, driver1, driver2, lap, event, session):
     return file
 
 
-def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
+async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     d1 = d1[0:3].upper()
     d2 = d2[0:3].upper()
 
     laps = session.laps
 
     if (d1 == None or d1 == ''):
-        d1 = laps.pick_fastest()['Driver']
+        d1 = await asyncio.to_thread(lambda: laps.pick_fastest()['Driver'])
 
     if (d2 == None or d2 == ''):
-        d2 = laps.pick_fastest()['Driver']
+        d2 = await asyncio.to_thread(lambda: laps.pick_fastest()['Driver'])
 
     drv1 = d1
     drv2 = d2
@@ -857,14 +860,14 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
             lap1)].iloc[0]
 
     if (lap2 == None or lap2 == ''):
-        second_driver = laps.pick_drivers(drv2).pick_fastest()
+        second_driver = await asyncio.to_thread(lambda: laps.pick_drivers(drv2).pick_fastest())
     else:
-        driver_laps = session.laps.pick_drivers(drv2)
+        driver_laps = await asyncio.to_thread(lambda: session.laps.pick_drivers(drv2))
         second_driver = driver_laps[driver_laps['LapNumber'] == int(
             lap2)].iloc[0]
 
-    first_car = first_driver.get_car_data().add_distance()
-    second_car = second_driver.get_car_data().add_distance()
+    first_car = await asyncio.to_thread(lambda: first_driver.get_car_data().add_distance())
+    second_car = await asyncio.to_thread(lambda: second_driver.get_car_data().add_distance())
 
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(7, 1, figsize=(15, 12), dpi=300, gridspec_kw={
@@ -882,7 +885,7 @@ def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     else:
         lap2 = "Lap " + str(lap2)
 
-    fig.suptitle(f"{yr} {event['EventName']}\n" +
+    fig.suptitle(f"{yr} {event['EventName']} {sn}\n" +
                  drv1 + " (" + lap1 + ") vs " + drv2 + " (" + lap2 + ")", size=15)
 
     drs_1 = first_car['DRS']
@@ -1397,15 +1400,12 @@ def const_func(yr):
     return file
 
 
-def h2h(year, session_type, ctx, include_dnfs):
-    import re
+async def h2h(year, session_type, ctx, include_dnfs):
     import datetime
     team_list = {}
     color_list = {}
     check_list = {}
     team_fullName = {}
-    driver_country = {}
-    outstring = ''
     schedule = fastf1.get_event_schedule(year, include_testing=False)
     if session_type == "Sprint" and year < 2023:
         schedule = schedule[schedule['EventFormat'] == 'sprint']
@@ -1439,22 +1439,23 @@ def h2h(year, session_type, ctx, include_dnfs):
         string = "LastName"
     else:
         string = "Abbreviation"
-
+    tasks = []
     for c in scheduleiteration:
 
-        session = fastf1.get_session(
-            year, c, session_type)
+        event = await to_event(year, c)
         if result_setting in ['sprint_qualifying', 'sprint_shootout']:
 
-            session.load(laps=True, telemetry=False,
-                         weather=False, messages=True)
+            task = load_session(event, session_type, laps=True, telemetry=False,
+                                weather=False, messages=True)
         else:
-            session.load(laps=False, telemetry=False,
-                         weather=False, messages=False)
+            task = load_session(event, session_type, laps=False, telemetry=False,
+                                weather=False, messages=False)
+        tasks.append(task)
+    result = await asyncio.gather(*tasks)
+    for i in result:
         try:
-
-            results = session.results
-            if results["DriverNumber"].size < len(session.drivers):
+            results = i.results
+            if results["DriverNumber"].size < len(i.drivers):
                 raise Exception
         except:
             break
@@ -1601,7 +1602,7 @@ def h2h(year, session_type, ctx, include_dnfs):
     return customEmbed(title=title, description=description, image_url='attachment://image.png', colour=top_role_color), file
 
 
-def averageposition(session_type, year, category, ctx, include_dnfs):
+async def averageposition(session_type, year, category, ctx, include_dnfs):
 
     import datetime
     schedule = fastf1.get_event_schedule(year=year, include_testing=False)
@@ -1637,20 +1638,24 @@ def averageposition(session_type, year, category, ctx, include_dnfs):
     driver_average = {}
     driver_colors = {}
     driver_racesParticipated = {}
+    tasks = []
 
     for i in scheduleiteration:
-        event = fastf1.get_session(year, i, session_type)
+        event = await to_event(year, i)
         if result_setting in ['sprint_qualifying', 'sprint_shootout']:
 
-            event.load(laps=True, telemetry=False,
-                       weather=False, messages=True)
+            task = load_session(event, session_type, laps=True, telemetry=False,
+                                weather=False, messages=True)
         else:
-            event.load(laps=False, telemetry=False,
-                       weather=False, messages=False)
-        results = event.results
+            task = load_session(event, session_type, laps=False, telemetry=False,
+                                weather=False, messages=False)
+        tasks.append(task)
+    result = await asyncio.gather(*tasks)
+    for i in result:
+        results = i.results
         results.dropna(subset=['Position'], inplace=True)
 
-        for driver in event.drivers:
+        for driver in i.drivers:
             if (category == 'Drivers'):
                 currDriver_abbreviation = results.loc[driver, 'LastName']
             else:
@@ -2470,10 +2475,10 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
     drv_id_mapping = {d['driverId']: d['code'] for d in drv_lst}
     drv_laps = []
     if driver is not None:
-        driver = utils.find_driver(driver, drv_lst)["driverId"]
+        driver = await asyncio.to_thread(lambda: utils.find_driver(driver, drv_lst)["driverId"])
         if s:
-            box_laps = s.laps.pick_drivers(utils.find_driver(
-                driver, drv_lst)['code']).pick_box_laps()
+            box_laps = await asyncio.to_thread(lambda:  s.laps.pick_drivers(utils.find_driver(
+                driver, drv_lst)['code']).pick_box_laps())
             for i in range(0, len(box_laps['PitInTime'].dropna(inplace=False))):
                 try:
                     box_laps2 = box_laps.dropna(subset=['PitInTime'])
@@ -2482,7 +2487,7 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
                     lap_number = box_laps2['LapNumber'].iloc[i]
                     pit_out_time = box_laps['PitOutTime'].dropna(
                         inplace=False).iloc[i]
-                    accurate_lap = box_laps.get_car_data().fill_missing()
+                    accurate_lap = await asyncio.to_thread(lambda: box_laps.get_car_data().fill_missing())
                     stationary_period = accurate_lap.slice_by_time(
                         pit_in_time, pit_out_time)
                     stationary_period = stationary_period[stationary_period['Speed'] == 0]
@@ -2533,7 +2538,7 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
         drv_lap = {}
 
         for j in drv_codes.keys():
-            box_laps = s.laps.pick_drivers(j).pick_box_laps()
+            box_laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(j).pick_box_laps())
             for i in range(0, len(box_laps['PitInTime'].dropna(inplace=False))):
                 try:
                     drv = box_laps['Driver'].iloc[i]
@@ -2545,7 +2550,7 @@ async def filter_pitstops(year, round, s=None, filter: str = None, driver: str =
                     lap_number = box_laps2['LapNumber'].iloc[i]
                     pit_out_time = box_laps['PitOutTime'].dropna(
                         inplace=False).iloc[i]
-                    stationary_period = box_laps.get_car_data().slice_by_time(pit_in_time, pit_out_time)
+                    stationary_period = await asyncio.to_thread(lambda: box_laps.get_car_data().slice_by_time(pit_in_time, pit_out_time))
                     stationary_period = stationary_period[stationary_period['Speed'] == 0]
                     total_stationary_time = (max(stationary_period['SessionTime']) -
                                              min(stationary_period['SessionTime'])).total_seconds()+0.239
@@ -2692,7 +2697,7 @@ def team_pace(session: Session):
     return df
 
 
-def fastest_laps(session: Session, tyre: str = None):
+async def fastest_laps(session: Session, tyre: str = None):
     """Get fastest laptimes for all drivers in the session, optionally filtered by `tyre`.
 
     Returns
@@ -2706,10 +2711,10 @@ def fastest_laps(session: Session, tyre: str = None):
     if not session.f1_api_support:
         raise MissingDataError("Lap data not supported for the session.")
 
-    laps = session.laps.pick_wo_box()
+    laps = await asyncio.to_thread(lambda: session.laps.pick_wo_box())
 
     if tyre:
-        laps = laps.pick_compounds(tyre)
+        laps = await asyncio.to_thread(lambda: laps.pick_compounds(tyre))
 
     if laps["Driver"].size == 0:
         raise MissingDataError("Not enough laps on this tyre.")
@@ -2735,7 +2740,7 @@ def fastest_laps(session: Session, tyre: str = None):
     return fastest.loc[:, ["Rank", "Driver", "LapTime", "Delta", "Lap", "Tyre", "ST"]]
 
 
-def sectors(s: Session, tyre: str = None):
+async def sectors(s: Session, tyre: str = None):
     """Get a DataFrame showing the minimum sector times and max speed trap recorded for each driver.
     Based on quicklaps only. Optionally filter by tyre compound.
 
@@ -2755,11 +2760,11 @@ def sectors(s: Session, tyre: str = None):
         raise MissingDataError("Lap data not supported for this session.")
 
     # Get quicklaps
-    laps = s.laps.pick_quicklaps()
+    laps = await asyncio.to_thread(lambda: s.laps.pick_quicklaps())
 
     # Filter by tyre if chosen
     if tyre:
-        laps = laps.pick_compounds(tyre)
+        laps = await asyncio.to_thread(lambda: laps.pick_compounds(tyre))
 
     if laps["Driver"].size == 0:
         raise MissingDataError("No quick laps available for this tyre.")
