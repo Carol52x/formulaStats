@@ -292,8 +292,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 session = "Sprint Qualifying"
         await utils.check_season(ctx, year)
         loop = asyncio.get_running_loop()
-        dc_embed, file = await loop.run_in_executor(None, averageposition, session, year, category, ctx, include_dnfs)
-        await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
+        try:
+            dc_embed, file = await loop.run_in_executor(None, averageposition, session, year, category, ctx, include_dnfs)
+            await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Data unavailable.")
 
     @commands.slash_command(description="Plot which gear is being used at which point of the track", integration_types={
         discord.IntegrationType.guild_install,
