@@ -232,23 +232,22 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         driver2: discord.Option(str, required=True),
                         year: options.SeasonOption3, round: options.RoundOption,
                         session: options.SessionOption, lap1: options.LapOption1, lap2: options.LapOption2):
-        """Plot lap telemetry (speed, distance, rpm, gears, brake) between two driver's fastest lap."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         event = await stats.to_event(year, round)
-        session = await stats.load_session(event, session, laps=True, telemetry=True)
+        s = await stats.load_session(event, session, laps=True, telemetry=True)
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
-        if lap1 and int(lap1) > session.laps["LapNumber"].unique().max():
+        if lap1 and int(lap1) > s.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
-        if lap2 and int(lap2) > session.laps["LapNumber"].unique().max():
+        if lap2 and int(lap2) > s.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
         driver1, driver2 = drivers[0], drivers[1]
 
         loop = asyncio.get_running_loop()
-        # await interaction.followup.send(content='h2h')
-        f = await loop.run_in_executor(None, tel_func, year, round, session, driver1, driver2, lap1, lap2, event, session)
+        
+        f = await loop.run_in_executor(None, tel_func, year, round, session, driver1, driver2, lap1, lap2, event, s)
 
         embed = discord.Embed(
             title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
