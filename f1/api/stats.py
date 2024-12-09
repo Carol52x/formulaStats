@@ -2941,7 +2941,7 @@ def pitstops_table(results: pd.DataFrame, year) -> tuple[Figure, Axes]:
         ]
 
     # Different sizes depending on amound of data shown with filters
-    size = (5, (results["Code"].size / 3.333) + 1)
+    size = (10, (results["Code"].size / 5.1) + 1)
     table = plot_table(results, col_defs, "Code", figsize=size)
     del results
 
