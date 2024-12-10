@@ -328,7 +328,7 @@ async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     # sn = session.event.get_session_name(sn)
 
     plt.suptitle(f"{yr} {event['EventName']} {sn} - Fastest Sectors\n" +
-                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")", size=25)
+                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")")
     file = utils.plot_to_file(plt.gcf(), "plot")
     return file
 
@@ -362,7 +362,7 @@ async def weather(year, location, session, event, race):
 # get session
 
     fig, ax = plt.subplots(2, 2, figsize=(15, 15))
-    fig.suptitle('Weather Data & Track Evolution \n'+race_name, fontsize=30)
+    fig.suptitle('Weather Data & Track Evolution \n'+race_name)
 
 # Track and Air Temperature
     sns.lineplot(data=df_weather, x='SessionTime(Minutes)',
@@ -619,7 +619,7 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     # sn = session.event.get_session_name(sn)
 
     plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")", size=20)
+                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")",)
     file = utils.plot_to_file(fig, "plot")
     return file
 
@@ -822,7 +822,7 @@ async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
         lap2 = "Lap " + str(lap2)
 
     fig.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 drv1 + " (" + lap1 + ") vs " + drv2 + " (" + lap2 + ")", size=15)
+                 drv1 + " (" + lap1 + ") vs " + drv2 + " (" + lap2 + ")")
 
     drs_1 = first_car['DRS']
     drs_2 = second_car['DRS']
@@ -1457,7 +1457,7 @@ async def h2h(year, session_type, ctx, include_dnfs):
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(1, figsize=(13, 9))
 
-    fig.suptitle(f'{year} {session_type} Head to Head', size=20, y=0.95)
+    fig.suptitle(f'{year} {session_type} Head to Head')
     offset = 0
     driver_names = []
     y_ticks = []
