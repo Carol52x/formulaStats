@@ -598,6 +598,17 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
         driver_laps = await asyncio.to_thread(lambda: race.laps.pick_drivers(
             driver[0:3].upper()).pick_quicklaps().reset_index())
+        driver_laps["LapTime"] = driver_laps["LapTime"].dt.total_seconds()
+
+        def format_seconds(seconds):
+            minutes = int(seconds // 60)
+            secs = seconds % 60
+            return f"{minutes:02}:{secs:06.3f}"
+
+        # Format the y-axis ticks to display minutes and seconds
+        def format_func(value, _):
+            return format_seconds(value)
+
         fig, ax = plt.subplots(figsize=(8, 8))
 
         sns.scatterplot(data=driver_laps,
@@ -612,9 +623,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.set_xlabel("Lap Number")
         ax.set_ylabel("Lap Time")
 
+
 # The y-axis increases from bottom to top by default
 # Since we are plotting time, it makes sense to invert the axis
         ax.invert_yaxis()
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
         plt.suptitle(
             f"{driver.upper()} Laptimes in the {year} {ev['EventName']}")
 
@@ -891,6 +904,15 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         labels = [s.get_driver(d)["Abbreviation"] for d in point_finishers]
         compounds = laps["Compound"].unique()
 
+        def format_seconds(seconds):
+            minutes = int(seconds // 60)
+            secs = seconds % 60
+            return f"{minutes:02}:{secs:06.3f}"
+
+        # Format the y-axis ticks to display minutes and seconds
+        def format_func(value, _):
+            return format_seconds(value)
+
         fig, ax = plt.subplots(figsize=(10, 5))
 
         sns.violinplot(data=laps,
@@ -911,6 +933,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                       linewidth=0,
                       size=5)
         del laps
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
 
         ax.set_xlabel("Driver (Point Finishers)")
         ax.set_title(
