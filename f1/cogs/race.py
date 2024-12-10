@@ -163,7 +163,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
             file = utils.plot_to_file(i, f"plot")
             embed = discord.Embed(
-                title=f"{ev['EventDate'].year} {ev['EventName']} - {session} Race Control",
+                title=f"{ev['EventDate'].year} {ev['EventName']} {session} - Race Control",
                 color=get_top_role_color(ctx.author)
             )
             embed.set_image(url=f"attachment://plot.png")
