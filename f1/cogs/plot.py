@@ -19,7 +19,7 @@ from discord.commands import ApplicationContext
 from discord.ext import commands
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
-from f1.api.stats import roundnumber, sectors_func, tel_func, driver_func, const_func, time_func, heatmap_func, cornering_func, weather, h2h, averageposition
+from f1.api.stats import roundnumber, sectors_func, tel_func, driver_func, const_func, heatmap_func, cornering_func, weather, h2h, averageposition
 from matplotlib.figure import Figure
 fastf1.plotting.setup_mpl(mpl_timedelta_support=True,
                           misc_mpl_mods=False, color_scheme='fastf1')
@@ -67,29 +67,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
-
-    @commands.slash_command(name="speed-comparison", description="Speed Comparison (Time based) of any two drivers.", integration_types={
-        discord.IntegrationType.guild_install,
-        discord.IntegrationType.user_install,
-    })
-    async def speed(self, ctx: ApplicationContext, driver1: discord.Option(str, required=True),
-                    driver2: discord.Option(str, required=True), year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption,  lap: options.LapOption):
-        round = roundnumber(round, year)[0]
-        year = roundnumber(round, year)[1]
-        await utils.check_season(ctx, year)
-        event = await stats.to_event(year, round)
-        s = await stats.load_session(event, session, laps=True, telemetry=True)
-        if lap and int(lap) > s.laps["LapNumber"].unique().max():
-            raise ValueError("Lap number out of range.")
-        drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
-                   for d in (driver1, driver2)]
-        driver1, driver2 = drivers[0], drivers[1]
-        file = await time_func(year, round, session, driver1, driver2, lap, event, s)
-
-        embed = discord.Embed(
-            title=f'Speed Comparison (Time) {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        await ctx.respond(ephemeral=get_ephemeral_setting(ctx), embed=embed, file=file)
 
     @commands.slash_command(name="track-evolution", description="Trackside weather and evolution data.", integration_types={
         discord.IntegrationType.guild_install,
@@ -268,7 +245,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             dc_embed, file = await h2h(year, session, ctx, include_dnfs)
             await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
         except:
-            await ctx.respond("Data for older seasons are very limited!")
+            await ctx.respond("Data for older seasons are very limited!", ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="avgpos", description="Average position of a driver or a team in a span of season.", integration_types={
         discord.IntegrationType.guild_install,
@@ -288,7 +265,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             dc_embed, file = await averageposition(session, year, category, ctx, include_dnfs)
             await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
         except:
-            await ctx.respond("Data unavailable.")
+            await ctx.respond("Data unavailable.", ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Plot which gear is being used at which point of the track", integration_types={
         discord.IntegrationType.guild_install,

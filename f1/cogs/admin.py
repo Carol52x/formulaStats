@@ -156,11 +156,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd.add_field(
-            name="/speed-comparison",
-            value="Speed Comparison (Time or Distance) of any two drivers."
-        )
-
-        emd.add_field(
             name="/standing-history",
             value="Standing History of either WDC or WCC"
         )
