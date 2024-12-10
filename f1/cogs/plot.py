@@ -538,26 +538,33 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         transformed_laps = laps.copy()
         transformed_laps.loc[:,
-                             "LapTime (s)"] = laps["LapTime"].dt.total_seconds()
+                             "LapTime"] = laps["LapTime"].dt.total_seconds()
 
 # order the team from the fastest (lowest median lap time) tp slower
         team_order = (
-            transformed_laps[["Team", "LapTime (s)"]]
+            transformed_laps[["Team", "LapTime"]]
             .groupby("Team")
-            .median()["LapTime (s)"]
+            .median()["LapTime"]
             .sort_values()
             .index
         )
 
 
-# make a color palette associating team names to hex codes
+        def format_seconds(seconds):
+            minutes = int(seconds // 60)
+            secs = seconds % 60
+            return f"{minutes:02}:{secs:06.3f}"
+
+        # Format the y-axis ticks to display minutes and seconds
+        def format_func(value, _):
+            return format_seconds(value)
         team_palette = {team: fastf1.plotting.get_team_color(
             team, race) for team in team_order}
         fig, ax = plt.subplots(figsize=(15, 10))
         sns.boxplot(
             data=transformed_laps,
             x="Team",
-            y="LapTime (s)",
+            y="LapTime",
             hue="Team",
             order=team_order,
             palette=team_palette,
@@ -569,6 +576,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         plt.title(f"{ev['EventName']} {year}")
         plt.grid(visible=True)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
 
 # x-label is redundant
         ax.set(xlabel=None)
@@ -900,7 +908,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(
             point_finishers).pick_quicklaps().set_index("Driver"))
         # Convert laptimes to seconds for seaborn compatibility
-        laps["LapTime (s)"] = laps["LapTime"].dt.total_seconds()
+        laps["LapTime"] = laps["LapTime"].dt.total_seconds()
         labels = [s.get_driver(d)["Abbreviation"] for d in point_finishers]
         compounds = laps["Compound"].unique()
 
@@ -917,7 +925,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         sns.violinplot(data=laps,
                        x=laps.index,
-                       y="LapTime (s)",
+                       y="LapTime",
                        inner=None,
                        scale="area",
                        order=labels,
@@ -925,7 +933,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         sns.swarmplot(data=laps,
                       x="Driver",
-                      y="LapTime (s)",
+                      y="LapTime",
                       order=labels,
                       hue="Compound",
                       palette=[fastf1.plotting.get_compound_color(
@@ -999,7 +1007,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
 
         ax.set_xlabel("Tyre Life")
-        ax.set_ylabel("Lap Time (s)")
+        ax.set_ylabel("Lap Time")
         ax.set_title(
             f"Tyre Performance - {ev['EventDate'].year} {ev['EventName']}")
         ax.legend()
