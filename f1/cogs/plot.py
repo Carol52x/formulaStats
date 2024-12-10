@@ -948,13 +948,32 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         for cmp in compounds:
             mask = data["Compound"] == cmp
+            tyre_life = data.loc[mask, "TyreLife"].values
+            lap_times = data.loc[mask, "Seconds"].values
+
+            # Convert lap times to timedelta
+            lap_times_formatted = [datetime.timedelta(seconds=sec) for sec in lap_times]
+
             ax.plot(
-                data.loc[mask, "TyreLife"].values,
-                data.loc[mask, "Seconds"].values,
+                tyre_life,
+                lap_times,
                 label=cmp,
-                color=fastf1.plotting.get_compound_color(cmp, s)
+                color=fastf1.plotting.get_compound_color(cmp, s),
             )
+
         del data
+
+        # Format the y-axis ticks to display minutes and seconds
+        def format_seconds(seconds):
+            minutes = int(seconds // 60)
+            secs = seconds % 60
+            return f"{minutes:02}:{secs:06.3f}"
+
+        # Format the y-axis ticks to display minutes and seconds
+        def format_func(value, _):
+            return format_seconds(value)
+
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
 
         ax.set_xlabel("Tyre Life")
         ax.set_ylabel("Lap Time (s)")
