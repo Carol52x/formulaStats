@@ -648,7 +648,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         ).set_fontsize(12)
         f = utils.plot_to_file(
             table, f"plot")
-        embed = discord.Embed(title=f'Sectors and Speed Trap: {ev.EventName}',
+        embed = discord.Embed(title=f'Track incidents: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
