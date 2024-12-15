@@ -2916,6 +2916,67 @@ def championship_table(data: list[dict], type: Literal["wcc", "wdc"]) -> tuple[F
     return table.figure, table.ax
 
 
+def expand_events(incidents):
+    """Expand multiple events in the same row into separate rows with the same lap."""
+
+    expanded_rows = []
+    for _, row in incidents.iterrows():
+        statuses = row["TrackStatus"]
+        events = utils.map_track_status(statuses).split(", ")
+
+        for event in events:
+            new_row = row.copy()
+            new_row["Event"] = event
+            expanded_rows.append(new_row)
+
+    expanded_df = pd.DataFrame(expanded_rows)
+    expanded_df["Change"] = expanded_df["Event"] != expanded_df["Event"].shift(1)
+
+    return expanded_df[expanded_df["Change"] == True].drop(columns=["Change"]).reset_index(drop=True)
+
+
+def get_track_events(session: Session):
+    """Return a DataFrame with lap number and event description, e.g. safety cars."""
+    incidents = (
+        Laps(session.laps.loc[:, ["LapNumber", "TrackStatus"]].dropna())
+        .pick_track_status("123456789", how="any")
+        .groupby("LapNumber").min()
+        .reset_index()
+    )
+    # Map the status codes to names
+    incidents["Event"] = incidents["TrackStatus"].apply(utils.map_track_status)
+    result = expand_events(incidents)
+
+    return result
+
+
+def incidents_table(df: pd.DataFrame) -> tuple[Figure, Axes]:
+    """Return table listing track retirements and status events."""
+    df = df.rename(columns={"LapNumber": "Lap"})
+    col_defs = [
+        ColDef("Lap", width=0.15, textprops={"weight": "bold"}, border="r"),
+        ColDef("Event", width=0.5, textprops={"ha": "right"})
+    ]
+    # Dynamic size
+    size = (4, (df["Lap"].size / 3.333) + 1)
+    table = plot_table(df, col_defs, "Lap", size)
+    # Styling
+    for cell in table.columns["Event"].cells:
+        if cell.content in ("Safety Car", "Virtual Safety Car", "Yellow Flag(s)"):
+            cell.text.set_color("#ffb300")
+            cell.text.set_alpha(0.84)
+        elif cell.content == "Red Flag":
+            cell.text.set_color("#e53935")
+            cell.text.set_alpha(0.84)
+        elif cell.content == "Green Flag":
+            cell.text.set_color("#43a047")
+            cell.text.set_alpha(0.84)
+        else:
+            cell.text.set_color((1, 1, 1, 0.5))
+    del df
+    return table.figure, table.ax
+
+
 def plot_race_schedule(data, year):
 
     df = pd.DataFrame(data)
