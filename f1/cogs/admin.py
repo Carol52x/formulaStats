@@ -229,6 +229,10 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/wdc-contenders",
             value="Shows a list of drivers who can still mathematically win the wdc."
         )
+        emd.add_field(
+            name="/track-incidents",
+            value="Shows a table showing the lap number and event, such as Safety Car or Red Flag"
+        )
 
         emd.add_field(
             name="/radio",
