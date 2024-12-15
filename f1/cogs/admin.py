@@ -256,7 +256,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         embeds = [emd1, emd]
 
-# Send both embeds together in a single message
         await ctx.respond(embeds=embeds, ephemeral=True)
 
     @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 session to speed up plotting.", integration_types={
@@ -265,19 +264,13 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
     })
     async def cache(self,
                     ctx: ApplicationContext, year: options.SeasonOption3,
-                    round: options.RoundOption, session: options.SessionOption, all_sessions: options.cacheOption):
+                    round: options.RoundOption, session: options.SessionOption):
         from datetime import datetime
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await ctx.respond("Generating cache for the given session", ephemeral=True)
-        if not all_sessions:
-            event = await stats.to_event(year, round)
-            s = await stats.load_session(event, session, laps=True, telemetry=True, weather=True, messages=True)
-        else:
-            for i in range(2018, int(datetime.now().year)):
-                for j in range(1, roundnumber(year=i)[0]):
-                    event = await stats.to_event(i, j)
-                    s = await stats.load_session(event, session, laps=True, telemetry=True, weather=True, messages=True)
+        event = await stats.to_event(year, round)
+        s = await stats.load_session(event, session, laps=True, telemetry=True, weather=True, messages=True)
 
     @commands.slash_command(name="silent-mode", description="Makes the messages visible only to the user who issued the command.")
     @default_permissions(administrator=True)
