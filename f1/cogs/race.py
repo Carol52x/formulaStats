@@ -42,7 +42,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def radio(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(), round: options.RoundOption, session: options.SessionOption, year: options.SeasonOption5):
-
+        from discord.ext.pages import Page, PaginatorButton, Paginator
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -68,6 +68,37 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                     if data:
                         a = data[0]['session_key']
 
+        def create_video(mp3_bytes, image_bytes, output_file):
+
+            with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
+                mp3_temp.write(mp3_bytes)
+                image_temp.write(image_bytes)
+            command = [
+                'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
+                '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
+                '-shortest', output_file
+            ]
+            subprocess.run(command, check=True)
+
+        async def send_video(ctx, mp3_url: str, image_url: str):
+            async with aiohttp.ClientSession() as session:
+                # Download the MP3 file
+                async with session.get(mp3_url) as response:
+                    mp3_bytes = await response.read()
+
+                # Download the image file
+                async with session.get(image_url) as response:
+                    image_bytes = await response.read()
+
+            output_file = "output.mp4"
+
+            # Create the video from the MP3 and image
+            create_video(
+                mp3_bytes, image_bytes, output_file)
+
+            with open(output_file, "rb") as video_file:
+                return discord.File(video_file, filename="output.mp4")
+
         url = f"https://api.openf1.org/v1/team_radio?session_key={a}&driver_number={driver_number}"
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
@@ -75,31 +106,37 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                     data = await response.json()
                     length = len(data)
 
-                    options1 = []
-                    for i in range(1, int(length)+1):
-                        options1.append(discord.SelectOption(
-                            label=str(i),
-                            description=f"Pick radio number {i}"
-                        ))
+                    class RadioPaginator(PaginatorButton):
+                        def __init__(self, button_type, label=None, style=None, **kwargs):
+                            super().__init__(button_type, label=label, style=style, **kwargs)
 
-                    class MyView(discord.ui.View):
-                        def __init__(self):
-                            super().__init__()
-                            self.radio_url = None
+                        async def callback(self, interaction):
+                            new_page = self.paginator.current_page
+                            if self.button_type == "first":
+                                new_page = 0
+                            elif self.button_type == "prev":
+                                if self.paginator.loop_pages and self.paginator.current_page == 0:
+                                    new_page = self.paginator.page_count
+                                else:
+                                    new_page -= 1
+                            elif self.button_type == "next":
+                                if (
+                                    self.paginator.loop_pages
+                                    and self.paginator.current_page == self.paginator.page_count
+                                ):
+                                    new_page = 0
+                                else:
+                                    new_page += 1
+                            elif self.button_type == "last":
+                                new_page = self.paginator.page_count
+                            await self.paginator.goto_page(page_number=new_page, interaction=interaction)
+                            page_number = self.paginator.current_page
 
-                        @discord.ui.select(  # the decorator that lets you specify the properties of the select menu
-                            placeholder=0,  # the placeholder text that will be displayed if nothing is selected
-                            min_values=1,  # the minimum number of values that must be selected by the users
-                            max_values=1,  # the maximum number of values that can be selected by the users
-                            options=options1
-                        )
-                        # the function called when the user is done selecting options
-                        async def select_callback(self, select, interaction):
-                            await interaction.response.send_message(f"You selected {select.values[0]}", ephemeral=True)
+                            value = page_number
 
-                            value = int(select.values[0])
+                            if value is not None:
 
-                            mp3_url = data[value-1]['recording_url']
+                                mp3_url = data[value]['recording_url']
                             import subprocess
 
                             def create_video(mp3_bytes, image_bytes, output_file):
@@ -114,7 +151,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                                 ]
                                 subprocess.run(command, check=True)
 
-                            async def send_video(ctx, mp3_url: str, image_url: str):
+                            async def send_video(mp3_url: str, image_url: str):
                                 async with aiohttp.ClientSession() as session:
                                     # Download the MP3 file
                                     async with session.get(mp3_url) as response:
@@ -131,12 +168,36 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                                     mp3_bytes, image_bytes, output_file)
 
                                 with open(output_file, "rb") as video_file:
-                                    await msg.edit(file=discord.File(video_file, filename="output.mp4"))
-                            await send_video(ctx, mp3_url, session1.get_driver(driver[0:3].upper())['HeadshotUrl'])
+                                    await interaction.edit(file=discord.File(video_file, filename="output.mp4"))
+                            await send_video(mp3_url, session1.get_driver(driver[0:3].upper())['HeadshotUrl'])
+                    mypage = []
+                    mp3_url_1 = data[0]['recording_url']
+                    file_1 = await send_video(ctx, mp3_url_1, session1.get_driver(driver[0:3].upper())['HeadshotUrl'])
 
-                embed = discord.Embed(title=f"Team Radio list", description=f"1 to {length} refers to the chronological order of radios for this driver in the selected session",
-                                      color=get_top_role_color(ctx.author))
-                msg = await ctx.respond(embed=embed, view=MyView())
+                    for i in range(0, int(length)):
+
+                        embed = discord.Embed(
+                            title=f"{ev['EventDate'].year} {ev['EventName']}- Radios for {session1.get_driver(driver[0:3].upper())['LastName']}",
+                            color=get_top_role_color(ctx.author)
+                        )
+                        embed.set_image(url=f"attachment://plot.png")
+                        mypage.append(Page(embeds=[embed], files=[file_1]))
+                buttons = [
+                    RadioPaginator("first", label="<<", style=discord.ButtonStyle.blurple),
+                    RadioPaginator("prev", label="<", style=discord.ButtonStyle.red),
+                    RadioPaginator("page_indicator", style=discord.ButtonStyle.gray, disabled=True),
+                    RadioPaginator("next", label=">", style=discord.ButtonStyle.green),
+                    RadioPaginator("last", label=">>", style=discord.ButtonStyle.blurple),
+                ]
+
+                paginator = Paginator(pages=mypage, timeout=None, author_check=False, show_indicator=True, use_default_buttons=False,
+                                      custom_buttons=buttons)
+        try:
+            await paginator.respond(ctx.interaction)
+        except discord.Forbidden:
+            return
+        except discord.HTTPException:
+            return
 
     @commands.slash_command(description="Race Control data", integration_types={
         discord.IntegrationType.guild_install,
