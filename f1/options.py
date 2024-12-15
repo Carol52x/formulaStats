@@ -28,6 +28,12 @@ EphemeralOption = Option(
     description="default false",
     default=True)
 
+cacheOption = Option(
+    bool,
+    choices=[True, False],
+    description="default false",
+    default=True)
+
 DNFoption = Option(
     bool,
     choices=[True, False],
