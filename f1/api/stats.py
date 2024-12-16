@@ -171,6 +171,63 @@ def get_random_color():
             return color
 
 
+def lap_filter_sc(row: pd.Series) -> bool:
+    return "4" in row.loc["TrackStatus"]
+
+
+def lap_filter_vsc(row: pd.Series) -> bool:
+    return (("6" in row.loc["TrackStatus"]) or ("7" in row.loc["TrackStatus"])) and (
+        "4" not in row.loc["TrackStatus"]
+    )
+
+
+def find_sc_laps(df_laps: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    sc_laps = np.sort(df_laps[df_laps.apply(lap_filter_sc, axis=1)]["LapNumber"].unique())
+    vsc_laps = np.sort(df_laps[df_laps.apply(lap_filter_vsc, axis=1)]["LapNumber"].unique())
+
+    return sc_laps, vsc_laps
+
+
+def shade_sc_periods(sc_laps: np.ndarray, vsc_laps: np.ndarray, ax):
+    sc_laps = np.append(sc_laps, [-1])
+    vsc_laps = np.append(vsc_laps, [-1])
+
+    def plot_periods(laps, label, hatch=None):
+        start = 0
+        end = 1
+
+        while end < len(laps):
+            # Check if the current SC period is still ongoing
+            if laps[end] == laps[end - 1] + 1:
+                end += 1
+            else:
+                if end - start > 1:
+                    # SC period lasts for more than one lap
+                    ax.axvspan(
+                        xmin=laps[start] - 1,
+                        xmax=laps[end - 1] - 1,
+                        alpha=0.5,
+                        color="orange",
+                        label=label if start == 0 else "_",
+                        hatch=hatch,
+                    )
+                else:
+                    # SC period lasts only one lap
+                    ax.axvspan(
+                        xmin=laps[start] - 1,
+                        xmax=laps[start],
+                        alpha=0.5,
+                        color="orange",
+                        label=label if start == 0 else "_",
+                        hatch=hatch,
+                    )
+                start = end
+                end += 1
+
+    plot_periods(sc_laps, "SC")
+    plot_periods(vsc_laps, "VSC", "-")
+
+
 async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     d1 = d1[0:3].upper()
     d2 = d2[0:3].upper()
@@ -893,12 +950,6 @@ async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     ax[4].set_ylabel(f"Brake (%)\n {drv2} | {drv1}")
     ax[5].set_ylabel("DRS (Binary)")
 
-    ax[0].get_xaxis().set_ticklabels([])
-    ax[1].get_xaxis().set_ticklabels([])
-    ax[2].get_xaxis().set_ticklabels([])
-    ax[3].get_xaxis().set_ticklabels([])
-    ax[4].get_xaxis().set_ticklabels([])
-
     fig.align_ylabels()
     fig.legend((l1, l2), (drv1, drv2))
 
@@ -933,6 +984,13 @@ async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
     ax[5].minorticks_on()
     ax[6].grid(which="minor", alpha=0.1)
     ax[6].minorticks_on()
+    ax[0].set_xlabel("Track Distance (m)")
+    ax[1].set_xlabel("Track Distance (m)")
+    ax[2].set_xlabel("Track Distance (m)")
+    ax[3].set_xlabel("Track Distance (m)")
+    ax[4].set_xlabel("Track Distance (m)")
+    ax[5].set_xlabel("Track Distance (m)")
+    ax[6].set_xlabel("Track Distance (m)")
     plt.tight_layout()
     file = utils.plot_to_file(fig, "plot")
     return file
