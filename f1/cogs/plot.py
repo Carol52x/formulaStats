@@ -277,8 +277,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        if not session.f1_api_support:
-            raise MissingDataError("Lap data not available before 2018.")
 
         # Get circuit info and rotation angle
         circuit_info = session.get_circuit_info()
@@ -352,8 +350,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
         session.load()
-        if not session.f1_api_support:
-            raise MissingDataError("Lap data not available before 2018.")
         laps = await asyncio.to_thread(lambda: session.laps)
         drivers = session.drivers
         drivers = [session.get_driver(driver)["Abbreviation"]
@@ -530,8 +526,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         ev = await stats.to_event(year, round)
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        if not race.f1_api_support:
-            raise MissingDataError("Lap data not available before 2018.")
         laps = await asyncio.to_thread(lambda: race.laps.pick_quicklaps())
 
         transformed_laps = laps.copy()
@@ -894,11 +888,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, "R", laps=True)
 
-        # Check API support
-        if not s.f1_api_support:
-            raise MissingDataError(
-                "Session does not support lap data before 2018.")
-
         # Get the point finishers
         point_finishers = await asyncio.to_thread(lambda: s.drivers[:10])
 
@@ -979,7 +968,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             tyre_life = data.loc[mask, "TyreLife"].values
             lap_times = data.loc[mask, "Seconds"].values
 
-            lap_times_formatted = [datetime.timedelta(seconds=sec) for sec in lap_times]
+            lap_times_formatted = [datetime.timedelta(
+                seconds=sec) for sec in lap_times]
 
             ax.plot(
                 tyre_life,
@@ -1016,89 +1006,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(description="Plots the delta in seconds between two drivers over a lap.", integration_types={
-        discord.IntegrationType.guild_install,
-        discord.IntegrationType.user_install,
-    })
-    async def gap(self, ctx: ApplicationContext, driver1: options.DriverOptionRequired(),
-                  driver2: options.DriverOptionRequired(), year: options.SeasonOption3,
-                  round: options.RoundOption, session: options.SessionOption, lap: options.LapOption):
-        """Get the delta over lap distance between two drivers and return a line plot.
-
-        `driver1` is comparison, `driver2` is reference lap.
-        """
-        round = roundnumber(round, year)[0]
-        year = roundnumber(round, year)[1]
-        await utils.check_season(ctx, year)
-
-        ev = await stats.to_event(year, round)
-        s = await stats.load_session(ev, session, laps=True, telemetry=True)
-
-        yr, rd = ev["EventDate"].year, ev["EventName"]
-
-        # Check lap data support
-        if not s.f1_api_support:
-            raise MissingDataError("Lap data not available for the session.")
-
-        # Check lap number is valid and within range
-        if lap and int(lap) > s.laps["LapNumber"].unique().max():
-            raise ValueError("Lap number out of range.")
-
-        # Get drivers
-        drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
-                   for d in (driver1, driver2)]
-
-        # Load each driver lap telemetry
-        telemetry = {}
-        driver_laps = {}
-        for d in drivers:
-            try:
-                if lap:
-                    driver_lap = asyncio.to_thread(lambda: s.laps.pick_drivers(
-                        d).pick_laps(int(lap))).iloc[0]
-                else:
-                    driver_lap = await asyncio.to_thread(lambda: s.laps.pick_drivers(d).pick_fastest())
-
-                telemetry[d] = await asyncio.to_thread(lambda: driver_lap.get_car_data(
-                    interpolate_edges=True).add_distance())
-                driver_laps[d] = driver_lap
-            except Exception:
-                raise MissingDataError(f"Cannot get telemetry for {d}.")
-
-        # Get interpolated delta between drivers
-        # where driver2 is ref lap and driver1 is compared
-        delta = fastf1.utils.delta_time(
-            driver_laps[drivers[1]], driver_laps[drivers[0]])[0]
-
-        # Mask the delta values to plot + green and - red
-        ahead = np.ma.masked_where(delta >= 0., delta)
-        behind = np.ma.masked_where(delta < 0., delta)
-
-        fig = Figure(figsize=(10, 3), dpi=DPI, layout="constrained")
-        ax = fig.add_subplot()
-
-        lap_label = f"Lap {lap}" if lap else "Fastest Lap"
-        # Use ref lap distance for X
-        x = telemetry[drivers[1]]["Distance"].values
-        ax.plot(x, ahead, color="green")
-        ax.plot(x, behind, color="red")
-        ax.axhline(0.0, linestyle="--", linewidth=0.5,
-                   color="w", zorder=0, alpha=0.5)
-        ax.set_title(
-            f"{drivers[0]} Delta to {drivers[1]} ({lap_label})\n{yr} {rd} | {session}").set_fontsize(16)
-        ax.set_ylabel(
-            f"<-  {drivers[0]}  |  {drivers[1]}  ->\n gap in seconds")
-        ax.set_xlabel('Track Distance in meters')
-        ax.grid(True, alpha=0.1)
-
-        f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title=f'Driver lap delta: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
-                              color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        embed.set_footer(
-            text="Warning: This plot is actually not very accurate which is an inherent problem from the way this is calculated currently (There may not be a better way though.)")
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
-
     @commands.slash_command(name="avg-lap-delta",
                             description="Bar chart comparing average time per driver with overall race average as a delta.",
                             integration_types={discord.IntegrationType.guild_install, discord.IntegrationType.user_install})
@@ -1111,10 +1018,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, "R", laps=True)
         yr, rd = ev["EventDate"].year, ev["EventName"]
-
-        # Check lap data support
-        if not s.f1_api_support:
-            raise MissingDataError("Lap data not available for the session.")
 
         # Get the overall session average lap time
         session_avg = await asyncio.to_thread(lambda: s.laps.pick_wo_box()["LapTime"].mean())
@@ -1144,7 +1047,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.grid(True, which="both", axis="y")
         ax.set_xlabel("Finishing Order")
         ax.set_ylabel("Delta (s)")
-        ax.set_title(f"{yr} {rd}\nDelta to Average ({utils.format_timedelta(session_avg)})").set_fontsize(16)
+        ax.set_title(
+            f"{yr} {rd}\nDelta to Average ({utils.format_timedelta(session_avg)})").set_fontsize(16)
 
         # Save the plot to a file
         f = utils.plot_to_file(fig, "plot")

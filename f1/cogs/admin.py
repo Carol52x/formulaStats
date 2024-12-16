@@ -110,11 +110,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd1.add_field(
-            name="/gap",
-            value="Plots the delta in seconds between two drivers over a lap."
-        )
-
-        emd1.add_field(
             name="/gear",
             value="Plot which gear is being used at which point of the track"
         )
