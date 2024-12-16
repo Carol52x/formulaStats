@@ -25,9 +25,7 @@ fastf1.plotting.setup_mpl(mpl_timedelta_support=True,
                           misc_mpl_mods=False, color_scheme='fastf1')
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 matplotlib.use('agg')
-
 logger = logging.getLogger("f1-bot")
-
 DPI = 300
 
 
@@ -126,15 +124,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         plt.rcParams["figure.figsize"] = [14, 12]
         plt.rcParams["figure.autolayout"] = True
 
-    #
-
         laps = await asyncio.to_thread(lambda: session.laps)
-    # laps = laps.loc[laps['PitOutTime'].isna() & laps['PitInTime'].isna() & laps['LapTime'].notna()]
+        sc_laps, vsc_laps = stats.find_sc_laps(laps)
+
         laps['LapTimeSeconds'] = laps['LapTime'].dt.total_seconds()
 
         avg = laps.groupby(['DriverNumber', 'Driver'])['LapTimeSeconds'].mean()
 
-    # calculate the diff vs the best average. You could average the average if you want?
         laps['Difference'] = laps['LapTimeSeconds'] - avg.min()
 
         laps['Cumulative'] = laps.groupby('Driver')['Difference'].cumsum()
@@ -158,12 +154,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.set_ylabel('Cumulative gap (in seconds)')
         ax.set_title("Race Trace - " +
                      f"{session.event.year} {session.event['EventName']}\n")
+        stats.shade_sc_periods(sc_laps, vsc_laps, ax)
         start, end = 0, ax.get_xlim()[1]
         ax.xaxis.set_ticks(np.arange(start, int(end), 10))
         ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(
             lambda x, pos: '{:0.0f}'.format(x)))
 
-        ax.legend()
+        ax.legend(bbox_to_anchor=(1.01, 1.0))
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
         file = file = utils.plot_to_file(fig, "plot")
@@ -426,26 +423,24 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load the data
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True)
-
-        # Check API support
-        if not session.f1_api_support:
-            raise MissingDataError("Lap data not available before 2018.")
-
+        sc_laps, vsc_laps = stats.find_sc_laps(session.laps)
         fig = Figure(figsize=(8.5, 5.46), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()
 
         # Plot the drivers position per lap
         for d in session.drivers:
             laps = await asyncio.to_thread(lambda: session.laps.pick_drivers(d))
-            id = laps["Driver"].iloc[0]
-            style = fastf1.plotting.get_driver_style(identifier=id,
-                                                     style=[
-                                                         'color', 'linestyle'],
-                                                     session=session)
-            ax.plot(laps["LapNumber"], laps["Position"], label=id,
-                    **style)
+            try:
+                id = laps["Driver"].iloc[0]
+                style = fastf1.plotting.get_driver_style(identifier=id,
+                                                         style=[
+                                                             'color', 'linestyle'],
+                                                         session=session)
+                ax.plot(laps["LapNumber"], laps["Position"], label=id,
+                        **style)
+            except:
+                pass
 
-        # Presentation
         ax.set_title(
             f"Race Position - {ev['EventName']} ({ev['EventDate'].year})")
         ax.set_xlabel("Lap")
@@ -454,7 +449,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.tick_params(axis="y", right=True, left=True,
                        labelleft=True, labelright=False)
         ax.invert_yaxis()
+        stats.shade_sc_periods(sc_laps, vsc_laps, ax)
         ax.legend(bbox_to_anchor=(1.01, 1.0))
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
 
         # Create image
         f = utils.plot_to_file(fig, "plot")
@@ -548,7 +546,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             .sort_values()
             .index
         )
-
 
         def format_seconds(seconds):
             minutes = int(seconds // 60)
@@ -982,7 +979,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             tyre_life = data.loc[mask, "TyreLife"].values
             lap_times = data.loc[mask, "Seconds"].values
 
-            # Convert lap times to timedelta
             lap_times_formatted = [datetime.timedelta(seconds=sec) for sec in lap_times]
 
             ax.plot(
