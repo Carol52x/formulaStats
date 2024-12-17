@@ -113,7 +113,11 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             eventname = event.EventName
         mypage = []
         loop = asyncio.get_running_loop()
-        images = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc)
+        try:
+            images = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc)
+        except:
+            await ctx.respond("No documents found for the given session.")
+            return
         a = 0
         if eventname is None:
             event = await stats.to_event(year, round)
