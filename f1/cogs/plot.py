@@ -50,6 +50,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
+        session = stats.convert_shootout_to_qualifying(year, session)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
         if lap1 and int(lap1) > s.laps["LapNumber"].unique().max():
@@ -73,6 +74,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
     async def wt(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
+        session = stats.convert_shootout_to_qualifying(year, session)
 
         event = await stats.to_event(year, round)
         race = await stats.load_session(event, session, weather=True, laps=True)
@@ -205,6 +207,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
+        session = stats.convert_shootout_to_qualifying(year, session)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
@@ -467,6 +470,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
+        session = stats.convert_shootout_to_qualifying(year, session)
 
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, session, laps=True)
@@ -508,6 +512,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.set_xlabel("Time Delta")
         ax.set_title(f"{s.name} - {ev['EventName']} ({ev['EventDate'].year})")
         fig.suptitle(f"Fastest: {top['LapTime']} ({top['Driver']})")
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
 
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'Fastest Laps: {ev.EventName}',
@@ -569,9 +575,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         plt.grid(visible=True)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
 
-# x-label is redundant
         ax.set(xlabel=None)
         plt.tight_layout()
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
 
         file = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'Team Pace delta: {ev.EventName} ',
@@ -627,6 +634,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 # Since we are plotting time, it makes sense to invert the axis
         ax.invert_yaxis()
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
         plt.suptitle(
             f"{driver.upper()} Laptimes in the {year} {ev['EventName']}")
 
@@ -717,15 +726,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
+        session = stats.convert_shootout_to_qualifying(year, session)
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True, telemetry=True)
         if lap and int(lap) > s.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
-        loop = asyncio.get_running_loop()
         f = await sectors_func(year, round, session, first, second, lap, event, s)
-
-        # Check API support
-
         embed = discord.Embed(title=f'Fastest Sectors comparison: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
@@ -782,6 +788,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
+        session = stats.convert_shootout_to_qualifying(year, session)
 
         # Get lap data and count occurance of each compound
         ev = await stats.to_event(year, round)
@@ -928,6 +935,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                       size=5)
         del laps
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
 
         ax.set_xlabel("Driver (Point Finishers)")
         ax.set_title(

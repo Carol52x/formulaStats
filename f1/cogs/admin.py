@@ -260,6 +260,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
     async def cache(self,
                     ctx: ApplicationContext, year: options.SeasonOption3,
                     round: options.RoundOption, session: options.SessionOption):
+        session = stats.convert_shootout_to_qualifying(year, session)
         from datetime import datetime
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
