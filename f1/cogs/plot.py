@@ -44,8 +44,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
     })
     async def cornering(self, ctx: ApplicationContext, driver1: discord.Option(str, required=True),
                         driver2: discord.Option(str, required=True), year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption,
-                        lap1: options.LapOption1, lap2: options.LapOption2,
-                        distance1: discord.Option(int, default=2000), distance2: discord.Option(int, default=2000)):
+                        lap1: options.LapOption1, lap2: options.LapOption2):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -60,7 +59,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
         driver1, driver2 = drivers[0], drivers[1]
-        file = await cornering_func(year, round, session, driver1, driver2, lap1, lap2, distance1, distance2, event, s)
+        file = await cornering_func(year, round, session, driver1, driver2, lap1, lap2, "", "", event, s)
 
         embed = discord.Embed(title=f'Cornering Analysis: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
