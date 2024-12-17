@@ -189,18 +189,26 @@ def lap_filter_vsc(row: pd.Series) -> bool:
     )
 
 
+def lap_filter_red_flag(row: pd.Series) -> bool:
+    return (("5" in row.loc["TrackStatus"]))
+
+
 def find_sc_laps(df_laps: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     sc_laps = np.sort(df_laps[df_laps.apply(lap_filter_sc, axis=1)]["LapNumber"].unique())
     vsc_laps = np.sort(df_laps[df_laps.apply(lap_filter_vsc, axis=1)]["LapNumber"].unique())
-
     return sc_laps, vsc_laps
+
+
+def find_red_laps(df_laps: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    red_laps = np.sort(df_laps[df_laps.apply(lap_filter_red_flag, axis=1)]["LapNumber"].unique())
+    return red_laps
 
 
 def shade_sc_periods(sc_laps: np.ndarray, vsc_laps: np.ndarray, ax):
     sc_laps = np.append(sc_laps, [-1])
     vsc_laps = np.append(vsc_laps, [-1])
 
-    def plot_periods(laps, label, hatch=None):
+    def plot_periods(laps, label, color="orange"):
         start = 0
         end = 1
 
@@ -215,9 +223,9 @@ def shade_sc_periods(sc_laps: np.ndarray, vsc_laps: np.ndarray, ax):
                         xmin=laps[start] - 1,
                         xmax=laps[end - 1] - 1,
                         alpha=0.5,
-                        color="orange",
-                        label=label if start == 0 else "_",
-                        hatch=hatch,
+                        color=color,
+                        label=label if start == 0 else "_"
+
                     )
                 else:
                     # SC period lasts only one lap
@@ -225,15 +233,50 @@ def shade_sc_periods(sc_laps: np.ndarray, vsc_laps: np.ndarray, ax):
                         xmin=laps[start] - 1,
                         xmax=laps[start],
                         alpha=0.5,
-                        color="orange",
+                        color=color,
+                        label=label if start == 0 else "_"
+
+                    )
+                start = end
+                end += 1
+
+    plot_periods(sc_laps, "SC")
+    plot_periods(vsc_laps, "VSC", "yellow")
+
+
+def shade_red_flag(red_laps: np.ndarray, ax):
+    red_laps = np.append(red_laps, [-1])
+
+    def plot_periods(laps, label, hatch=None):
+        start = 0
+        end = 1
+
+        while end < len(laps):
+            if laps[end] == laps[end - 1] + 1:
+                end += 1
+            else:
+                if end - start > 1:
+                    ax.axvspan(
+                        xmin=laps[start] - 1,
+                        xmax=laps[end - 1] - 1,
+                        alpha=0.5,
+                        color="red",
+                        label=label if start == 0 else "_",
+                        hatch=hatch,
+                    )
+                else:
+                    ax.axvspan(
+                        xmin=laps[start] - 1,
+                        xmax=laps[start],
+                        alpha=0.5,
+                        color="red",
                         label=label if start == 0 else "_",
                         hatch=hatch,
                     )
                 start = end
                 end += 1
 
-    plot_periods(sc_laps, "SC")
-    plot_periods(vsc_laps, "VSC", "-")
+    plot_periods(red_laps, "Red Flag")
 
 
 async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
@@ -1182,7 +1225,6 @@ def driver_func(yr):
     ax.set_xlabel("Round", color='white')
     ax.set_ylabel("Championship position", color='white')
 
-    # Disable the gridlines
     ax.grid(True, alpha=0.1)
     ax.minorticks_on()
 
