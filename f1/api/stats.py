@@ -194,13 +194,16 @@ def lap_filter_red_flag(row: pd.Series) -> bool:
 
 
 def find_sc_laps(df_laps: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    sc_laps = np.sort(df_laps[df_laps.apply(lap_filter_sc, axis=1)]["LapNumber"].unique())
-    vsc_laps = np.sort(df_laps[df_laps.apply(lap_filter_vsc, axis=1)]["LapNumber"].unique())
+    sc_laps = np.sort(df_laps[df_laps.apply(
+        lap_filter_sc, axis=1)]["LapNumber"].unique())
+    vsc_laps = np.sort(df_laps[df_laps.apply(
+        lap_filter_vsc, axis=1)]["LapNumber"].unique())
     return sc_laps, vsc_laps
 
 
 def find_red_laps(df_laps: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    red_laps = np.sort(df_laps[df_laps.apply(lap_filter_red_flag, axis=1)]["LapNumber"].unique())
+    red_laps = np.sort(df_laps[df_laps.apply(
+        lap_filter_red_flag, axis=1)]["LapNumber"].unique())
     return red_laps
 
 
@@ -1931,7 +1934,7 @@ def get_circuit_image(location, country):
     return None
 
 
-def get_fia_doc(doc=None):
+def get_fia_doc(year, eventname, doc=None):
     message_embed = discord.Embed()
     message_embed.title = f"FIA Document {doc}"
 
@@ -1939,18 +1942,29 @@ def get_fia_doc(doc=None):
         doc = 0
         message_embed.title = "Latest FIA Document"
 
-    # get FIA site
-    url = 'https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2024-2043'
+    if year == 2024:
+        url = 'https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2024-2043'
+    elif year == 2023:
+        url = 'https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2023-2042'
+    elif year == 2022:
+        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2022-2005"
+    elif year == 2021:
+        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2021-1108"
+    elif year == 2020:
+        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2020-1059"
+    elif year == 2019:
+        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2019-971"
+    if eventname is None:
+        pass
+    else:
+        url = url + f"/event/{eventname.replace(' ', '%20')}"
+    print(url)
     html = requests.get(url=url)
     s = BeautifulSoup(html.content, 'html.parser')
 
-    # get latest document
     results = s.find_all(class_='document-row')
     documents = [result.find('a')['href']
                  for result in results if result.find('a')]
-
-    if doc >= len(documents):
-        raise IndexError("Document index out of range")
 
     doc_url = 'https://www.fia.com/' + documents[doc]
     fileName = documents[doc].split(
@@ -3028,7 +3042,8 @@ def expand_events(incidents):
             expanded_rows.append(new_row)
 
     expanded_df = pd.DataFrame(expanded_rows)
-    expanded_df["Change"] = expanded_df["Event"] != expanded_df["Event"].shift(1)
+    expanded_df["Change"] = expanded_df["Event"] != expanded_df["Event"].shift(
+        1)
 
     return expanded_df[expanded_df["Change"] == True].drop(columns=["Change"]).reset_index(drop=True)
 
