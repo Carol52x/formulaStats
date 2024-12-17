@@ -95,20 +95,33 @@ class Season(commands.Cog, guild_ids=Config().guilds):
 
         await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(name='fiadoc', description='Get latest FIA Document. Use 1, 2, 3.. for older documents.', integration_types={
+    @commands.slash_command(name='fiadoc', description='Get FIA documents.', integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def fiadoc(self, ctx, doc: typing.Optional[int]):
+    async def fiadoc(self, ctx, doc: options.DocumentOption, year: options.SeasonOption5, round: options.RoundOption):
 
         from discord.ext.pages import Paginator, Page
+        year = stats.roundnumber(round, year)[1]
+        await utils.check_season(ctx, year)
+        if year == int(datetime.now().year) and round is None:
+            eventname = None
+            round = stats.roundnumber(round, year)[0]
+        else:
+            round = stats.roundnumber(round, year)[0]
+            event = await stats.to_event(year, round)
+            eventname = event.EventName
         mypage = []
         loop = asyncio.get_running_loop()
-        images = await loop.run_in_executor(None, get_fia_doc, doc)
+        images = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc)
         a = 0
+        if eventname is None:
+            event = await stats.to_event(year, round)
+            eventname = event.EventName
+
         for i in images:
 
-            embed = discord.Embed(title=f"FIA Document(s)", description="", color=get_top_role_color(ctx.author)).set_thumbnail(
+            embed = discord.Embed(title=f"FIA Document(s) for {year} {eventname}", description="", color=get_top_role_color(ctx.author)).set_thumbnail(
                 url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png')
             embed.set_image(url=f"attachment://{a}.png")
 
