@@ -113,7 +113,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        session.load()
         drivers = []
         dri = pd.unique(session.laps['Driver'])
         for a in dri:
@@ -127,8 +126,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         laps = await asyncio.to_thread(lambda: session.laps)
         sc_laps, vsc_laps = stats.find_sc_laps(laps)
+        red_laps = stats.find_red_laps(laps)
 
         laps['LapTimeSeconds'] = laps['LapTime'].dt.total_seconds()
+        laps = laps.dropna(subset=['LapTimeSeconds'])
 
         avg = laps.groupby(['DriverNumber', 'Driver'])['LapTimeSeconds'].mean()
 
@@ -150,12 +151,15 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
                 ax.plot(temp['LapNumber'], temp['Cumulative'],
                         **style, label=temp.iloc[0]['Driver'])
+            else:
+                continue
 
         ax.set_xlabel('Lap Number')
         ax.set_ylabel('Cumulative gap (in seconds)')
         ax.set_title("Race Trace - " +
                      f"{session.event.year} {session.event['EventName']}\n")
         stats.shade_sc_periods(sc_laps, vsc_laps, ax)
+        stats.shade_red_flag(red_laps, ax)
         start, end = 0, ax.get_xlim()[1]
         ax.xaxis.set_ticks(np.arange(start, int(end), 10))
         ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(
@@ -351,7 +355,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        session.load()
         laps = await asyncio.to_thread(lambda: session.laps)
         drivers = session.drivers
         drivers = [session.get_driver(driver)["Abbreviation"]
@@ -398,6 +401,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
         plt.legend(title="Compounds")
+        ax.grid(which="minor", alpha=0.1)
+        ax.minorticks_on()
         plt.tight_layout()
         file = utils.plot_to_file(plt.gcf(), "plot")
         embed = discord.Embed(title=f'Tyre Strategies: {ev.EventName}',
@@ -422,6 +427,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True)
         sc_laps, vsc_laps = stats.find_sc_laps(session.laps)
+        red_laps = stats.find_red_laps(session.laps)
         fig = Figure(figsize=(8.5, 5.46), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()
 
@@ -448,6 +454,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                        labelleft=True, labelright=False)
         ax.invert_yaxis()
         stats.shade_sc_periods(sc_laps, vsc_laps, ax)
+        stats.shade_red_flag(red_laps, ax)
         ax.legend(bbox_to_anchor=(1.01, 1.0))
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
