@@ -1958,7 +1958,6 @@ def get_fia_doc(year, eventname, doc=None):
         pass
     else:
         url = url + f"/event/{eventname.replace(' ', '%20')}"
-    print(url)
     html = requests.get(url=url)
     s = BeautifulSoup(html.content, 'html.parser')
 
