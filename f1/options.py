@@ -55,6 +55,12 @@ SeasonOption4 = Option(
     choices=[2012, 2013, 2014, 2015, 2016, 2017,
              2018, 2019, 2020, 2021, 2022, 2023, 2024],
     description="The season year (default current)")
+SeasonOption5 = Option(
+    int,
+    default=None,
+    choices=[2019, 2020, 2021, 2022, 2023, 2024],
+    description="The season year (default current)")
+
 
 RoundOption = Option(
     str,
@@ -118,6 +124,11 @@ SessionOption = Option(
     ],
     default="Race",
     description="The session to view (default race)")
+
+DocumentOption = Option(
+    int,
+    default=None,
+    description="Enter 1, 2, 3.. for older documents, or leave empty for the latest doc.")
 
 LapOption = Option(
     int,
