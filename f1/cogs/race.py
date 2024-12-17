@@ -20,7 +20,7 @@ import pandas as pd
 import discord
 import asyncio
 import logging
-import uuid
+import json
 from datetime import datetime
 import subprocess
 import os
@@ -63,7 +63,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         path = "https://livetiming.formula1.com" + session1.api_path + "TeamRadio.json"
         response = requests.get(path)
-        radio_data = response.json()
+        radio_data = json.loads(response.content.decode("utf-8-sig"))
         data = [entry for entry in radio_data["Captures"] if entry["RacingNumber"] == str(driver_number)]
         urls = []
         for i in data:
