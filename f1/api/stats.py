@@ -579,12 +579,13 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     # Calculating average speed
     avg_speed_driver_1 = np.mean(telemetry_driver_1['Speed'].loc[
         (telemetry_driver_1['Distance'] >= distance_min) &
-        (telemetry_driver_1['Distance'] >= distance_max)
+        (telemetry_driver_1['Distance'] <= distance_max) &
+        ~telemetry_driver_1['Speed'].isna()  # Exclude NaN values
     ])
-
     avg_speed_driver_2 = np.mean(telemetry_driver_2['Speed'].loc[
         (telemetry_driver_2['Distance'] >= distance_min) &
-        (telemetry_driver_2['Distance'] >= distance_max)
+        (telemetry_driver_2['Distance'] <= distance_max) &
+        ~telemetry_driver_2['Speed'].isna()  # Exclude NaN values
     ])
 
     if avg_speed_driver_1 > avg_speed_driver_2:
