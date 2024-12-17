@@ -466,8 +466,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                 # Set timestamp for live countdown
                 embed2 = discord.Embed(title="Quiz starting in 10 seconds!",
                                        description="", color=discord.Color.blurple())
-                await channel.send(embed=embed2, delete_after=10)
                 await ctx.respond("Quiz Created!", ephemeral=True)
+                await channel.send(embed=embed2, delete_after=10)
                 future_time = int(time.time()) + 20
                 embed.add_field(name="Time Remaining",
                                 value=f"<t:{future_time}:R>", inline=False)
