@@ -1,6 +1,6 @@
 # formulaStats
 
-formulaStats is a discord bot implementation to view F1 statistics and other visuals inside discord embeds via slash commands. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot). formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1) and [Jolpica (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.
+formulaStats is a discord bot implementation to view Formula 1 statistics and other visuals inside discord embeds via slash commands. This is a fork of [SmCTwelve's f1-bot](https://github.com/SmCTwelve/f1-bot). formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1) and [Jolpica (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.
 
 
 ## Usage
