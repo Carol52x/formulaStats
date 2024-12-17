@@ -53,13 +53,21 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         session = stats.convert_shootout_to_qualifying(year, session)
 
         ev = await stats.to_event(year, round)
-        session1 = await stats.load_session(ev, session, telemetry=False, laps=False, weather=False)
+        session1 = await stats.load_session(ev, session, telemetry=False, laps=False, weather=False, messages=False)
 
         if not driver.isdigit():
             driver_number = session1.get_driver(
                 driver[0:3].upper())['DriverNumber']
         else:
             driver_number = driver
+        if year == 2018: #fallback for driver headshot url as data seems to be unavailable for the 2018 season.
+            ev2 = await stats.to_event(year+1, round)
+            session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
+            driver_url = session2.get_driver(driver[0:3].upper())['HeadshotUrl']
+        else:
+            driver_url = session1.get_driver(driver[0:3].upper())['HeadshotUrl']
+
+
 
         path = "https://livetiming.formula1.com" + session1.api_path + "TeamRadio.json"
         response = requests.get(path)
@@ -164,10 +172,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
                     with open(output_file, "rb") as video_file:
                         await interaction.edit(file=discord.File(video_file, filename="output.mp4"))
-                await send_video(mp3_url, session1.get_driver(driver[0:3].upper())['HeadshotUrl'])
+                await send_video(mp3_url, driver_url)
         mypage = []
         mp3_url_1 = urls[0]
-        file_1 = await send_video(ctx, mp3_url_1, session1.get_driver(driver[0:3].upper())['HeadshotUrl'])
+        file_1 = await send_video(ctx, mp3_url_1, driver_url)
 
         for i in range(0, int(length)):
 
