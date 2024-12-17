@@ -56,12 +56,6 @@ SeasonOption4 = Option(
              2018, 2019, 2020, 2021, 2022, 2023, 2024],
     description="The season year (default current)")
 
-SeasonOption5 = Option(
-    int,
-    default=None,
-    choices=[2023, 2024],
-    description="The season year (default current)")
-
 RoundOption = Option(
     str,
     default=None,
@@ -120,7 +114,6 @@ SessionOption = Option(
         "Qualifying",
         "Sprint",
         "Sprint Qualifying",
-        "Sprint Shootout",
         "Race"
     ],
     default="Race",
