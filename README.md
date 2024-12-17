@@ -1,4 +1,4 @@
-![image](https://cdn.discordapp.com/avatars/1290361750520070225/b4da700bcdd5577d9a80d16bf40a98ab.png?size=4096)
+![image](https://cdn.discordapp.com/avatars/1290361750520070225/b4da700bcdd5577d9a80d16bf40a98ab.png)
 
 # formulaStats
 
