@@ -160,6 +160,14 @@ class ErgastClient:
 client = ErgastClient()
 
 
+def convert_shootout_to_qualifying(year, session):
+    if session == "Sprint Qualifying" and year == 2023:
+        session = "Sprint Shootout"
+        return session
+    else:
+        return session
+
+
 def get_random_color():
     used_colors = set()
     import random
@@ -580,9 +588,9 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     ])
 
     if avg_speed_driver_1 > avg_speed_driver_2:
-        speed_text = f"{driver_1} {round(avg_speed_driver_1 - avg_speed_driver_2,2)}km/h faster"
+        speed_text = f"{driver_1} {round(avg_speed_driver_1 - avg_speed_driver_2,2)} km/h faster"
     else:
-        speed_text = f"{driver_2} {round(avg_speed_driver_2 - avg_speed_driver_1,2)}km/h faster"
+        speed_text = f"{driver_2} {round(avg_speed_driver_2 - avg_speed_driver_1,2)} km/h faster"
 
     plt.rcParams["figure.figsize"] = [13, 4]
     plt.rcParams["figure.autolayout"] = True
@@ -673,7 +681,8 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     else:
         lap2 = "Lap " + str(lap2)
 
-    # sn = session.event.get_session_name(sn)
+    ax[0].grid(which="minor", alpha=0.1)
+    ax[0].minorticks_on()
 
     plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
                  d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")",)
@@ -1576,6 +1585,7 @@ async def h2h(year, session_type, ctx, include_dnfs):
             fontsize=13, ha='center')
 
     ax.set_xlim(xmin=-xabs_max, xmax=xabs_max)
+
     offset = 0
     # label drivers
     for i in range(len(driver_names)):
@@ -1733,7 +1743,8 @@ async def averageposition(session_type, year, category, ctx, include_dnfs):
     ax.spines['bottom'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.minorticks_off()
+    ax.grid(which="minor", alpha=0.1)
+    ax.minorticks_on()
 
     annotated = False
     for driver in driver_positions.keys():
@@ -2604,9 +2615,6 @@ async def tyre_stints(session: Session, driver: str = None):
     ------
         `MissingDataError`: if session does not support the API lap data
     """
-    # Check data availability
-    if not session.f1_api_support:
-        raise MissingDataError("Lap data not supported before 2018.")
 
     # Group laps data to individual sints per compound with total laps driven
     stints = session.laps.loc[:, ["Driver", "Stint",
@@ -2674,9 +2682,6 @@ def team_pace(session: Session):
     ------
         `MissingDataError`: if session doesn't support lap data.
     """
-    # Check lap data support
-    if not session.f1_api_support:
-        raise MissingDataError("Lap data not supported before 2018.")
 
     # Get only the quicklaps in session to exclude pits and slow laps
     laps = session.laps.pick_quicklaps()
@@ -2702,8 +2707,6 @@ async def fastest_laps(session: Session, tyre: str = None):
     ------
         `MissingDataError` if lap data unsupported or no lap data for the tyre.
     """
-    if not session.f1_api_support:
-        raise MissingDataError("Lap data not supported for the session.")
 
     laps = await asyncio.to_thread(lambda: session.laps.pick_wo_box())
 
@@ -2750,8 +2753,6 @@ async def sectors(s: Session, tyre: str = None):
     ------
         `MissingDataError` if lap data not supported or not enough laps with tyre compound.
     """
-    if not s.f1_api_support:
-        raise MissingDataError("Lap data not supported for this session.")
 
     # Get quicklaps
     laps = await asyncio.to_thread(lambda: s.laps.pick_quicklaps())
@@ -2803,10 +2804,6 @@ def tyre_performance(session: Session):
     ------
         `DataFrame` [Compound, TyreLife, LapTime, Seconds]
     """
-
-    # Check lap data support
-    if not session.f1_api_support:
-        raise MissingDataError("Lap data not supported for this session.")
 
     # Filter and group quicklaps within 105% by Compound and TyreLife to get the mean times per driven lap
     laps = session.laps.pick_quicklaps(1.05).groupby(["Compound", "TyreLife"])[
