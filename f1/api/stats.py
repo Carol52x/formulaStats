@@ -2908,8 +2908,9 @@ def get_dnf_results(session: Session):
 
     dnfs["LapNumber"] = [session.laps.pick_drivers(
         d)["LapNumber"].astype(int).max() for d in driver_nums]
-    dnfs = dnfs[dnfs["Status"] != "Finished"].reset_index(drop=True)
+    dnfs = dnfs[~dnfs["Status"].isin(["Finished", "+1 Lap"])].reset_index(drop=True)
 
+    
     return dnfs
 
 
