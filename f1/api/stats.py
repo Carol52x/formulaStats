@@ -1941,19 +1941,15 @@ def get_fia_doc(year, eventname, doc=None):
     if doc is None:
         doc = 0
         message_embed.title = "Latest FIA Document"
+    Base_url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-"
+    year_mapping = {2024: '2024-2043',
+                    2023: '2023-2042',
+                    2022: "2022-2005",
+                    2021: "2021-1108",
+                    2020: "2020-1059",
+                    2019: "2019-971"}
+    url = Base_url + year_mapping.get(year)
 
-    if year == 2024:
-        url = 'https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2024-2043'
-    elif year == 2023:
-        url = 'https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2023-2042'
-    elif year == 2022:
-        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2022-2005"
-    elif year == 2021:
-        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2021-1108"
-    elif year == 2020:
-        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2020-1059"
-    elif year == 2019:
-        url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-2019-971"
     if eventname is None:
         pass
     else:
@@ -2908,9 +2904,9 @@ def get_dnf_results(session: Session):
 
     dnfs["LapNumber"] = [session.laps.pick_drivers(
         d)["LapNumber"].astype(int).max() for d in driver_nums]
-    dnfs = dnfs[~dnfs["Status"].isin(["Finished", "+1 Lap"])].reset_index(drop=True)
+    dnfs = dnfs[~dnfs["Status"].isin(
+        ["Finished", "+1 Lap"])].reset_index(drop=True)
 
-    
     return dnfs
 
 
