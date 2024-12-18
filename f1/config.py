@@ -62,7 +62,6 @@ class Config:
     def _setup_bot(self):
         # Message contents needed for any prefix commands
         intents = Intents.default()
-        intents.message_content = True
 
         # Instantiate a single bot instance
         bot = commands.Bot(
