@@ -64,6 +64,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             ev2 = await stats.to_event(year+1, round)
             session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
             driver_url = session2.get_driver(driver[0:3].upper())['HeadshotUrl']
+        elif year == 2019 and round < 7: # fallback for handling missing data from the 2019 season as well
+            ev2 = await stats.to_event(year+1, round+6)
+            session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
+            driver_url = session2.get_driver(driver[0:3].upper())['HeadshotUrl']
         else:
             driver_url = session1.get_driver(driver[0:3].upper())['HeadshotUrl']
 
