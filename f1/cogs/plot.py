@@ -381,7 +381,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                       "ULTRASOFT": " ",
                                       "SUPERSOFT": " ", "SUPERHARD": " "}
         else:
-            absolute_compounds = stats.get_compound(year, ev.EventName)
+            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
@@ -654,7 +654,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
-            absolute_compounds = stats.get_compound(year, ev.EventName)
+            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
@@ -882,7 +882,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                       "ULTRASOFT": " ",
                                       "SUPERSOFT": " ", "SUPERHARD": " "}
         else:
-            absolute_compounds = stats.get_compound(year, ev.EventName)
+            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
@@ -1018,7 +1018,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
-            absolute_compounds = stats.get_compound(year, ev.EventName)
+            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
@@ -1123,7 +1123,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
-            absolute_compounds = stats.get_compound(year, ev.EventName)
+            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))

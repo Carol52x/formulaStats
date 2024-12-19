@@ -653,7 +653,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         s = await stats.load_session(event, session, laps=True)
         data = await stats.fastest_laps(s, tyre)
         if not year == 2018:
-            absolute_compounds = stats.get_compound(year, event.EventName)
+            absolute_compounds = await stats.get_compound_async(year, event.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
