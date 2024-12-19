@@ -8,6 +8,7 @@ from f1.api.stats import get_top_role_color
 import matplotlib
 import logging
 import matplotlib.pyplot as plt
+import re
 from matplotlib import colormaps
 import discord
 import fastf1.plotting
@@ -404,8 +405,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                     compound, compound)
 
                 if compound not in added_compounds:
-                    label = f"{compound} ({absolute_compound})"
-                    added_compounds.add(compound)
+                    if absolute_compound == " " or absolute_compound == compound:
+                        label = f"{compound}"   
+                        added_compounds.add(compound)
+                    else:
+                        label = f"{compound} ({absolute_compound})"
+                        added_compounds.add(compound)
                 else:
                     label = ""
 
@@ -654,6 +659,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
+            # Get absolute compounds dynamically
             absolute_compounds = await stats.get_compound_async(year, ev.EventName)
             compound_numbers = [int(s[1:]) for s in absolute_compounds] 
             absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
@@ -666,7 +672,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
                 "HARD": hard_compound
             }
-
         def format_seconds(seconds):
             minutes = int(seconds // 60)
             secs = seconds % 60
@@ -697,9 +702,21 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
         handles, labels = ax.get_legend_handles_labels()
+        
 
         new_labels = [
-            f"{label} ({compound_label_mapping.get(label, label)})" for label in labels]
+            f"{label} ({compound_label_mapping.get(label, label)})" 
+            if label != " " and label != compound_label_mapping.get(label, label) 
+            else label
+            for label in labels
+        ]
+        for i in range(len(new_labels)):
+            if new_labels[i].endswith("( )"):
+        # Remove the " ( )" from the string
+                new_labels[i] = new_labels[i].rstrip(" ( )")
+            elif re.search(r"(.*) \(\1\)$", new_labels[i]):
+                # Truncate the " (x)" part where x is the same as the preceding text
+                new_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", new_labels[i]) 
 
         # Set the updated legend with new labels
         ax.legend(handles, new_labels, title="Compound")
@@ -902,7 +919,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         legend_labels = [
             f"{compound} ({compound_label_mapping.get(compound, compound)})" for compound in sorted_count.index]
 
-        # Get tyre colours
+        for i in range(len(legend_labels)):
+            if legend_labels[i].endswith("( )"):
+        # Remove the " ( )" from the string
+                legend_labels[i] = legend_labels[i].rstrip(" ( )")
+            elif re.search(r"(.*) \(\1\)$", legend_labels[i]):
+                # Truncate the " (x)" part where x is the same as the preceding text
+                legend_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", legend_labels[i]) 
         clrs = [fastf1.plotting.get_compound_color(
             i, s) for i in sorted_count.index]
 
@@ -1084,8 +1107,16 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Update the legend with generic and absolute compound names
         handles, _ = ax.get_legend_handles_labels()
-        ax.legend(handles, [compound_legend_labels[compound]
-                            for compound in compounds], title="Tyre Compounds")
+        legend_labels = [compound_legend_labels[compound]
+                            for compound in compounds]
+        for i in range(len(legend_labels)):
+            if legend_labels[i].endswith("( )"):
+        # Remove the " ( )" from the string
+                legend_labels[i] = legend_labels[i].rstrip(" ( )")
+            elif re.search(r"(.*) \(\1\)$", legend_labels[i]):
+                # Truncate the " (x)" part where x is the same as the preceding text
+                legend_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", legend_labels[i]) 
+        ax.legend(handles, legend_labels, title="Tyre Compounds")
 
         plt.tight_layout()
         file = utils.plot_to_file(fig, "plot")
@@ -1144,9 +1175,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             mask = data["Compound"] == cmp
             tyre_life = data.loc[mask, "TyreLife"].values
             lap_times = data.loc[mask, "Seconds"].values
-
-            # Get the combined label (generic + absolute compound name)
-            label = f"{cmp} ({compound_label_mapping.get(cmp, cmp)})"
+            if compound_label_mapping.get(cmp) == " " or compound_label_mapping.get(cmp) is None:
+                label = cmp
+            else:
+                label = f"{cmp} ({compound_label_mapping.get(cmp)})"
 
             ax.plot(
                 tyre_life,
