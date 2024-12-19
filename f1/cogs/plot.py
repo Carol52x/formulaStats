@@ -228,7 +228,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         driver1, driver2 = drivers[0], drivers[1]
         try:
             f = await tel_func(year, round, session, driver1, driver2, lap1, lap2, event, s)
-        except:
+        except KeyError:
             await ctx.respond("No data for the driver found.")
             return
 
