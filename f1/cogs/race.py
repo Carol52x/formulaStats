@@ -47,163 +47,176 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
-
-        if str(round).isdigit():
-            round = int(round)
-        session = stats.convert_shootout_to_qualifying(year, session)
-
-        ev = await stats.to_event(year, round)
-        session1 = await stats.load_session(ev, session, telemetry=False, laps=False, weather=False, messages=False)
-
-        if not driver.isdigit():
-            driver_number = session1.get_driver(
-                driver[0:3].upper())['DriverNumber']
-        else:
-            driver_number = driver
-        if year == 2018: #fallback for driver headshot url as data seems to be unavailable for the 2018 season.
-            ev2 = await stats.to_event(year+1, round)
-            session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
-            driver_url = session2.get_driver(driver[0:3].upper())['HeadshotUrl']
-        elif year == 2019 and round < 7: # fallback for handling missing data from the 2019 season as well
-            ev2 = await stats.to_event(year+1, round+6)
-            session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
-            driver_url = session2.get_driver(driver[0:3].upper())['HeadshotUrl']
-        else:
-            driver_url = session1.get_driver(driver[0:3].upper())['HeadshotUrl']
-
-
-
-        path = "https://livetiming.formula1.com" + session1.api_path + "TeamRadio.json"
-        response = requests.get(path)
-        radio_data = json.loads(response.content.decode("utf-8-sig"))
-        data = [entry for entry in radio_data["Captures"] if entry["RacingNumber"] == str(driver_number)]
-        urls = []
-        for i in data:
-            urls.append("https://livetiming.formula1.com" + session1.api_path + i['Path'])
-        length = len(urls)
-
-        def create_video(mp3_bytes, image_bytes, output_file):
-
-            with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
-                mp3_temp.write(mp3_bytes)
-                image_temp.write(image_bytes)
-            command = [
-                'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
-                '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
-                '-shortest', output_file
-            ]
-            subprocess.run(command, check=True)
-
-        async def send_video(ctx, mp3_url: str, image_url: str):
-            async with aiohttp.ClientSession() as session:
-                # Download the MP3 file
-                async with session.get(mp3_url) as response:
-                    mp3_bytes = await response.read()
-
-                # Download the image file
-                async with session.get(image_url) as response:
-                    image_bytes = await response.read()
-
-            output_file = "output.mp4"
-
-            # Create the video from the MP3 and image
-            create_video(
-                mp3_bytes, image_bytes, output_file)
-
-            with open(output_file, "rb") as video_file:
-                return discord.File(video_file, filename="output.mp4")
-
-        class RadioPaginator(PaginatorButton):
-            def __init__(self, button_type, label=None, style=None, **kwargs):
-                super().__init__(button_type, label=label, style=style, **kwargs)
-
-            async def callback(self, interaction):
-                new_page = self.paginator.current_page
-                if self.button_type == "first":
-                    new_page = 0
-                elif self.button_type == "prev":
-                    if self.paginator.loop_pages and self.paginator.current_page == 0:
-                        new_page = self.paginator.page_count
-                    else:
-                        new_page -= 1
-                elif self.button_type == "next":
-                    if (
-                        self.paginator.loop_pages
-                        and self.paginator.current_page == self.paginator.page_count
-                    ):
-                        new_page = 0
-                    else:
-                        new_page += 1
-                elif self.button_type == "last":
-                    new_page = self.paginator.page_count
-                await self.paginator.goto_page(page_number=new_page, interaction=interaction)
-                page_number = self.paginator.current_page
-
-                value = page_number
-
-                if value is not None:
-
-                    mp3_url = urls[value]
-                import subprocess
-
-                def create_video(mp3_bytes, image_bytes, output_file):
-
-                    with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
-                        mp3_temp.write(mp3_bytes)
-                        image_temp.write(image_bytes)
-                    command = [
-                        'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
-                        '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
-                        '-shortest', output_file
-                    ]
-                    subprocess.run(command, check=True)
-
-                async def send_video(mp3_url: str, image_url: str):
-                    async with aiohttp.ClientSession() as session:
-                        # Download the MP3 file
-                        async with session.get(mp3_url) as response:
-                            mp3_bytes = await response.read()
-
-                        # Download the image file
-                        async with session.get(image_url) as response:
-                            image_bytes = await response.read()
-
-                    output_file = "output.mp4"
-
-                    # Create the video from the MP3 and image
-                    create_video(
-                        mp3_bytes, image_bytes, output_file)
-
-                    with open(output_file, "rb") as video_file:
-                        await interaction.edit(file=discord.File(video_file, filename="output.mp4"))
-                await send_video(mp3_url, driver_url)
-        mypage = []
-        mp3_url_1 = urls[0]
-        file_1 = await send_video(ctx, mp3_url_1, driver_url)
-
-        for i in range(0, int(length)):
-
-            embed = discord.Embed(
-                title=f"{ev['EventDate'].year} {ev['EventName']}- Radios for {session1.get_driver(driver[0:3].upper())['LastName']}",
-                color=get_top_role_color(ctx.author)
-            )
-            embed.set_image(url=f"attachment://plot.png")
-            mypage.append(Page(embeds=[embed], files=[file_1]))
-        buttons = [
-            RadioPaginator("first", label="<<", style=discord.ButtonStyle.blurple),
-            RadioPaginator("prev", label="<", style=discord.ButtonStyle.red),
-            RadioPaginator("page_indicator", style=discord.ButtonStyle.gray, disabled=True),
-            RadioPaginator("next", label=">", style=discord.ButtonStyle.green),
-            RadioPaginator("last", label=">>", style=discord.ButtonStyle.blurple),
-        ]
-
-        paginator = Paginator(pages=mypage, timeout=None, author_check=False, show_indicator=True, use_default_buttons=False,
-                              custom_buttons=buttons)
         try:
-            await paginator.respond(ctx.interaction)
-        except discord.Forbidden:
-            return
-        except discord.HTTPException:
+
+            if str(round).isdigit():
+                round = int(round)
+            session = stats.convert_shootout_to_qualifying(year, session)
+
+            ev = await stats.to_event(year, round)
+            session1 = await stats.load_session(ev, session, telemetry=False, laps=False, weather=False, messages=False)
+
+            if not driver.isdigit():
+                driver_number = session1.get_driver(
+                    driver[0:3].upper())['DriverNumber']
+            else:
+                driver_number = driver
+            # fallback for driver headshot url as data seems to be unavailable for the 2018 season.
+            if year == 2018:
+                ev2 = await stats.to_event(year+1, round)
+                session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
+                driver_url = session2.get_driver(
+                    driver[0:3].upper())['HeadshotUrl']
+            elif year == 2019 and round < 7:  # fallback for handling missing data from the 2019 season as well
+                ev2 = await stats.to_event(year+1, round+6)
+                session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
+                driver_url = session2.get_driver(
+                    driver[0:3].upper())['HeadshotUrl']
+            else:
+                driver_url = session1.get_driver(
+                    driver[0:3].upper())['HeadshotUrl']
+
+            path = "https://livetiming.formula1.com" + session1.api_path + "TeamRadio.json"
+            response = requests.get(path)
+            radio_data = json.loads(response.content.decode("utf-8-sig"))
+            data = [entry for entry in radio_data["Captures"]
+                    if entry["RacingNumber"] == str(driver_number)]
+            urls = []
+            for i in data:
+                urls.append("https://livetiming.formula1.com" +
+                            session1.api_path + i['Path'])
+            length = len(urls)
+
+            def create_video(mp3_bytes, image_bytes, output_file):
+
+                with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
+                    mp3_temp.write(mp3_bytes)
+                    image_temp.write(image_bytes)
+                command = [
+                    'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
+                    '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
+                    '-shortest', output_file
+                ]
+                subprocess.run(command, check=True)
+
+            async def send_video(ctx, mp3_url: str, image_url: str):
+                async with aiohttp.ClientSession() as session:
+                    # Download the MP3 file
+                    async with session.get(mp3_url) as response:
+                        mp3_bytes = await response.read()
+
+                    # Download the image file
+                    async with session.get(image_url) as response:
+                        image_bytes = await response.read()
+
+                output_file = "output.mp4"
+
+                # Create the video from the MP3 and image
+                create_video(
+                    mp3_bytes, image_bytes, output_file)
+
+                with open(output_file, "rb") as video_file:
+                    return discord.File(video_file, filename="output.mp4")
+
+            class RadioPaginator(PaginatorButton):
+                def __init__(self, button_type, label=None, style=None, **kwargs):
+                    super().__init__(button_type, label=label, style=style, **kwargs)
+
+                async def callback(self, interaction):
+                    new_page = self.paginator.current_page
+                    if self.button_type == "first":
+                        new_page = 0
+                    elif self.button_type == "prev":
+                        if self.paginator.loop_pages and self.paginator.current_page == 0:
+                            new_page = self.paginator.page_count
+                        else:
+                            new_page -= 1
+                    elif self.button_type == "next":
+                        if (
+                            self.paginator.loop_pages
+                            and self.paginator.current_page == self.paginator.page_count
+                        ):
+                            new_page = 0
+                        else:
+                            new_page += 1
+                    elif self.button_type == "last":
+                        new_page = self.paginator.page_count
+                    await self.paginator.goto_page(page_number=new_page, interaction=interaction)
+                    page_number = self.paginator.current_page
+
+                    value = page_number
+
+                    if value is not None:
+
+                        mp3_url = urls[value]
+                    import subprocess
+
+                    def create_video(mp3_bytes, image_bytes, output_file):
+
+                        with open("temp.mp3", "wb") as mp3_temp, open("temp.png", "wb") as image_temp:
+                            mp3_temp.write(mp3_bytes)
+                            image_temp.write(image_bytes)
+                        command = [
+                            'ffmpeg', '-y', '-loop', '1', '-i', 'temp.png', '-i', 'temp.mp3',
+                            '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k',
+                            '-shortest', output_file
+                        ]
+                        subprocess.run(command, check=True)
+
+                    async def send_video(mp3_url: str, image_url: str):
+                        async with aiohttp.ClientSession() as session:
+                            # Download the MP3 file
+                            async with session.get(mp3_url) as response:
+                                mp3_bytes = await response.read()
+
+                            # Download the image file
+                            async with session.get(image_url) as response:
+                                image_bytes = await response.read()
+
+                        output_file = "output.mp4"
+
+                        # Create the video from the MP3 and image
+                        create_video(
+                            mp3_bytes, image_bytes, output_file)
+
+                        with open(output_file, "rb") as video_file:
+                            await interaction.edit(file=discord.File(video_file, filename="output.mp4"))
+                    await send_video(mp3_url, driver_url)
+            mypage = []
+            mp3_url_1 = urls[0]
+            file_1 = await send_video(ctx, mp3_url_1, driver_url)
+
+            for i in range(0, int(length)):
+
+                embed = discord.Embed(
+                    title=f"{ev['EventDate'].year} {ev['EventName']}- Radios for {session1.get_driver(driver[0:3].upper())['LastName']}",
+                    color=get_top_role_color(ctx.author)
+                )
+                embed.set_image(url=f"attachment://plot.png")
+                mypage.append(Page(embeds=[embed], files=[file_1]))
+            buttons = [
+                RadioPaginator("first", label="<<",
+                               style=discord.ButtonStyle.blurple),
+                RadioPaginator("prev", label="<",
+                               style=discord.ButtonStyle.red),
+                RadioPaginator("page_indicator",
+                               style=discord.ButtonStyle.gray, disabled=True),
+                RadioPaginator("next", label=">",
+                               style=discord.ButtonStyle.green),
+                RadioPaginator("last", label=">>",
+                               style=discord.ButtonStyle.blurple),
+            ]
+
+            paginator = Paginator(pages=mypage, timeout=None, author_check=False, show_indicator=True, use_default_buttons=False,
+                                  custom_buttons=buttons)
+            try:
+                await paginator.respond(ctx.interaction)
+            except discord.Forbidden:
+                return
+            except discord.HTTPException:
+                return
+        except IndexError:
+            await ctx.respond("No data for the driver found.")
             return
 
     @commands.slash_command(description="Race Control data", integration_types={
@@ -609,6 +622,12 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
             embed.set_footer(text=text)
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+        except IndexError:
+            if driver:
+                await ctx.respond("No data for the driver found.")
+                return
+            else:
+                pass
         except:
             await ctx.respond("Pitstop data for this session is not available yet.", ephemeral=get_ephemeral_setting(ctx))
 
@@ -633,6 +652,12 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         event = await stats.to_event(year, round)
         s = await stats.load_session(event, session, laps=True)
         data = await stats.fastest_laps(s, tyre)
+        if not year == 2018:
+            absolute_compounds = stats.get_compound(year, event.EventName)
+            compound_names = ["SOFT", "MEDIUM", "HARD"]
+            compound_label_mapping = {generic: f"{generic} ({absolute})" for generic, absolute in zip(
+                compound_names, absolute_compounds)}
+            data["Tyre"] = data["Tyre"].replace(compound_label_mapping)
 
         table, ax = stats.laptime_table(data)
         ax.set_title(

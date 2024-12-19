@@ -59,7 +59,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, event["RoundNumber"]))["code"]
                    for d in (driver1, driver2)]
         driver1, driver2 = drivers[0], drivers[1]
-        file = await cornering_func(year, round, session, driver1, driver2, lap1, lap2, "", "", event, s)
+        try:
+            file = await cornering_func(year, round, session, driver1, driver2, lap1, lap2, "", "", event, s)
+        except KeyError:
+            await ctx.respond("No data for the driver found.")
+            return
 
         embed = discord.Embed(title=f'Cornering Analysis: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
                               color=get_top_role_color(ctx.author))
@@ -221,7 +225,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if lap2 and int(lap2) > await asyncio.to_thread(lambda: s.laps["LapNumber"].unique().max()):
             raise ValueError("Lap number out of range.")
         driver1, driver2 = drivers[0], drivers[1]
-        f = await tel_func(year, round, session, driver1, driver2, lap1, lap2, event, s)
+        try:
+            f = await tel_func(year, round, session, driver1, driver2, lap1, lap2, event, s)
+        except:
+            await ctx.respond("No data for the driver found.")
+            return
 
         embed = discord.Embed(
             title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
@@ -367,18 +375,33 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         stints = stints[stints["Compound"] != "UNKNOWN"]
         fig, ax = plt.subplots(figsize=(10, 10))
         added_compounds = set()
+
+        if year == 2018:
+            compound_label_mapping = {"SOFT": " ", "MEDIUM": " ", "HARD": " ", "HYPERSOFT": " ",
+                                      "ULTRASOFT": " ",
+                                      "SUPERSOFT": " ", "SUPERHARD": " "}
+        else:
+            absolute_compounds = stats.get_compound(year, ev.EventName)
+
+            compound_names = ["SOFT", "MEDIUM", "HARD"]
+            compound_label_mapping = {generic: absolute for generic,
+                                      absolute in zip(compound_names, absolute_compounds)}
+
         for driver in drivers:
             driver_stints = stints.loc[stints["Driver"] == driver]
 
             previous_stint_end = 0
             for idx, row in driver_stints.iterrows():
                 compound = row["Compound"]
-        # Skip adding the compound to the legend if it has already been added
+                absolute_compound = compound_label_mapping.get(
+                    compound, compound)
+
                 if compound not in added_compounds:
+                    label = f"{compound} ({absolute_compound})"
                     added_compounds.add(compound)
-                    label = compound  # Set the label for the first occurrence
                 else:
                     label = ""
+
                 hatch = '' if row["FreshTyre"] else '/'
                 plt.barh(
                     y=driver,
@@ -608,9 +631,27 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load laps and telemetry data
         ev = await stats.to_event(year, round)
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        driver_laps = await asyncio.to_thread(lambda: race.laps.pick_drivers(
-            driver[0:3].upper()).pick_quicklaps().reset_index())
+        try:
+            driver_laps = await asyncio.to_thread(lambda: race.laps.pick_drivers(
+                driver[0:3].upper()).pick_quicklaps().reset_index())
+        except KeyError:
+            await ctx.respond("No data for the driver found.")
+            return
         driver_laps["LapTime"] = driver_laps["LapTime"].dt.total_seconds()
+
+        # Handle compound mapping based on year
+        if year == 2018:
+            compound_label_mapping = {
+                "SOFT": " ", "MEDIUM": " ", "HARD": " ",
+                "HYPERSOFT": " ", "ULTRASOFT": " ",
+                "SUPERSOFT": " ", "SUPERHARD": " "
+            }
+        else:
+            # Get absolute compounds dynamically
+            absolute_compounds = stats.get_compound(year, ev.EventName)
+            compound_names = ["SOFT", "MEDIUM", "HARD"]
+            compound_label_mapping = {generic: absolute for generic, absolute in zip(
+                compound_names, absolute_compounds)}
 
         def format_seconds(seconds):
             minutes = int(seconds // 60)
@@ -632,27 +673,38 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         s=80,
                         linewidth=0,
                         legend='auto')
+
         ax.set_xlabel("Lap Number")
         ax.set_ylabel("Lap Time")
 
-
-# The y-axis increases from bottom to top by default
-# Since we are plotting time, it makes sense to invert the axis
+        # Invert y-axis to reflect faster times at the top
         ax.invert_yaxis()
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
+        handles, labels = ax.get_legend_handles_labels()
+
+        new_labels = [
+            f"{label} ({compound_label_mapping.get(label, label)})" for label in labels]
+
+        # Set the updated legend with new labels
+        ax.legend(handles, new_labels, title="Compound")
+
         plt.suptitle(
             f"{driver.upper()} Laptimes in the {year} {ev['EventName']}")
 
-# Turn on major grid lines
+        # Turn on major grid lines
         plt.grid(color='w', which='major', axis='both')
         sns.despine(left=True, bottom=True)
 
         plt.tight_layout()
         file = utils.plot_to_file(fig, "plot")
+
+        # Send the plot image as part of a message
         embed = discord.Embed(
-            title=f'Driver lap time distribution: {driver[0:3].upper()}', color=get_top_role_color(ctx.author))
+            title=f'Driver lap time distribution: {driver[0:3].upper()}',
+            color=get_top_role_color(ctx.author)
+        )
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
 
@@ -675,24 +727,29 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load laps and telemetry data
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
+        try:
 
-        # Filter laps to the driver's fastest and gettitle='', telemetry for the lap
-        drv_id = utils.find_driver(driver, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
-        lap = await asyncio.to_thread(lambda: session.laps.pick_drivers(drv_id).pick_fastest())
-        pos = await asyncio.to_thread(lambda: lap.get_pos_data())
-        car = await asyncio.to_thread(lambda: lap.get_car_data())
-        circuit_info = session.get_circuit_info()
-        angle = circuit_info.rotation / 180 * np.pi
-        # Reshape positional data to 3-d array of [X, Y] segments on track
-        # (num of samples) x (sample row) x (x and y pos)
-        # Then stack the points to get the beginning and end of each segment so they can be coloured
-        rotated_pos_x = pos["X"] * np.cos(angle) - pos["Y"] * np.sin(angle)
-        rotated_pos_y = pos["X"] * np.sin(angle) + pos["Y"] * np.cos(angle)
-        points = np.array([rotated_pos_x, rotated_pos_y]).T.reshape(-1, 1, 2)
-        segs = np.concatenate([points[:-1], points[1:]], axis=1)
-        speed = car["Speed"]
-        del lap, car
+            # Filter laps to the driver's fastest and gettitle='', telemetry for the lap
+            drv_id = utils.find_driver(driver, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
+            lap = await asyncio.to_thread(lambda: session.laps.pick_drivers(drv_id).pick_fastest())
+            pos = await asyncio.to_thread(lambda: lap.get_pos_data())
+            car = await asyncio.to_thread(lambda: lap.get_car_data())
+            circuit_info = session.get_circuit_info()
+            angle = circuit_info.rotation / 180 * np.pi
+            # Reshape positional data to 3-d array of [X, Y] segments on track
+            # (num of samples) x (sample row) x (x and y pos)
+            # Then stack the points to get the beginning and end of each segment so they can be coloured
+            rotated_pos_x = pos["X"] * np.cos(angle) - pos["Y"] * np.sin(angle)
+            rotated_pos_y = pos["X"] * np.sin(angle) + pos["Y"] * np.cos(angle)
+            points = np.array([rotated_pos_x, rotated_pos_y]
+                              ).T.reshape(-1, 1, 2)
+            segs = np.concatenate([points[:-1], points[1:]], axis=1)
+            speed = car["Speed"]
+            del lap, car
 
+        except KeyError:
+            await ctx.respond("No data for the driver found.")
+            return
         fig, ax = plt.subplots(sharex=True, sharey=True)
 
         # Plot the track and map segments to colors
@@ -706,8 +763,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                             linestyle="-", linewidth=4)
         lc.set_array(speed)
         speed_line = ax.add_collection(lc)
-
-        # Adjusted for more spacing
 
         plt.colorbar(lc, label="Speed (km/h)")
 
@@ -737,7 +792,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         s = await stats.load_session(event, session, laps=True, telemetry=True)
         if lap and int(lap) > s.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
-        f = await sectors_func(year, round, session, first, second, lap, event, s)
+        try:
+            f = await sectors_func(year, round, session, first, second, lap, event, s)
+        except KeyError:
+            await ctx.respond("No data for the driver found.")
+            return
         embed = discord.Embed(title=f'Fastest Sectors comparison: {event.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
@@ -802,11 +861,25 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         stints = await asyncio.to_thread(lambda: s.laps)
         stints = stints[stints["Compound"] != "UNKNOWN"]
         t_count = stints["Compound"].value_counts()
+        added_compounds = set()
+
+        if year == 2018:
+            compound_label_mapping = {"SOFT": " ", "MEDIUM": " ", "HARD": " ", "HYPERSOFT": " ",
+                                      "ULTRASOFT": " ",
+                                      "SUPERSOFT": " ", "SUPERHARD": " "}
+        else:
+            absolute_compounds = stats.get_compound(year, ev.EventName)
+
+            compound_names = ["SOFT", "MEDIUM", "HARD"]
+            compound_label_mapping = {generic: absolute for generic,
+                                      absolute in zip(compound_names, absolute_compounds)}
 
         # Calculate percentages and sort
         t_percent = t_count / len(stints) * 100
         sorted_count = t_count.sort_values(ascending=False)
         sorted_percent = t_percent.loc[sorted_count.index]
+        legend_labels = [
+            f"{compound} ({compound_label_mapping.get(compound, compound)})" for compound in sorted_count.index]
 
         # Get tyre colours
         clrs = [fastf1.plotting.get_compound_color(
@@ -815,10 +888,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         fig = Figure(figsize=(8, 6), dpi=DPI, layout="constrained")
         ax = fig.add_subplot(aspect="equal")
 
-        ax.pie(sorted_percent, colors=clrs, autopct="%1.1f%%",
-               textprops={"color": "black"})
+        wedges, texts, autotexts = ax.pie(
+            sorted_percent, colors=clrs, autopct="%1.1f%%", textprops={"color": "black"})
 
-        ax.legend(sorted_count.index)
+        ax.legend(wedges, legend_labels, title="Compounds",
+                  loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
         ax.set_title(
             f"Tyre Distribution - {session}\n{ev['EventName']} ({ev['EventDate'].year})")
 
@@ -844,14 +918,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ev = await stats.to_event(year, round)
         s = await stats.load_session(ev, "R", laps=True, telemetry=True)
         # Get driver codes from the identifiers given
-        drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
-                   for d in (first, second)]
+        try:
+            drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
+                       for d in (first, second)]
 
-        # Group laps using only quicklaps to exclude pitstops and slow laps
-        laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(drivers).pick_quicklaps())
-        times = laps.loc[:, ["Driver", "LapNumber",
-                             "LapTime"]].groupby("Driver")
-        del laps
+            # Group laps using only quicklaps to exclude pitstops and slow laps
+            laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(drivers).pick_quicklaps())
+            times = laps.loc[:, ["Driver", "LapNumber",
+                                 "LapTime"]].groupby("Driver")
+            del laps
+        except KeyError:
+            await ctx.respond("No data for the driver found.")
+            return
 
         fig = Figure(figsize=(8, 5), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()
@@ -911,6 +989,25 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         labels = [s.get_driver(d)["Abbreviation"] for d in point_finishers]
         compounds = laps["Compound"].unique()
 
+        # Handle compound mapping based on year
+        if year == 2018:
+            compound_label_mapping = {
+                "SOFT": " ", "MEDIUM": " ", "HARD": " ",
+                "HYPERSOFT": " ", "ULTRASOFT": " ",
+                "SUPERSOFT": " ", "SUPERHARD": " "
+            }
+        else:
+            # Get absolute compounds dynamically
+            absolute_compounds = stats.get_compound(year, ev.EventName)
+            compound_names = ["SOFT", "MEDIUM", "HARD"]
+            compound_label_mapping = {generic: absolute for generic, absolute in zip(
+                compound_names, absolute_compounds)}
+
+        # Define legend labels combining generic and absolute compound names
+        compound_legend_labels = {
+            compound: f"{compound} ({compound_label_mapping.get(compound, compound)})" for compound in compounds}
+
+        # Function to format seconds for the y-axis
         def format_seconds(seconds):
             minutes = int(seconds // 60)
             secs = seconds % 60
@@ -920,26 +1017,33 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         def format_func(value, _):
             return format_seconds(value)
 
+        # Create the plot
         fig, ax = plt.subplots(figsize=(10, 5))
 
-        sns.violinplot(data=laps,
-                       x=laps.index,
-                       y="LapTime",
-                       inner=None,
-                       scale="area",
-                       order=labels,
-                       palette=[utils.get_driver_or_team_color(d, s) for d in labels])
+        sns.violinplot(
+            data=laps,
+            x=laps.index,
+            y="LapTime",
+            inner=None,
+            scale="area",
+            order=labels,
+            palette=[utils.get_driver_or_team_color(d, s) for d in labels]
+        )
 
-        sns.swarmplot(data=laps,
-                      x="Driver",
-                      y="LapTime",
-                      order=labels,
-                      hue="Compound",
-                      palette=[fastf1.plotting.get_compound_color(
-                          c, s) for c in compounds],
-                      linewidth=0,
-                      size=5)
-        del laps
+        # Plot the swarm plot with compounds
+        sns.swarmplot(
+            data=laps,
+            x="Driver",
+            y="LapTime",
+            order=labels,
+            hue="Compound",
+            palette=[fastf1.plotting.get_compound_color(
+                c, s) for c in compounds],
+            linewidth=0,
+            size=5
+        )
+
+        # Format the y-axis
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
@@ -950,11 +1054,19 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         sns.despine(left=True, right=True)
 
+        # Update the legend with generic and absolute compound names
+        handles, _ = ax.get_legend_handles_labels()
+        ax.legend(handles, [compound_legend_labels[compound]
+                            for compound in compounds], title="Tyre Compounds")
+
         plt.tight_layout()
         file = utils.plot_to_file(fig, "plot")
-# Now send the plot image as part of a message
+
+        # Send the plot image as part of a message
         embed = discord.Embed(
-            title=f'Lap distribution on violin plot: {ev.EventName}', color=get_top_role_color(ctx.author))
+            title=f'Lap distribution on violin plot: {ev.EventName}',
+            color=get_top_role_color(ctx.author)
+        )
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
 
@@ -975,21 +1087,36 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         data = await asyncio.to_thread(lambda: stats.tyre_performance(s))
         compounds = data["Compound"].unique()
 
+        # Handle compound mapping based on year
+        if year == 2018:
+            compound_label_mapping = {
+                "SOFT": " ", "MEDIUM": " ", "HARD": " ",
+                "HYPERSOFT": " ", "ULTRASOFT": " ",
+                "SUPERSOFT": " ", "SUPERHARD": " "
+            }
+        else:
+            # Get absolute compounds dynamically
+            absolute_compounds = stats.get_compound(year, ev.EventName)
+            compound_names = ["SOFT", "MEDIUM", "HARD"]
+            compound_label_mapping = {generic: absolute for generic, absolute in zip(
+                compound_names, absolute_compounds)}
+
         fig = Figure(figsize=(10, 5), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()
 
+        # Plot each compound with the mapped labels
         for cmp in compounds:
             mask = data["Compound"] == cmp
             tyre_life = data.loc[mask, "TyreLife"].values
             lap_times = data.loc[mask, "Seconds"].values
 
-            lap_times_formatted = [datetime.timedelta(
-                seconds=sec) for sec in lap_times]
+            # Get the combined label (generic + absolute compound name)
+            label = f"{cmp} ({compound_label_mapping.get(cmp, cmp)})"
 
             ax.plot(
                 tyre_life,
                 lap_times,
-                label=cmp,
+                label=label,
                 color=fastf1.plotting.get_compound_color(cmp, s),
             )
 
@@ -1001,7 +1128,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             secs = seconds % 60
             return f"{minutes:02}:{secs:06.3f}"
 
-        # Format the y-axis ticks to display minutes and seconds
         def format_func(value, _):
             return format_seconds(value)
 
@@ -1011,13 +1137,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.set_ylabel("Lap Time")
         ax.set_title(
             f"Tyre Performance - {ev['EventDate'].year} {ev['EventName']}")
-        ax.legend()
+        ax.legend(title="Tyre Compounds")
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
         ax.grid(True, alpha=0.1)
+
         f = utils.plot_to_file(fig, "plot")
-        embed = discord.Embed(title=f'Tyre degradation: {ev.EventName}',
-                              color=get_top_role_color(ctx.author))
+
+        # Send the plot image as part of a message
+        embed = discord.Embed(
+            title=f'Tyre degradation: {ev.EventName}',
+            color=get_top_role_color(ctx.author)
+        )
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
