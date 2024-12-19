@@ -382,10 +382,17 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                       "SUPERSOFT": " ", "SUPERHARD": " "}
         else:
             absolute_compounds = stats.get_compound(year, ev.EventName)
-
-            compound_names = ["SOFT", "MEDIUM", "HARD"]
-            compound_label_mapping = {generic: absolute for generic,
-                                      absolute in zip(compound_names, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
+            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
+                                    if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
 
         for driver in drivers:
             driver_stints = stints.loc[stints["Driver"] == driver]
@@ -647,11 +654,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
-            # Get absolute compounds dynamically
             absolute_compounds = stats.get_compound(year, ev.EventName)
-            compound_names = ["SOFT", "MEDIUM", "HARD"]
-            compound_label_mapping = {generic: absolute for generic, absolute in zip(
-                compound_names, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
+            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
+                                    if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
 
         def format_seconds(seconds):
             minutes = int(seconds // 60)
@@ -869,10 +883,17 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                       "SUPERSOFT": " ", "SUPERHARD": " "}
         else:
             absolute_compounds = stats.get_compound(year, ev.EventName)
-
-            compound_names = ["SOFT", "MEDIUM", "HARD"]
-            compound_label_mapping = {generic: absolute for generic,
-                                      absolute in zip(compound_names, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
+            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
+                                    if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
 
         # Calculate percentages and sort
         t_percent = t_count / len(stints) * 100
@@ -997,11 +1018,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
-            # Get absolute compounds dynamically
             absolute_compounds = stats.get_compound(year, ev.EventName)
-            compound_names = ["SOFT", "MEDIUM", "HARD"]
-            compound_label_mapping = {generic: absolute for generic, absolute in zip(
-                compound_names, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
+            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
+                                    if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
 
         # Define legend labels combining generic and absolute compound names
         compound_legend_labels = {
@@ -1095,11 +1123,18 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 "SUPERSOFT": " ", "SUPERHARD": " "
             }
         else:
-            # Get absolute compounds dynamically
             absolute_compounds = stats.get_compound(year, ev.EventName)
-            compound_names = ["SOFT", "MEDIUM", "HARD"]
-            compound_label_mapping = {generic: absolute for generic, absolute in zip(
-                compound_names, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
+            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
+                                    if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
 
         fig = Figure(figsize=(10, 5), dpi=DPI, layout="constrained")
         ax = fig.add_subplot()

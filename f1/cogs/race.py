@@ -654,11 +654,18 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         data = await stats.fastest_laps(s, tyre)
         if not year == 2018:
             absolute_compounds = stats.get_compound(year, event.EventName)
-            compound_names = ["SOFT", "MEDIUM", "HARD"]
-            compound_label_mapping = {generic: f"{generic} ({absolute})" for generic, absolute in zip(
-                compound_names, absolute_compounds)}
-            data["Tyre"] = data["Tyre"].replace(compound_label_mapping)
-
+            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
+            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
+                                    if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
+            data["Tyre"] = data["Tyre"].apply(lambda x: x + " " + compound_label_mapping.get(x, ""))
         table, ax = stats.laptime_table(data)
         ax.set_title(
             f"{event['EventDate'].year} {event['EventName']}\nFastest Lap Times"
