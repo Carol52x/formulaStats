@@ -17,6 +17,7 @@ import fastf1
 from matplotlib.colors import to_rgba
 import fastf1.plotting
 import matplotlib
+import concurrent.futures
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -284,7 +285,6 @@ def shade_red_flag(red_laps: np.ndarray, ax):
 
 
 def get_event_note(year, eventname):
-
     base_url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-"
     url = base_url + year_mapping.get(year)
     if eventname == '70th Anniversary Grand Prix':
@@ -295,16 +295,13 @@ def get_event_note(year, eventname):
         eventname = 'Brazilian Grand Prix'
     elif eventname == 'Saudi Arabian Grand Prix' and year < 2023:
         eventname = 'Saudi Arabia Grand Prix'
-    url + f"/event/{eventname.replace(' ', '%20')}"
+    url = url + f"/event/{eventname.replace(' ', '%20')}"
     resp = requests.get(url)
     docs = re.findall(r'href="(.+?).pdf"', resp.text)
-    docs = [doc for doc in docs
-            if re.match(r'.*?((event-?_? ?notes)|(pirelli)).*?', doc, re.IGNORECASE)]
+    docs = [doc for doc in docs if re.match(r'.*?((event-?_? ?notes)|(pirelli)).*?', doc, re.IGNORECASE)]
     return docs
 
-
 def get_pdf(url: str):
-
     resp = requests.get(url)
     cnt = 0
     while not resp.ok and cnt < 3:
@@ -312,29 +309,35 @@ def get_pdf(url: str):
         cnt += 1
     return resp.content
 
-
 def parse_event_pdf(pdf: bytes):
-    from pypdf import PdfReader
-
-    pdf = io.BytesIO(pdf)
-    reader = PdfReader(pdf)
-    for page in reader.pages:
-        text = page.extract_text()
+    pdf = fitz.open(stream=pdf, filetype="pdf")
+    for page in pdf:
+        text = page.get_text()
         if 'Compound' in text:
             compound = set(re.findall(r'(?=\D(C\d)\D)', text))
             return list(compound)
+        
+async def get_pdf_async(session, url: str):
+    async with session.get(url) as response:
+        return await response.read()
 
-
-def get_compound(year: int, eventname: str):
-
+async def get_compound_async(year: int, eventname: str):
+    import aiohttp
     docs = get_event_note(year, eventname)
 
-    for doc in docs:
-        url = f'https://www.fia.com{doc}.pdf'
-        pdf = get_pdf(url)
+    # Use async to fetch PDFs concurrently
+    urls = [f'https://www.fia.com{doc}.pdf' for doc in docs]
+    async with aiohttp.ClientSession() as session:
+        pdf_contents = await asyncio.gather(*[get_pdf_async(session, url) for url in urls])
+
+    # Parse PDFs and extract compounds
+    compounds = []
+    for pdf in pdf_contents:
         compound = parse_event_pdf(pdf)
         if compound:
-            return compound
+            compounds.extend(compound)
+
+    return compounds if compounds else None
 
 
 async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
