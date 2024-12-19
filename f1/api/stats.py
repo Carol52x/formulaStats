@@ -74,7 +74,6 @@ last_request_time = 0
 request_count = 0
 hour_start_time = time.time()
 
-
 class customEmbed:
 
     # embed.set_image(url=None)
@@ -160,7 +159,6 @@ class ErgastClient:
 
 
 client = ErgastClient()
-
 
 def convert_shootout_to_qualifying(year, session):
     if session == "Sprint Qualifying" and year == 2023:
@@ -494,10 +492,8 @@ async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
     else:
         lap2 = "Lap " + str(lap2)
 
-    # sn = session.event.get_session_name(sn)
-
     plt.suptitle(f"{yr} {event['EventName']} {sn} - Fastest Sectors\n" +
-                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")")
+                 d1 + " (" + f"{utils.format_timedelta(fastest_driver_1['LapTime'])}"+ ") vs " + d2 + " (" + f"{utils.format_timedelta(fastest_driver_2['LapTime'])}" + ")")
     file = utils.plot_to_file(plt.gcf(), "plot")
     return file
 
@@ -620,16 +616,20 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
 
     if (lap1 == None or lap1 == ''):
         telemetry_driver_1 = await asyncio.to_thread(lambda: laps_driver_1.pick_fastest().get_car_data().add_distance())
+        driver1_laptime =  laps_driver_1.pick_fastest()['LapTime']
     else:
         temp_laps1 = laps_driver_1[laps_driver_1['LapNumber'] == int(
             lap1)].iloc[0]
+        driver1_laptime =  temp_laps1['LapTime']
         telemetry_driver_1 = await asyncio.to_thread(lambda: temp_laps1.get_car_data().add_distance())
 
     if (lap2 == None or lap2 == ''):
         telemetry_driver_2 = await asyncio.to_thread(lambda: laps_driver_2.pick_fastest().get_car_data().add_distance())
+        driver2_laptime =  laps_driver_2.pick_fastest()['LapTime']
     else:
         temp_laps2 = laps_driver_2[laps_driver_2['LapNumber'] == int(
             lap2)].iloc[0]
+        driver2_laptime =  temp_laps2['LapTime']
         telemetry_driver_2 = await asyncio.to_thread(lambda: temp_laps2.get_car_data().add_distance())
 
     # Identifying the team for coloring later on
@@ -790,7 +790,7 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     ax[0].minorticks_on()
 
     plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 d1 + " (" + lap1 + ") vs " + d2 + " (" + lap2 + ")",)
+                 d1 + " (" + f"{utils.format_timedelta(driver1_laptime)}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(driver2_laptime)}"  + ")",)
     file = utils.plot_to_file(fig, "plot")
     return file
 
@@ -972,7 +972,6 @@ async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
         driver_laps = await asyncio.to_thread(lambda: session.laps.pick_drivers(drv2))
         second_driver = driver_laps[driver_laps['LapNumber'] == int(
             lap2)].iloc[0]
-
     first_car = await asyncio.to_thread(lambda: first_driver.get_car_data().add_distance())
     second_car = await asyncio.to_thread(lambda: second_driver.get_car_data().add_distance())
 
@@ -993,7 +992,7 @@ async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
         lap2 = "Lap " + str(lap2)
 
     fig.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 drv1 + " (" + lap1 + ") vs " + drv2 + " (" + lap2 + ")")
+                 drv1 + " (" + utils.format_timedelta(first_driver['LapTime']) + ") vs " + drv2 + " (" + utils.format_timedelta(second_driver['LapTime']) + ")")
 
     drs_1 = first_car['DRS']
     drs_2 = second_car['DRS']
