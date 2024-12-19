@@ -1,6 +1,7 @@
 "Slash command parameter options."
 
 from discord import Option
+from f1.update import pitstop_year_list, fastf1_year_list, document_year_list
 
 
 DriverOption = Option(
@@ -20,6 +21,12 @@ driveroption2 = Option(
     str,
     description="Enter Full Name of the driver."
 )
+
+DocumentOption2 = Option(
+    bool,
+    choices=[True, False],
+    description="default false",
+    default=False)
 
 
 EphemeralOption = Option(
@@ -46,19 +53,18 @@ SeasonOption2 = Option(
 SeasonOption3 = Option(
     int,
     default=None,
-    choices=[2018, 2019, 2020, 2021, 2022, 2023, 2024],
+    choices=fastf1_year_list,
     description="The season year (default current)")
 
 SeasonOption4 = Option(
     int,
     default=None,
-    choices=[2012, 2013, 2014, 2015, 2016, 2017,
-             2018, 2019, 2020, 2021, 2022, 2023, 2024],
+    choices=pitstop_year_list,
     description="The season year (default current)")
 SeasonOption5 = Option(
     int,
     default=None,
-    choices=[2019, 2020, 2021, 2022, 2023, 2024],
+    choices=document_year_list,
     description="The season year (default current)")
 
 
