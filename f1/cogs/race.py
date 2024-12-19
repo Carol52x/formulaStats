@@ -276,7 +276,11 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
         if driver:
             stints.reset_index(inplace=True)
-            table = stats.stints_driver(stints)
+            try:
+                table = stats.stints_driver(stints)
+            except KeyError:
+                await ctx.respond("No data for that driver found.")
+                return
             f = utils.plot_to_file(table, "plot")
         else:
             # Group data as pivot table with laps driven per compound and indexed by driver
