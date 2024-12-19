@@ -1911,7 +1911,7 @@ def schedule(ctx):
         if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
             number = row['RoundNumber']
             next_event = number+1
-    out_string = "No more Racing for this season!"
+    out_string = "Season has finished or hasn't begun yet!"
     try:
         if (len(schedule) < next_event):
             raise IndexError
@@ -2023,7 +2023,7 @@ def get_fia_doc(year, eventname, doc=None, doc_name=None, get_all_docs=False):
     else:
         if doc_name:
             doc_url = 'https://www.fia.com/' + doc_name
-            print(doc_url)
+
             fileName = doc_name.split(
                 '/sites/default/files/decision-document/')[-1]
         else:
