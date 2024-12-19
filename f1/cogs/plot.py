@@ -374,6 +374,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         stints = stints.count().reset_index()
         stints = stints.rename(columns={"LapNumber": "StintLength"})
         stints = stints[stints["Compound"] != "UNKNOWN"]
+        sc_laps, vsc_laps = stats.find_sc_laps(laps)
+        red_laps = stats.find_red_laps(laps)
         fig, ax = plt.subplots(figsize=(10, 10))
         added_compounds = set()
 
@@ -432,10 +434,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         plt.xlabel("Lap Number")
         plt.grid(False)
         ax.invert_yaxis()
+        stats.shade_sc_periods(sc_laps, vsc_laps, ax)
+        stats.shade_red_flag(red_laps, ax)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
-        plt.legend(title="Compounds")
+        plt.legend(title="Legend")
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
         plt.tight_layout()
