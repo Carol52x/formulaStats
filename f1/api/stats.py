@@ -47,6 +47,7 @@ from windrose import WindroseAxes
 import wikipedia
 import fitz
 from PIL import Image
+from f1.update import year_mapping
 fastf1.plotting.setup_mpl(mpl_timedelta_support=True,
                           misc_mpl_mods=False, color_scheme='fastf1')
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
@@ -280,6 +281,60 @@ def shade_red_flag(red_laps: np.ndarray, ax):
                 end += 1
 
     plot_periods(red_laps, "Red Flag")
+
+
+def get_event_note(year, eventname):
+
+    base_url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-"
+    url = base_url + year_mapping.get(year)
+    if eventname == '70th Anniversary Grand Prix':
+        eventname = 'Formula 1 70th Anniversary Grand Prix'
+    elif eventname == 'Mexico City Grand Prix' and year < 2023:
+        eventname = 'Mexican Grand Prix'
+    elif eventname == 'São Paulo Grand Prix' and year < 2023:
+        eventname = 'Brazilian Grand Prix'
+    elif eventname == 'Saudi Arabian Grand Prix' and year < 2023:
+        eventname = 'Saudi Arabia Grand Prix'
+    url + f"/event/{eventname.replace(' ', '%20')}"
+    resp = requests.get(url)
+    docs = re.findall(r'href="(.+?).pdf"', resp.text)
+    docs = [doc for doc in docs
+            if re.match(r'.*?((event-?_? ?notes)|(pirelli)).*?', doc, re.IGNORECASE)]
+    return docs
+
+
+def get_pdf(url: str):
+
+    resp = requests.get(url)
+    cnt = 0
+    while not resp.ok and cnt < 3:
+        resp = requests.get(url)
+        cnt += 1
+    return resp.content
+
+
+def parse_event_pdf(pdf: bytes):
+    from pypdf import PdfReader
+
+    pdf = io.BytesIO(pdf)
+    reader = PdfReader(pdf)
+    for page in reader.pages:
+        text = page.extract_text()
+        if 'Compound' in text:
+            compound = set(re.findall(r'(?=\D(C\d)\D)', text))
+            return list(compound)
+
+
+def get_compound(year: int, eventname: str):
+
+    docs = get_event_note(year, eventname)
+
+    for doc in docs:
+        url = f'https://www.fia.com{doc}.pdf'
+        pdf = get_pdf(url)
+        compound = parse_event_pdf(pdf)
+        if compound:
+            return compound
 
 
 async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
@@ -1934,21 +1989,24 @@ def get_circuit_image(location, country):
     return None
 
 
-def get_fia_doc(year, eventname, doc=None):
+def get_fia_doc(year, eventname, doc=None, doc_name=None, get_all_docs=False):
+
     message_embed = discord.Embed()
     message_embed.title = f"FIA Document {doc}"
 
     if doc is None:
         doc = 0
         message_embed.title = "Latest FIA Document"
-    Base_url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-"
-    year_mapping = {2024: '2024-2043',
-                    2023: '2023-2042',
-                    2022: "2022-2005",
-                    2021: "2021-1108",
-                    2020: "2020-1059",
-                    2019: "2019-971"}
-    url = Base_url + year_mapping.get(year)
+    base_url = "https://www.fia.com/documents/championships/fia-formula-one-world-championship-14/season/season-"
+    url = base_url + year_mapping.get(year)
+    if eventname == '70th Anniversary Grand Prix':
+        eventname = 'Formula 1 70th Anniversary Grand Prix'
+    elif eventname == 'Mexico City Grand Prix' and year < 2023:
+        eventname = 'Mexican Grand Prix'
+    elif eventname == 'São Paulo Grand Prix' and year < 2023:
+        eventname = 'Brazilian Grand Prix'
+    elif eventname == 'Saudi Arabian Grand Prix' and year < 2023:
+        eventname = 'Saudi Arabia Grand Prix'
 
     if eventname is None:
         pass
@@ -1960,36 +2018,46 @@ def get_fia_doc(year, eventname, doc=None):
     results = s.find_all(class_='document-row')
     documents = [result.find('a')['href']
                  for result in results if result.find('a')]
+    if get_all_docs:
+        return documents
+    else:
+        if doc_name:
+            doc_url = 'https://www.fia.com/' + doc_name
+            print(doc_url)
+            fileName = doc_name.split(
+                '/sites/default/files/decision-document/')[-1]
+        else:
+            doc_url = 'https://www.fia.com/' + documents[doc]
+            fileName = documents[doc].split(
+                '/sites/default/files/decision-document/')[-1]
+            message_embed.description = fileName[:-4]
 
-    doc_url = 'https://www.fia.com/' + documents[doc]
-    fileName = documents[doc].split(
-        '/sites/default/files/decision-document/')[-1]
-    message_embed.description = fileName[:-4]
+        images = []
 
-    images = []
+        # fetch the document
+        doc_response = requests.get(doc_url)
+        pdf_stream = io.BytesIO(doc_response.content)
 
-    # fetch the document
-    doc_response = requests.get(doc_url)
-    pdf_stream = io.BytesIO(doc_response.content)
+        # convert pdf to images
+        doc = fitz.open(stream=pdf_stream, filetype="pdf")
+        page_num = 0
+        try:
+            while True:
+                page = doc.load_page(page_num)  # number of page
+                pix = page.get_pixmap(matrix=(fitz.Matrix(300 / 72, 300 / 72)))
+                img_stream = io.BytesIO()
+                img = Image.frombytes(
+                    "RGB", [pix.width, pix.height], pix.samples)
+                img.save(img_stream, format="PNG")
+                img_stream.seek(0)  # Go to the beginning of the BytesIO stream
+                images.append(discord.File(
+                    img_stream, filename=f"{page_num}.png"))
+                page_num += 1
+        except ValueError:
+            pass
+        doc.close()
 
-    # convert pdf to images
-    doc = fitz.open(stream=pdf_stream, filetype="pdf")
-    page_num = 0
-    try:
-        while True:
-            page = doc.load_page(page_num)  # number of page
-            pix = page.get_pixmap(matrix=(fitz.Matrix(300 / 72, 300 / 72)))
-            img_stream = io.BytesIO()
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            img.save(img_stream, format="PNG")
-            img_stream.seek(0)  # Go to the beginning of the BytesIO stream
-            images.append(discord.File(img_stream, filename=f"{page_num}.png"))
-            page_num += 1
-    except ValueError:
-        pass
-    doc.close()
-
-    return images
+        return images
 
 
 def parse_driver_name(name):
@@ -3155,7 +3223,7 @@ def racecontrol(messages, session):
     messages = pd.DataFrame(messages)
     messages.drop(['Category', 'Status', 'Flag', 'Scope',
                   'Sector', 'RacingNumber'], axis=1, inplace=True)
-    max_per_file = 20
+    max_per_file = 25
     messages['Time'] = messages['Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
     num_files = (len(messages) // max_per_file) + 1
