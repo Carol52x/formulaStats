@@ -67,7 +67,7 @@ async def handle_errors(ctx: commands.Context | discord.Interaction, err):
 
     # Invocation errors
     elif isinstance(err, discord.errors.ApplicationCommandInvokeError):
-        await ctx.respond(f":x: {str(err.__cause__)}", ephemeral=True)
+        await ctx.respond(f"{str(err.__cause__)}", ephemeral=True)
 
     # Catch all other errors
     else:
