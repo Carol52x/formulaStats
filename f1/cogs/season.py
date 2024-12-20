@@ -576,7 +576,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                                 new_page += 1
                         elif self.button_type == "last":
                             new_page = self.paginator.page_count
-
+                        await self.paginator.goto_page(page_number=new_page, interaction=interaction)
                         page_number = self.paginator.current_page
                         page = doc.load_page(page_number)
                         pix = page.get_pixmap(
@@ -594,8 +594,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                         ).set_thumbnail(
                             url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
                         ).set_image(url=f"attachment://{page_number}.png")
-                        await interaction.edit(embed=embed, file=image)
-                        await self.paginator.goto_page(page_number=new_page, interaction=interaction)
+                        await interaction.edit(file=image, embed=embed)
 
                 try:
                     while True:
