@@ -539,9 +539,9 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 await self.handle_selection(interaction, selected_value)
 
             async def handle_selection(self, interaction, doc_name):
-                await interaction.response.send_message(f"Preparing the document... (This may take a while.)", ephemeral=True)
+                await interaction.response.send_message(f"Preparing the document...", ephemeral=True)
                 mypage = []
-                from discord.ext.pages import Paginator, Page
+                from discord.ext.pages import Paginator, Page, PaginatorButton
                 doc_name = options_mapping.get(doc_name)
                 doc_response = await asyncio.to_thread(lambda: requests.get(doc_name))
                 import io
@@ -551,35 +551,99 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 doc = fitz.open(stream=pdf_stream, filetype="pdf")
                 page_num = 0
                 images = []
-                try:
-                    while True:
-                        page = doc.load_page(page_num)  # number of page
+
+                class PaginatorButton(PaginatorButton):
+
+                    def __init__(self, button_type, label=None, style=None, **kwargs):
+                        super().__init__(button_type, label=label, style=style, **kwargs)
+
+                    async def callback(self, interaction):
+                        new_page = self.paginator.current_page
+                        if self.button_type == "first":
+                            new_page = 0
+                        elif self.button_type == "prev":
+                            if self.paginator.loop_pages and self.paginator.current_page == 0:
+                                new_page = self.paginator.page_count
+                            else:
+                                new_page -= 1
+                        elif self.button_type == "next":
+                            if (
+                                self.paginator.loop_pages
+                                and self.paginator.current_page == self.paginator.page_count
+                            ):
+                                new_page = 0
+                            else:
+                                new_page += 1
+                        elif self.button_type == "last":
+                            new_page = self.paginator.page_count
+
+                        page_number = self.paginator.current_page
+                        page = doc.load_page(page_number)
                         pix = page.get_pixmap(
                             matrix=(fitz.Matrix(300 / 72, 300 / 72)))
                         img_stream = io.BytesIO()
                         img = Image.frombytes(
                             "RGB", [pix.width, pix.height], pix.samples)
                         img.save(img_stream, format="PNG")
-                        # Go to the beginning of the BytesIO stream
                         img_stream.seek(0)
-                        images.append(discord.File(
-                            img_stream, filename=f"{page_num}.png"))
+                        image = discord.File(
+                            img_stream, filename=f"{page_number}.png")
+                        embed = discord.Embed(
+                            title=f"Document(s) for {year} {type}",
+                            color=get_top_role_color(ctx.author)
+                        ).set_thumbnail(
+                            url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
+                        ).set_image(url=f"attachment://{page_number}.png")
+                        await interaction.edit(embed=embed, file=image)
+                        await self.paginator.goto_page(page_number=new_page, interaction=interaction)
+
+                try:
+                    while True:
+                        page = doc.load_page(page_num)  # number of page
                         page_num += 1
                 except ValueError:
                     pass
-                doc.close()
-                for idx, image in enumerate(images):
+                page = doc.load_page(0)
+                pix = page.get_pixmap(
+                    matrix=(fitz.Matrix(300 / 72, 300 / 72)))
+                img_stream = io.BytesIO()
+                img = Image.frombytes(
+                    "RGB", [pix.width, pix.height], pix.samples)
+                img.save(img_stream, format="PNG")
+                img_stream.seek(0)
+                file_1 = discord.File(
+                    img_stream, filename=f"0.png")
+                embed_1 = discord.Embed(
+                    title=f"Document(s) for {year} {type}",
+                    color=get_top_role_color(ctx.author)
+                ).set_thumbnail(
+                    url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
+                ).set_image(url=f"attachment://0.png")
+
+                mypage.append(Page(embeds=[embed_1], files=[file_1]))
+                for i in range(1, page_num):
                     embed = discord.Embed(
                         title=f"Document(s) for {year} {type}",
                         color=get_top_role_color(ctx.author)
                     ).set_thumbnail(
                         url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
-                    ).set_image(url=f"attachment://{idx}.png")
-
-                    mypage.append(Page(embeds=[embed], files=[image]))
+                    )
+                    mypage.append(Page(embeds=[embed]))
+                buttons = [
+                    PaginatorButton("first", label="<<",
+                                    style=discord.ButtonStyle.blurple),
+                    PaginatorButton("prev", label="<",
+                                    style=discord.ButtonStyle.red),
+                    PaginatorButton("page_indicator",
+                                    style=discord.ButtonStyle.gray, disabled=True),
+                    PaginatorButton("next", label=">",
+                                    style=discord.ButtonStyle.green),
+                    PaginatorButton("last", label=">>",
+                                    style=discord.ButtonStyle.blurple),
+                ]
 
                 paginator = Paginator(
-                    pages=mypage, timeout=898, author_check=False)
+                    pages=mypage, timeout=898, author_check=False, use_default_buttons=False, custom_buttons=buttons)
                 try:
                     await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
                 except discord.Forbidden:
