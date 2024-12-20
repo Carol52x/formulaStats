@@ -21,6 +21,19 @@ driveroption2 = Option(
     str,
     description="Enter Full Name of the driver."
 )
+RecordOption = Option(
+    str,
+    choices=["Drivers", 'Constructors',
+             "Engines", "Tyres", "Other Driver records"],
+    description="Choose the type of record to view. (default drivers)",
+    default="Drivers")
+
+RegulationOption = Option(
+    str,
+    choices=["Sporting Regulations", 'Technical Regulations',
+             "Financial Regulations", "Operational Regulations"],
+    description="Choose the type of regulation to view. (default Sporting)",
+    default="Sporting Regulations")
 
 DocumentOption2 = Option(
     bool,
