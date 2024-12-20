@@ -16,9 +16,9 @@ import asyncio
 from f1.api.stats import schedule, get_fia_doc
 import discord
 import pandas as pd
+from plottable import ColDef
 import typing
 from discord.ext import commands
-import wikipedia
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 fastf1.Cache.enable_cache('cache/')
 logger = logging.getLogger("f1-bot")
@@ -283,7 +283,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         from io import StringIO
         import requests
         from bs4 import BeautifulSoup
-        from plottable import ColDef, Table
+        from plottable import ColDef
+        import re
         if type == "Drivers" or type == "Other Driver records":
             url = "https://en.wikipedia.org/wiki/List_of_Formula_One_driver_records"
         elif type == "Constructors":
@@ -292,13 +293,38 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             url = "https://en.wikipedia.org/wiki/Formula_One_tyres#Records"
         elif type == "Engines":
             url = "https://en.wikipedia.org/wiki/Formula_One_engines#Records"
-        elif type == "Races":
-            url = "https://en.wikipedia.org/wiki/List_of_Formula_One_race_records"
         response = requests.get(url)
         soup = BeautifulSoup(response.text, "html.parser")
         headings_list = await asyncio.to_thread(lambda: soup.find_all('h3'))
         headings = [heading.get_text(strip=True).replace(
             "[edit]", "") for heading in headings_list]
+
+        def calculate_column_widths(df, base_width=1.8, scaling_factor=0.12):
+            col_defs = []
+            default_textprops = {"ha": "left"}
+
+            for idx, col in enumerate(df.columns):
+                # Max length of cell text
+                max_row_length = max(df[col].apply(lambda x: len(str(x))))
+                col_name_length = len(col)  # Length of the column name
+                width = max(base_width, (col_name_length + max_row_length)
+                            * scaling_factor)  # Calculate width
+                col_defs.append(
+                    ColDef(col, width=width, textprops=default_textprops))
+
+            return col_defs
+
+        def calculate_figsize(df, col_defs, row_scaling_factor=0.6, width_padding=2, height_padding=2):
+            """Calculate figure size based on the number of columns, rows, and column widths."""
+            num_rows, num_cols = df.shape
+            # Sum of all column widths
+            total_width = sum([col_def.width for col_def in col_defs])
+            total_height = num_rows * row_scaling_factor
+
+            # Add padding to the figure size
+            figsize = (total_width + width_padding,
+                       total_height + height_padding)
+            return figsize
 
         class Menu(discord.ui.View):
 
@@ -351,42 +377,27 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 df.columns = df.columns.str.replace(
                     r'\[failed verification\]', '', regex=True)
 
-                import re
+                # Clean up text in the DataFrame
                 df.fillna(" ", inplace=True)
                 df.set_index(df.columns[0], inplace=True, drop=True)
                 df.drop(df.index[-1], inplace=True)
                 df = df.applymap(lambda x: re.sub(
                     r'\[.*?\]', '', str(x)).replace("/", "") if isinstance(x, str) else x)
 
-                col_defs = []
-                default_textprops = {"ha": "left"}
-
-                df.drop(columns=[col for col in df.columns if col.lower(
-                ).startswith("unnamed")], inplace=True)
-
-                for idx, col in enumerate(df.columns):
-                    base_width = 1.8  # Increased base width
-                    max_length = max(df[col].apply(lambda x: len(str(x))))
-                    col_name_length = len(col)  # Length of the column name
-                    width = max(base_width, (col_name_length + max_length)
-                                * 0.12)  # Adjust scaling factor
-                    col_defs.append(
-                        ColDef(col, width=width, textprops=default_textprops))
-
-                num_rows, num_cols = df.shape
-
-                # Dynamically adjust figsize with some padding for better scaling
-                # Increased scaling factor for width and height
-                figsize = (num_cols * 2, num_rows * 0.6)
-                figsize = (figsize[0] + 2, figsize[1] + 2)  # Added padding
+                # Calculate column definitions and dynamic figure size
+                col_defs = calculate_column_widths(df)
+                figsize = calculate_figsize(df, col_defs)
 
                 index_name = df.columns[0]
 
+                # Create the table plot asynchronously
                 loop = asyncio.get_running_loop()
                 fig = await loop.run_in_executor(None, stats.plot_table, df, col_defs, index_name, figsize)
 
                 fig = fig.figure
                 f = utils.plot_to_file(fig, f"plot")
+
+                # Send the embed with the plot
                 embed = discord.Embed(
                     url=url, title=name, color=get_top_role_color(ctx.author))
                 embed.set_image(url="attachment://plot.png")
