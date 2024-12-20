@@ -640,11 +640,56 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     PaginatorButton("last", label=">>",
                                     style=discord.ButtonStyle.blurple),
                 ]
-
                 paginator = Paginator(
                     pages=mypage, timeout=898, author_check=False, use_default_buttons=False, custom_buttons=buttons)
+
+                class MyModal(discord.ui.Modal):
+
+                    def __init__(self, *args, **kwargs) -> None:
+                        super().__init__(*args, **kwargs)
+                        self.add_item(discord.ui.InputText(
+                            label="Enter Page number:"))
+
+                    async def callback(self, interaction: discord.Interaction):
+                        page_num = int(self.children[0].value)
+                        try:
+                            try:
+                                await paginator.goto_page(page_num-1, interaction=interaction)
+                                page_number = paginator.current_page
+                                page = doc.load_page(page_number)
+                                pix = page.get_pixmap(
+                                    matrix=(fitz.Matrix(300 / 72, 300 / 72)))
+                                img_stream = io.BytesIO()
+                                img = Image.frombytes(
+                                    "RGB", [pix.width, pix.height], pix.samples)
+                                img.save(img_stream, format="PNG")
+                                img_stream.seek(0)
+                                image = discord.File(
+                                    img_stream, filename=f"{page_number}.png")
+                                embed = discord.Embed(
+                                    title=f"Document(s) for {year} {type}",
+                                    color=get_top_role_color(ctx.author)
+                                ).set_thumbnail(
+                                    url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
+                                ).set_image(url=f"attachment://{page_number}.png")
+                                await interaction.edit(file=image, embed=embed)
+                            except:
+                                pass
+                        except IndexError:
+                            await interaction.response.send_message("Invalid page number.", ephemeral=True)
+
+                class MyView(discord.ui.View):
+                    @discord.ui.button(label="Switch page", row=1, style=discord.ButtonStyle.primary)
+                    async def button_callback(self, button, interaction):
+                        await interaction.response.send_modal(MyModal(title="Travel to your desired page."))
+                try:
+                    await paginator.update(interaction=ctx.interaction,
+                                           custom_view=MyView())
+                except:
+                    pass
                 try:
                     await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
+
                 except discord.Forbidden:
                     return
                 except discord.HTTPException:
