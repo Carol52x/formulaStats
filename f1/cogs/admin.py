@@ -194,6 +194,9 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/tyre-strats",
             value="Tyre Strategies of the drivers' in a race."
         )
+        emd1.add_field(
+            name="/track-elevation",
+            value="View circuit's 3D visualisation")
 
         emd.add_field(
             name="/results",
@@ -242,6 +245,13 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/reddit",
             value="Shows a random post from r/formuladank"
         )
+        emd.add_field(
+            name="/regulations",
+            value="View formula 1 regulations")
+        emd.add_field(
+            name="/records",
+            value="View formula 1 records")
+
         emd.add_field(
             name="/generate-cache",
             value="Generates cache for a given f1 session and thus, speeds up some of the plotting functions.")
