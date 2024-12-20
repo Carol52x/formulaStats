@@ -385,12 +385,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                       "SUPERSOFT": " ", "SUPERHARD": " "}
         else:
             absolute_compounds = await stats.get_compound_async(year, ev.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
-            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
             hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
-                                    if number != soft_compound and number != hard_compound)
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
             compound_label_mapping = {
                 "SOFT": soft_compound,
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
@@ -408,7 +409,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
                 if compound not in added_compounds:
                     if absolute_compound == " " or absolute_compound == compound:
-                        label = f"{compound}"   
+                        label = f"{compound}"
                         added_compounds.add(compound)
                     else:
                         label = f"{compound} ({absolute_compound})"
@@ -665,17 +666,19 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         else:
             # Get absolute compounds dynamically
             absolute_compounds = await stats.get_compound_async(year, ev.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
-            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
             hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
-                                    if number != soft_compound and number != hard_compound)
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
             compound_label_mapping = {
                 "SOFT": soft_compound,
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
                 "HARD": hard_compound
             }
+
         def format_seconds(seconds):
             minutes = int(seconds // 60)
             secs = seconds % 60
@@ -706,21 +709,20 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
         handles, labels = ax.get_legend_handles_labels()
-        
 
         new_labels = [
-            f"{label} ({compound_label_mapping.get(label, label)})" 
-            if label != " " and label != compound_label_mapping.get(label, label) 
+            f"{label} ({compound_label_mapping.get(label, label)})"
+            if label != " " and label != compound_label_mapping.get(label, label)
             else label
             for label in labels
         ]
         for i in range(len(new_labels)):
             if new_labels[i].endswith("( )"):
-        # Remove the " ( )" from the string
+                # Remove the " ( )" from the string
                 new_labels[i] = new_labels[i].rstrip(" ( )")
             elif re.search(r"(.*) \(\1\)$", new_labels[i]):
                 # Truncate the " (x)" part where x is the same as the preceding text
-                new_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", new_labels[i]) 
+                new_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", new_labels[i])
 
         # Set the updated legend with new labels
         ax.legend(handles, new_labels, title="Compound")
@@ -904,12 +906,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                       "SUPERSOFT": " ", "SUPERHARD": " "}
         else:
             absolute_compounds = await stats.get_compound_async(year, ev.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
-            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
             hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
-                                    if number != soft_compound and number != hard_compound)
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
             compound_label_mapping = {
                 "SOFT": soft_compound,
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
@@ -925,11 +928,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         for i in range(len(legend_labels)):
             if legend_labels[i].endswith("( )"):
-        # Remove the " ( )" from the string
+                # Remove the " ( )" from the string
                 legend_labels[i] = legend_labels[i].rstrip(" ( )")
             elif re.search(r"(.*) \(\1\)$", legend_labels[i]):
                 # Truncate the " (x)" part where x is the same as the preceding text
-                legend_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", legend_labels[i]) 
+                legend_labels[i] = re.sub(
+                    r"(.*) \(\1\)$", r"\1", legend_labels[i])
         clrs = [fastf1.plotting.get_compound_color(
             i, s) for i in sorted_count.index]
 
@@ -1046,12 +1050,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             }
         else:
             absolute_compounds = await stats.get_compound_async(year, ev.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
-            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
             hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
-                                    if number != soft_compound and number != hard_compound)
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
             compound_label_mapping = {
                 "SOFT": soft_compound,
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
@@ -1112,14 +1117,15 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Update the legend with generic and absolute compound names
         handles, _ = ax.get_legend_handles_labels()
         legend_labels = [compound_legend_labels[compound]
-                            for compound in compounds]
+                         for compound in compounds]
         for i in range(len(legend_labels)):
             if legend_labels[i].endswith("( )"):
-        # Remove the " ( )" from the string
+                # Remove the " ( )" from the string
                 legend_labels[i] = legend_labels[i].rstrip(" ( )")
             elif re.search(r"(.*) \(\1\)$", legend_labels[i]):
                 # Truncate the " (x)" part where x is the same as the preceding text
-                legend_labels[i] = re.sub(r"(.*) \(\1\)$", r"\1", legend_labels[i]) 
+                legend_labels[i] = re.sub(
+                    r"(.*) \(\1\)$", r"\1", legend_labels[i])
         ax.legend(handles, legend_labels, title="Tyre Compounds")
 
         plt.tight_layout()
@@ -1159,12 +1165,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             }
         else:
             absolute_compounds = await stats.get_compound_async(year, ev.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
-            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
             hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
-                                    if number != soft_compound and number != hard_compound)
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
             compound_label_mapping = {
                 "SOFT": soft_compound,
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
@@ -1270,6 +1277,87 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Save the plot to a file
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'Average lap delta: {ev.EventName} ',
+                              color=get_top_role_color(ctx.author))
+        embed.set_image(url="attachment://plot.png")
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+
+    @commands.slash_command(name="track-elevation", description="View driver 3D visualisation of the circuit", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
+    async def trackelevation(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
+        await utils.check_season(ctx, year)
+
+        ev = await stats.to_event(year, round)
+        session = await stats.load_session(ev, "R", laps=True, telemetry=True)
+        lap = await asyncio.to_thread(lambda: session.laps.pick_fastest())
+
+        z_values = lap.telemetry['Z']
+        x = lap.telemetry['X'] / 182000
+        y = lap.telemetry['Y'] / 182000
+        z = z_values / 182000
+        theta = np.radians(40)
+
+        rotation_matrix = np.array([[np.cos(theta), 0, np.sin(theta)],
+                                    [0, 1, 0],
+                                    [-np.sin(theta), 0, np.cos(theta)]])
+        coords = np.vstack([x, y, z])
+        rotated_coords = rotation_matrix.dot(coords)
+        x_rot = rotated_coords[0, :]
+        y_rot = rotated_coords[1, :]
+        z_rot = rotated_coords[2, :]
+        min_x, max_x = x_rot.min(), x_rot.max()
+        min_y, max_y = y_rot.min(), y_rot.max()
+        min_z, max_z = z_rot.min(), z_rot.max()
+        valid_range = (x_rot > min_x) & (x_rot < max_x) & (y_rot > min_y) & \
+            (y_rot < max_y) & (z_rot > min_z) & (z_rot < max_z)
+
+        x_trimmed = x_rot[valid_range]
+        y_trimmed = y_rot[valid_range]
+        z_trimmed = z_rot[valid_range]
+        thicc = (z_trimmed / 70) + 10
+        segments = np.stack((np.c_[x_trimmed[:-1], x_trimmed[1:]],
+                            np.c_[y_trimmed[:-1], y_trimmed[1:]],
+                            np.c_[z_trimmed[:-1], z_trimmed[1:]]), axis=2)
+
+        fig = plt.figure(figsize=(12, 10))
+        ax_3d = fig.add_subplot(111, projection='3d')
+        cmap = plt.get_cmap('viridis')
+        norm = plt.Normalize(vmin=z_trimmed.min(),
+                             vmax=z_trimmed.max())
+
+        for i, segment in enumerate(segments):
+            color = cmap(norm(z_trimmed[i]))
+
+            ax_3d.plot(segment[:, 0], segment[:, 1], segment[:, 2],
+                       color=color, linewidth=thicc[i], alpha=0.3)
+
+        ax_3d.plot(x_trimmed, y_trimmed, z_trimmed + 0.001,
+                   color='black', linestyle='-', linewidth=3, zorder=5)
+        ax_3d.set_xlabel("X Position (m)")
+        ax_3d.set_ylabel("Y Position (m)")
+        ax_3d.set_zlabel("Elevation (m)")
+
+        ax_3d.set_xlim([x_trimmed.min(), x_trimmed.max()])
+        ax_3d.set_ylim([y_trimmed.min(), y_trimmed.max()])
+        ax_3d.set_zlim([z_trimmed.min(), z_trimmed.max()])
+        ax_3d.grid(False)
+        ax_3d.set_axis_off()
+
+        # Title
+        ax_3d.set_title(
+            f"{ev['EventDate'].year} {ev['EventName']} - 3D Track Layout")
+        ax_3d.view_init(elev=40, azim=200)
+        cbar = fig.colorbar(plt.cm.ScalarMappable(
+            norm=norm, cmap=cmap), ax=ax_3d)
+        median_z = np.median(z_values)
+        import builtins
+        cbar.set_label(
+            f"Elevation (relative to {builtins.round(median_z/10)} m)")
+        f = utils.plot_to_file(fig, "plot")
+        embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
