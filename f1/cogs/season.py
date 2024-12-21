@@ -280,6 +280,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def records(self, ctx, type: options.RecordOption):
+        await ctx.defer(ephemeral=get_ephemeral_setting(ctx))
         from io import StringIO
         import requests
         from bs4 import BeautifulSoup
@@ -368,9 +369,9 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     record_tuple = mapping.get(value)
                     record_string = f"{record_tuple[0][1]} : {record_tuple[0][0]}"
                     embed = discord.Embed(
-                        title=value, color=get_top_role_color(ctx.author))
+                        title=value[0:56], color=get_top_role_color(ctx.author))
                     embed.description = record_string
-                    await interaction.edit(embed=embed)
+                    await interaction.respond(embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
                 else:
                     for heading in headings_list:
@@ -398,6 +399,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     # Clean up text in the DataFrame
                     df.fillna(" ", inplace=True)
                     df.set_index(df.columns[0], inplace=True, drop=True)
+                    df.drop(columns=[col for col in df.columns if col.lower(
+            ).startswith("unnamed")], inplace=True)
                     df.drop(df.index[-1], inplace=True)
                     df = df.applymap(lambda x: re.sub(
                         r'\[.*?\]', '', str(x))if isinstance(x, str) else x)
@@ -552,11 +555,13 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             col_defs = []
             default_textprops = {"ha": "left"}
             df = df.drop(columns=['Ref.'])
-            options = df['Description'].tolist()
-            options = list(dict.fromkeys(options))
+            options_original = df['Description'].tolist()
+            options_original = list(dict.fromkeys(options_original))
+            options=options_original[:]
             for idx, i in enumerate(options):
                 if len(i) > 100:
                     options[idx] = i[0:100]
+            options.remove(".mw-parser-output .vanchor>:target~.vanchor-text{background-color:#b1d2ff}@media screen{html.skin-th")
             if type == "Misc. Driver records(part 2)":
                 options = options[100:165]
             else:
@@ -564,8 +569,12 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             mapping = {
                 desc[:100]: tuple(row[1:] for row in df[df['Description'] == desc].itertuples(
                     index=False, name=None))
-                for desc in options
+                for desc in options_original
             }
+            mapping = {
+                (key[:100] if len(key) > 100 else key): value for key, value in mapping.items()
+                     }
+                    
             embed = discord.Embed(
                 url=url, title="Misc. Driver Records", color=get_top_role_color(ctx.author))
             await ctx.respond(embed=embed, view=Menu(options=options, timeout=None, mapping=mapping), ephemeral=get_ephemeral_setting(ctx))
