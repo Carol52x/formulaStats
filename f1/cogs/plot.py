@@ -1369,29 +1369,6 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
             async def callback(self, interaction: discord.Interaction):
                 angle = int(self.children[0].value)
-                theta = np.radians(40)
-                rotation_matrix = np.array([[np.cos(theta), 0, np.sin(theta)],
-                                            [0, 1, 0],
-                                            [-np.sin(theta), 0, np.cos(theta)]])
-                coords = np.vstack([x, y, z])
-                rotated_coords = rotation_matrix.dot(coords)
-                x_rot = rotated_coords[0, :]
-                y_rot = rotated_coords[1, :]
-                z_rot = rotated_coords[2, :]
-                min_x, max_x = x_rot.min(), x_rot.max()
-                min_y, max_y = y_rot.min(), y_rot.max()
-                min_z, max_z = z_rot.min(), z_rot.max()
-                valid_range = (x_rot > min_x) & (x_rot < max_x) & (y_rot > min_y) & \
-                    (y_rot < max_y) & (z_rot > min_z) & (z_rot < max_z)
-
-                x_trimmed = x_rot[valid_range]
-                y_trimmed = y_rot[valid_range]
-                z_trimmed = z_rot[valid_range]
-                thicc = (z_trimmed / 70) + 10
-                segments = np.stack((np.c_[x_trimmed[:-1], x_trimmed[1:]],
-                                    np.c_[y_trimmed[:-1], y_trimmed[1:]],
-                                    np.c_[z_trimmed[:-1], z_trimmed[1:]]), axis=2)
-
                 fig = plt.figure(figsize=(12, 10))
                 ax_3d = fig.add_subplot(111, projection='3d')
                 cmap = plt.get_cmap('viridis')
@@ -1430,16 +1407,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                                     color=get_top_role_color(ctx.author))
                 embed.set_image(url="attachment://plot.png")
-                try:
-                    await interaction.edit(file=f, embed=embed)
-                except:
-                    pass
+                await interaction.edit(file=f, embed=embed)
 
         class MyView(discord.ui.View):
             @discord.ui.button(label="Change viewing angle", style=discord.ButtonStyle.primary)
             async def button_callback(self, button, interaction):
                 await interaction.response.send_modal(MyModal(title="Change viewing angle"))
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx), view=MyView())
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx), view=MyView(timeout=None))
 
 
 def setup(bot: discord.Bot):
