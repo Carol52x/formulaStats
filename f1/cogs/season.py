@@ -369,7 +369,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     record_tuple = mapping.get(value)
                     record_string = f"{record_tuple[0][1]} : {record_tuple[0][0]}"
                     embed = discord.Embed(
-                        title=value[0:56], color=get_top_role_color(ctx.author))
+                        title=value[0:60], color=get_top_role_color(ctx.author))
                     embed.description = record_string
                     await interaction.respond(embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
