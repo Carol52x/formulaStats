@@ -368,7 +368,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     record_tuple = mapping.get(value)
                     record_string = f"{record_tuple[0][1]} : {record_tuple[0][0]}"
                     embed = discord.Embed(
-                        url=url, title=value, color=get_top_role_color(ctx.author))
+                         title=value, color=get_top_role_color(ctx.author))
                     embed.description = record_string
                     await interaction.edit(embed=embed)
 
@@ -419,10 +419,11 @@ class Season(commands.Cog, guild_ids=Config().guilds):
 
                     # Send the embed with the plot
                     embed = discord.Embed(
-                        url=url, title=name, color=get_top_role_color(ctx.author))
+                        title=name, color=get_top_role_color(ctx.author))
                     embed.set_image(url="attachment://plot.png")
-                    await interaction.edit(embed=embed, file=f)
-        embed = discord.Embed(url=url, title="Choose the record to view:")
+                    
+                    await interaction.respond(embed=embed,file=f, ephemeral=get_ephemeral_setting(ctx))
+        embed = discord.Embed(url=url, title="Choose the record to view:", color=get_top_role_color(ctx.author))
         if headings != [] and type != "Misc. Driver records" and type != "Misc. Driver records (part 2)":
             if type == "Sprint records":
                 headings = headings[119:125]
