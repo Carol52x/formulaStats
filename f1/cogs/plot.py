@@ -1354,8 +1354,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             norm=norm, cmap=cmap), ax=ax_3d)
         median_z = np.median(z_values)
         import builtins
-        cbar.set_label(
-            f"Elevation (relative to {builtins.round(median_z/10)} m)")
+        elev_label = f"{builtins.round(median_z/10)}"
+        if elev_label.startswith("-"):
+            cbar.set_label(
+                f"Elevation (relative to {elev_label[1:]} m)")
+        else:
+            cbar.set_label(
+                f"Elevation (relative to {elev_label} m)")
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                               color=get_top_role_color(ctx.author))
@@ -1369,6 +1374,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
             async def callback(self, interaction: discord.Interaction):
                 angle = int(self.children[0].value)
+                await interaction.response.defer(ephemeral=get_ephemeral_setting(ctx))
                 fig = plt.figure(figsize=(12, 10))
                 ax_3d = fig.add_subplot(111, projection='3d')
                 cmap = plt.get_cmap('viridis')
@@ -1401,8 +1407,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                     norm=norm, cmap=cmap), ax=ax_3d)
                 median_z = np.median(z_values)
                 import builtins
-                cbar.set_label(
-                    f"Elevation (relative to {builtins.round(median_z/10)} m)")
+                elev_label = f"{builtins.round(median_z/10)}"
+                if elev_label.startswith("-"):
+                    cbar.set_label(
+                        f"Elevation (relative to {elev_label[1:]} m)")
+                else:
+                    cbar.set_label(
+                        f"Elevation (relative to {elev_label} m)")
                 f = utils.plot_to_file(fig, "plot")
                 embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                                     color=get_top_role_color(ctx.author))
