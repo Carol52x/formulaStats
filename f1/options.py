@@ -1,7 +1,7 @@
 "Slash command parameter options."
 
 from discord import Option
-from f1.update import pitstop_year_list, fastf1_year_list, document_year_list
+from f1.update import pitstop_year_list, fastf1_year_list, document_year_list, regulation_year_list
 
 
 DriverOption = Option(
@@ -21,10 +21,15 @@ driveroption2 = Option(
     str,
     description="Enter Full Name of the driver."
 )
+
+driveroption2 = Option(
+    str,
+    description="Enter Full Name of the driver."
+)
 RecordOption = Option(
     str,
     choices=["Drivers", 'Constructors',
-             "Engines", "Tyres", "Other Driver records"],
+             "Engines", "Tyres", "Races", "Misc. Driver records",  "Misc. Driver records (part 2)", "Sprint records"],
     description="Choose the type of record to view. (default drivers)",
     default="Drivers")
 
@@ -78,6 +83,12 @@ SeasonOption5 = Option(
     int,
     default=None,
     choices=document_year_list,
+    description="The season year (default current)")
+
+SeasonOption6 = Option(
+    int,
+    default=None,
+    choices=regulation_year_list,
     description="The season year (default current)")
 
 
