@@ -1349,7 +1349,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Title
         ax_3d.set_title(
             f"{ev['EventDate'].year} {ev['EventName']} - 3D Track Layout")
-        ax_3d.view_init(elev=40, azim=200)
+        ax_3d.view_init(elev=50, azim=200)
         cbar = fig.colorbar(plt.cm.ScalarMappable(
             norm=norm, cmap=cmap), ax=ax_3d)
         median_z = np.median(z_values)
