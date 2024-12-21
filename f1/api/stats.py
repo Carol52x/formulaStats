@@ -2974,8 +2974,7 @@ def get_dnf_results(session: Session):
 
     dnfs["LapNumber"] = [session.laps.pick_drivers(
         d)["LapNumber"].astype(int).max() for d in driver_nums]
-    dnfs = dnfs[~dnfs["Status"].isin(
-        ["Finished", "+1 Lap"])].reset_index(drop=True)
+    dnfs = dnfs[~dnfs["Status"].str.contains(r"^(Finished|\+\d+\sLaps?)$", flags=re.IGNORECASE)].reset_index(drop=True)
 
     return dnfs
 
@@ -2995,8 +2994,13 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
     if get_session_type(name) == "R":
         size = (8.5, 10)
         idx = "Pos"
-        dnfs = results.loc[~results["Status"].isin(
-            ["+1 Lap", "Finished"]), "Pos"].astype(int).values
+        import re
+        dnfs = results.loc[
+            ~results["Status"].str.fullmatch(r"Finished", case=False) &
+            ~results["Status"].str.contains(r"^\+\d+\sLaps?$", flags=re.IGNORECASE),
+            "Pos"
+        ].astype(int).values
+
         results = results.drop("Status", axis=1)
         results = results[~results.index.duplicated(keep='first')]
         col_defs = base_defs + [
