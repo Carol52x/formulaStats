@@ -1360,7 +1360,86 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+        class MyModal(discord.ui.Modal):
+
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+                self.add_item(discord.ui.InputText(
+                    label="Enter viewing angle (in degrees):"))
+
+            async def callback(self, interaction: discord.Interaction):
+                angle = int(self.children[0].value)
+                theta = np.radians(40)
+                rotation_matrix = np.array([[np.cos(theta), 0, np.sin(theta)],
+                                            [0, 1, 0],
+                                            [-np.sin(theta), 0, np.cos(theta)]])
+                coords = np.vstack([x, y, z])
+                rotated_coords = rotation_matrix.dot(coords)
+                x_rot = rotated_coords[0, :]
+                y_rot = rotated_coords[1, :]
+                z_rot = rotated_coords[2, :]
+                min_x, max_x = x_rot.min(), x_rot.max()
+                min_y, max_y = y_rot.min(), y_rot.max()
+                min_z, max_z = z_rot.min(), z_rot.max()
+                valid_range = (x_rot > min_x) & (x_rot < max_x) & (y_rot > min_y) & \
+                    (y_rot < max_y) & (z_rot > min_z) & (z_rot < max_z)
+
+                x_trimmed = x_rot[valid_range]
+                y_trimmed = y_rot[valid_range]
+                z_trimmed = z_rot[valid_range]
+                thicc = (z_trimmed / 70) + 10
+                segments = np.stack((np.c_[x_trimmed[:-1], x_trimmed[1:]],
+                                    np.c_[y_trimmed[:-1], y_trimmed[1:]],
+                                    np.c_[z_trimmed[:-1], z_trimmed[1:]]), axis=2)
+
+                fig = plt.figure(figsize=(12, 10))
+                ax_3d = fig.add_subplot(111, projection='3d')
+                cmap = plt.get_cmap('viridis')
+                norm = plt.Normalize(vmin=z_trimmed.min(),
+                                    vmax=z_trimmed.max())
+
+                for i, segment in enumerate(segments):
+                    color = cmap(norm(z_trimmed[i]))
+
+                    ax_3d.plot(segment[:, 0], segment[:, 1], segment[:, 2],
+                            color=color, linewidth=thicc[i], alpha=0.3)
+
+                ax_3d.plot(x_trimmed, y_trimmed, z_trimmed + 0.001,
+                        color='black', linestyle='-', linewidth=3, zorder=5)
+                ax_3d.set_xlabel("X Position (m)")
+                ax_3d.set_ylabel("Y Position (m)")
+                ax_3d.set_zlabel("Elevation (m)")
+
+                ax_3d.set_xlim([x_trimmed.min(), x_trimmed.max()])
+                ax_3d.set_ylim([y_trimmed.min(), y_trimmed.max()])
+                ax_3d.set_zlim([z_trimmed.min(), z_trimmed.max()])
+                ax_3d.grid(False)
+                ax_3d.set_axis_off()
+
+                # Title
+                ax_3d.set_title(
+                    f"{ev['EventDate'].year} {ev['EventName']} - 3D Track Layout")
+                ax_3d.view_init(elev=angle, azim=200)
+                cbar = fig.colorbar(plt.cm.ScalarMappable(
+                    norm=norm, cmap=cmap), ax=ax_3d)
+                median_z = np.median(z_values)
+                import builtins
+                cbar.set_label(
+                    f"Elevation (relative to {builtins.round(median_z/10)} m)")
+                f = utils.plot_to_file(fig, "plot")
+                embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
+                                    color=get_top_role_color(ctx.author))
+                embed.set_image(url="attachment://plot.png")
+                try:
+                    await interaction.edit(file=f, embed=embed)
+                except:
+                    pass
+
+        class MyView(discord.ui.View):
+            @discord.ui.button(label="Change viewing angle", style=discord.ButtonStyle.primary)
+            async def button_callback(self, button, interaction):
+                await interaction.response.send_modal(MyModal(title="Change viewing angle"))
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx), view=MyView())
 
 
 def setup(bot: discord.Bot):
