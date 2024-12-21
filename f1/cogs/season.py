@@ -368,7 +368,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     record_tuple = mapping.get(value)
                     record_string = f"{record_tuple[0][1]} : {record_tuple[0][0]}"
                     embed = discord.Embed(
-                         title=value, color=get_top_role_color(ctx.author))
+                        title=value, color=get_top_role_color(ctx.author))
                     embed.description = record_string
                     await interaction.edit(embed=embed)
 
@@ -421,74 +421,74 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     embed = discord.Embed(
                         title=name, color=get_top_role_color(ctx.author))
                     embed.set_image(url="attachment://plot.png")
-                    
-                    await interaction.respond(embed=embed,file=f, ephemeral=get_ephemeral_setting(ctx))
-        embed = discord.Embed(url=url, title="Choose the record to view:", color=get_top_role_color(ctx.author))
-        if headings != [] and type != "Misc. Driver records" and type != "Misc. Driver records (part 2)":
-            if type == "Sprint records":
-                headings = headings[119:125]
-            else:
-                headings = headings[:119]
-            if type == "Engines":
-                headings = headings[-3:]
-            elif type == "Tyres":
-                table = await asyncio.to_thread(lambda: soup.find('table', class_='wikitable'))
-                for span in table.find_all('span', style=lambda value: value and 'display:none' in value):
-                    span.decompose()
-                table = str(table)
-                df = pd.read_html(StringIO(str(table)))[0]
 
-                df.columns = [
-                    cl.replace(
-                        " details", "") if "compound details" in cl.lower() else cl
-                    for cl in df.columns
-                ]
-                df.columns = df.columns.str.replace(
-                    r'\[failed verification\]', '', regex=True)
+                    await interaction.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+        embed = discord.Embed(
+            url=url, title="Choose the record to view:", color=get_top_role_color(ctx.author))
+        if type == "Sprint records":
+            headings = headings[119:125]
+            await ctx.respond(embed=embed, view=Menu(options=headings, timeout=None, mapping=None), ephemeral=get_ephemeral_setting(ctx))
+        elif type == "Drivers":
+            headings = headings[:119]
+            await ctx.respond(embed=embed, view=Menu(options=headings, timeout=None, mapping=None), ephemeral=get_ephemeral_setting(ctx))
+        elif type == "Engines":
+            headings = headings[-3:]
+            await ctx.respond(embed=embed, view=Menu(options=headings, timeout=None, mapping=None), ephemeral=get_ephemeral_setting(ctx))
+        elif type == "Constructors":
+            await ctx.respond(embed=embed, view=Menu(options=headings, timeout=None, mapping=None), ephemeral=get_ephemeral_setting(ctx))
+        elif type == "Tyres":
+            table = await asyncio.to_thread(lambda: soup.find('table', class_='wikitable'))
+            for span in table.find_all('span', style=lambda value: value and 'display:none' in value):
+                span.decompose()
+            table = str(table)
+            df = pd.read_html(StringIO(str(table)))[0]
 
-                # Clean up NaN values and remove unwanted characters
-                df.fillna(" ", inplace=True)
-                df.set_index(df.columns[0], inplace=True, drop=False)
-                df.drop(df.index[-1], inplace=True)
-                df = df.applymap(lambda x: str(x).replace('[', '').replace(
-                    ']', '').replace("/", "") if isinstance(x, str) else x)
+            df.columns = [
+                cl.replace(
+                    " details", "") if "compound details" in cl.lower() else cl
+                for cl in df.columns
+            ]
+            df.columns = df.columns.str.replace(
+                r'\[failed verification\]', '', regex=True)
 
-                col_defs = []
-                default_textprops = {"ha": "left"}
+            # Clean up NaN values and remove unwanted characters
+            df.fillna(" ", inplace=True)
+            df.set_index(df.columns[0], inplace=True, drop=False)
+            df.drop(df.index[-1], inplace=True)
+            df = df.applymap(lambda x: str(x).replace('[', '').replace(
+                ']', '').replace("/", "") if isinstance(x, str) else x)
 
-                df.drop(columns=[col for col in df.columns if col.lower(
-                ).startswith("unnamed")], inplace=True)
+            col_defs = []
+            default_textprops = {"ha": "left"}
 
-                for idx, col in enumerate(df.columns):
-                    base_width = 1.8  # Increased base width
-                    max_length = max(df[col].apply(lambda x: len(str(x))))
-                    col_name_length = len(col)  # Length of the column name
-                    width = max(base_width, (col_name_length + max_length)
-                                * 0.12)  # Adjust scaling factor
-                    col_defs.append(
-                        ColDef(col, width=width, textprops=default_textprops))
+            df.drop(columns=[col for col in df.columns if col.lower(
+            ).startswith("unnamed")], inplace=True)
 
-                num_rows, num_cols = df.shape
+            for idx, col in enumerate(df.columns):
+                base_width = 1.8  # Increased base width
+                max_length = max(df[col].apply(lambda x: len(str(x))))
+                col_name_length = len(col)  # Length of the column name
+                width = max(base_width, (col_name_length + max_length)
+                            * 0.12)  # Adjust scaling factor
+                col_defs.append(
+                    ColDef(col, width=width, textprops=default_textprops))
 
-                # Dynamically adjust figsize with some padding for better scaling
-                # Increased scaling factor for width and height
-                figsize = (num_cols * 2, num_rows * 0.6)
-                figsize = (figsize[0] + 2, figsize[1] + 2)  # Added padding
+            num_rows, num_cols = df.shape
 
-                index_name = df.columns[0]
-                loop = asyncio.get_running_loop()
-                fig = await loop.run_in_executor(None, stats.plot_table, df, col_defs, index_name, figsize)
-                fig = fig.figure
-                f = utils.plot_to_file(fig, f"plot")
-                embed = discord.Embed(
-                    url=url, title="Tyre Records", color=get_top_role_color(ctx.author))
-                embed.set_image(url="attachment://plot.png")
-                await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
-            else:
-                if (type != "Races" and type != "Misc. Driver records" and type != "Misc. Driver records (part 2)"):
-                    await ctx.respond(embed=embed, view=Menu(options=headings, timeout=None, mapping=None), ephemeral=get_ephemeral_setting(ctx))
-                else:
-                    pass
+            # Dynamically adjust figsize with some padding for better scaling
+            # Increased scaling factor for width and height
+            figsize = (num_cols * 2, num_rows * 0.6)
+            figsize = (figsize[0] + 2, figsize[1] + 2)  # Added padding
+
+            index_name = df.columns[0]
+            loop = asyncio.get_running_loop()
+            fig = await loop.run_in_executor(None, stats.plot_table, df, col_defs, index_name, figsize)
+            fig = fig.figure
+            f = utils.plot_to_file(fig, f"plot")
+            embed = discord.Embed(
+                url=url, title="Tyre Records", color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         elif type == "Races":
             table = await asyncio.to_thread(lambda: soup.find('table', class_='wikitable'))
             for span in table.find_all('span', style=lambda value: value and 'display:none' in value):
