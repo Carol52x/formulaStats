@@ -594,7 +594,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         s = BeautifulSoup(html.content, 'html.parser')
         results = s.find_all(class_='list-item')
         documents = [result.find('a')['href']
-                     for result in results if result.find('a')]
+                    for result in results if result.find('a')]
         filtered = []
 
         def filter_pdfs(pdf_list, year, doc_type):
@@ -606,13 +606,25 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                             filtered.append(url)
                         else:
                             filtered.append(base_url + url)
+                else:
+                    import re
+                    if f"_-_{year}-" in url and not any(int(num) != year for num in re.findall(r'_(\d{4})_', url)):
+                        if doc_type.split(" ")[0].lower() in url.lower():
+                            if url.startswith("https"):
+                                filtered.append(url)
+                            else:
+                                filtered.append(base_url + url)
             return filtered
         list_pdfs = filter_pdfs(documents, year, type)
+        print(list_pdfs)
         options_list = []
 
         def truncate_name(name):
             name = name.split('sites/default/files/')[1]
-            name = name.split("fia")[1]
+            try:
+                name = name.split("fia")[1]
+            except IndexError:
+                pass
             name=name.replace("_-_", " ").replace("_", " ").title()
             if name.endswith(".Pdf"):
                 name = name[:-4]
@@ -625,7 +637,9 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             options_list.append(truncate_name(i))
             options_mapping.update({truncate_name(i): i})
         embed = discord.Embed(
-            title="Choose your document:", color=get_top_role_color(ctx.author))
+            title="Choose your document:",
+              description="Please note that this document list contains documents corresponding to the year of regulations and not the issue date."
+              ,color=get_top_role_color(ctx.author))
 
         class SelectMenu(discord.ui.View):
 
@@ -640,7 +654,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 # Split options into chunks of 25 or less
                 MAX_OPTIONS = 25
                 option_chunks = [options[i:i + MAX_OPTIONS]
-                                 for i in range(0, len(options), MAX_OPTIONS)]
+                                for i in range(0, len(options), MAX_OPTIONS)]
                 select_menus = []
 
                 for idx, chunk in enumerate(option_chunks):
@@ -797,7 +811,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                                     mypage[i] = Page(
                                         files=[image], embeds=[embed])
                             await paginator.update(pages=mypage, interaction=interaction,
-                                                   custom_view=MyView(timeout=None), current_page=page_num-1)
+                                                custom_view=MyView(timeout=None), current_page=page_num-1)
                             await paginator.goto_page(page_num-1)
 
                         except:
@@ -809,7 +823,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                         await interaction.response.send_modal(MyModal(title="Travel to your desired page."))
                 try:
                     await paginator.update(interaction=ctx.interaction,
-                                           custom_view=MyView())
+                                        custom_view=MyView())
                 except:
                     pass
                 try:
@@ -824,6 +838,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             await ctx.respond("No documents found for the given combination of year and type.")
         else:
             await ctx.respond(embed=embed, view=SelectMenu(options), ephemeral=get_ephemeral_setting(ctx))
+
 
 
 def setup(bot: discord.Bot):
