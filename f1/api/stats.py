@@ -74,6 +74,7 @@ last_request_time = 0
 request_count = 0
 hour_start_time = time.time()
 
+
 class customEmbed:
 
     # embed.set_image(url=None)
@@ -159,6 +160,7 @@ class ErgastClient:
 
 
 client = ErgastClient()
+
 
 def convert_shootout_to_qualifying(year, session):
     if session == "Sprint Qualifying" and year == 2023:
@@ -296,8 +298,10 @@ def get_event_note(year, eventname):
     url = url + f"/event/{eventname.replace(' ', '%20')}"
     resp = requests.get(url)
     docs = re.findall(r'href="(.+?).pdf"', resp.text)
-    docs = [doc for doc in docs if re.match(r'.*?((event-?_? ?notes)|(pirelli)).*?', doc, re.IGNORECASE)]
+    docs = [doc for doc in docs if re.match(
+        r'.*?((event-?_? ?notes)|(pirelli)).*?', doc, re.IGNORECASE)]
     return docs
+
 
 def get_pdf(url: str):
     resp = requests.get(url)
@@ -307,6 +311,7 @@ def get_pdf(url: str):
         cnt += 1
     return resp.content
 
+
 def parse_event_pdf(pdf: bytes):
     pdf = fitz.open(stream=pdf, filetype="pdf")
     for page in pdf:
@@ -314,10 +319,12 @@ def parse_event_pdf(pdf: bytes):
         if 'Compound' in text:
             compound = set(re.findall(r'(?=\D(C\d)\D)', text))
             return list(compound)
-        
+
+
 async def get_pdf_async(session, url: str):
     async with session.get(url) as response:
         return await response.read()
+
 
 async def get_compound_async(year: int, eventname: str):
     import aiohttp
@@ -493,7 +500,7 @@ async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
         lap2 = "Lap " + str(lap2)
 
     plt.suptitle(f"{yr} {event['EventName']} {sn} - Fastest Sectors\n" +
-                 d1 + " (" + f"{utils.format_timedelta(fastest_driver_1['LapTime'])}"+ ") vs " + d2 + " (" + f"{utils.format_timedelta(fastest_driver_2['LapTime'])}" + ")")
+                 d1 + " (" + f"{utils.format_timedelta(fastest_driver_1['LapTime'])}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(fastest_driver_2['LapTime'])}" + ")")
     file = utils.plot_to_file(plt.gcf(), "plot")
     return file
 
@@ -616,20 +623,20 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
 
     if (lap1 == None or lap1 == ''):
         telemetry_driver_1 = await asyncio.to_thread(lambda: laps_driver_1.pick_fastest().get_car_data().add_distance())
-        driver1_laptime =  laps_driver_1.pick_fastest()['LapTime']
+        driver1_laptime = laps_driver_1.pick_fastest()['LapTime']
     else:
         temp_laps1 = laps_driver_1[laps_driver_1['LapNumber'] == int(
             lap1)].iloc[0]
-        driver1_laptime =  temp_laps1['LapTime']
+        driver1_laptime = temp_laps1['LapTime']
         telemetry_driver_1 = await asyncio.to_thread(lambda: temp_laps1.get_car_data().add_distance())
 
     if (lap2 == None or lap2 == ''):
         telemetry_driver_2 = await asyncio.to_thread(lambda: laps_driver_2.pick_fastest().get_car_data().add_distance())
-        driver2_laptime =  laps_driver_2.pick_fastest()['LapTime']
+        driver2_laptime = laps_driver_2.pick_fastest()['LapTime']
     else:
         temp_laps2 = laps_driver_2[laps_driver_2['LapNumber'] == int(
             lap2)].iloc[0]
-        driver2_laptime =  temp_laps2['LapTime']
+        driver2_laptime = temp_laps2['LapTime']
         telemetry_driver_2 = await asyncio.to_thread(lambda: temp_laps2.get_car_data().add_distance())
 
     # Identifying the team for coloring later on
@@ -790,7 +797,7 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     ax[0].minorticks_on()
 
     plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 d1 + " (" + f"{utils.format_timedelta(driver1_laptime)}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(driver2_laptime)}"  + ")",)
+                 d1 + " (" + f"{utils.format_timedelta(driver1_laptime)}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(driver2_laptime)}" + ")",)
     file = utils.plot_to_file(fig, "plot")
     return file
 
@@ -2187,35 +2194,25 @@ stat_map = {
 }
 
 
-def get_drivers_standings():
-    schedule = fastf1.get_event_schedule(
-        int(datetime.now().year), include_testing=False)
-    last_index = None
-    for index, row in schedule.iterrows():
-        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-            last_index = index
-
-    SEASON = int(datetime.now().year)
-    ROUND = last_index
+def get_drivers_standings(round, year):
+    SEASON = int(year)
+    ROUND = int(round)
     ergast = Ergast()
     standings = ergast.get_driver_standings(season=SEASON, round=ROUND)
     if standings.content == []:  # check for late updates of ergast data
         standings = ergast.get_driver_standings(season=SEASON, round=ROUND-1)
+        standings = standings.content[0]
+        standings.dropna(inplace=True)
+    else:
+        standings = standings.content[0]
+        standings.dropna(inplace=True)
 
-    return standings.content[0]
+    return standings
 
 
-def calculate_max_points_for_remaining_season():
-
-    schedule = fastf1.get_event_schedule(
-        int(datetime.now().year), include_testing=False)
-    last_index = None
-    for index, row in schedule.iterrows():
-        if row["Session5Date"] < pd.Timestamp(date.today(), tzinfo=pytz.utc):
-            last_index = index
-
-    SEASON = int(datetime.now().year)
-    ROUND = last_index
+def calculate_max_points_for_remaining_season(round, year):
+    SEASON = int(year)
+    ROUND = int(round)
     POINTS_FOR_SPRINT = 8 + 25
     POINTS_FOR_CONVENTIONAL = 25
     events = fastf1.events.get_event_schedule(SEASON)
@@ -2974,7 +2971,8 @@ def get_dnf_results(session: Session):
 
     dnfs["LapNumber"] = [session.laps.pick_drivers(
         d)["LapNumber"].astype(int).max() for d in driver_nums]
-    dnfs = dnfs[~dnfs["Status"].str.contains(r"^(Finished|\+\d+\sLaps?)$", flags=re.IGNORECASE)].reset_index(drop=True)
+    dnfs = dnfs[~dnfs["Status"].str.contains(
+        r"^(Finished|\+\d+\sLaps?)$", flags=re.IGNORECASE)].reset_index(drop=True)
 
     return dnfs
 
@@ -2997,7 +2995,8 @@ def results_table(results: pd.DataFrame, name: str) -> tuple[Figure, Axes]:
         import re
         dnfs = results.loc[
             ~results["Status"].str.fullmatch(r"Finished", case=False) &
-            ~results["Status"].str.contains(r"^\+\d+\sLaps?$", flags=re.IGNORECASE),
+            ~results["Status"].str.contains(
+                r"^\+\d+\sLaps?$", flags=re.IGNORECASE),
             "Pos"
         ].astype(int).values
 
@@ -3225,40 +3224,48 @@ def stints_driver(data):
 
 
 def racecontrol(messages, session):
+    try:
 
-    messages = pd.DataFrame(messages)
-    messages.drop(['Category', 'Status', 'Flag', 'Scope',
-                  'Sector', 'RacingNumber'], axis=1, inplace=True)
-    max_per_file = 25
-    messages['Time'] = messages['Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        messages = pd.DataFrame(messages)
+        messages.drop(['Category', 'Status', 'Flag', 'Scope',
+                       'Sector', 'RacingNumber'], axis=1, inplace=True)
+        max_per_file = 25
+        messages['Time'] = messages['Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
-    num_files = (len(messages) // max_per_file) + 1
-    files = []
-    if session == 'Race' or session == 'Sprint':
-        messages = messages[['Time', 'Lap', 'Message']]
-        col_defs = [
-            ColDef("Time", width=0.2),
-            ColDef("Lap", width=0.07),
-            ColDef("Message", width=1.1, textprops={"ha": "left"})
-        ]
-        figsize = (20, 10)
-    else:
-        messages.drop(['Lap'], axis=1, inplace=True)
-        col_defs = [
+        num_files = (len(messages) // max_per_file) + 1
+        files = []
+        if session == 'Race' or session == 'Sprint':
+            messages = messages[['Time', 'Lap', 'Message']]
+            col_defs = [
+                ColDef("Time", width=0.2),
+                ColDef("Lap", width=0.07),
+                ColDef("Message", width=1.1, textprops={"ha": "left"})
+            ]
+            max_message_length = messages['Message'].str.len().max()
+            base_width = 20
+            additional_width = max(0, (max_message_length - 50) * 0.1)
+            figsize = (base_width + additional_width, 10)
+        else:
+            messages.drop(['Lap'], axis=1, inplace=True)
+            col_defs = [
+                ColDef("Time", width=0.2),
+                ColDef("Message", width=1.6, textprops={"ha": "left"})
+            ]
+            max_message_length = messages['Message'].str.len().max()
+            base_width = 20
+            additional_width = max(0, (max_message_length - 50) * 0.1)
+            figsize = (base_width + additional_width, 10)
 
-            ColDef("Time", width=0.2),
-            ColDef("Message", width=1.6, textprops={"ha": "left"})
-        ]
-        figsize = (23, 13)
+        for i in range(num_files):
+            start_idx = i * max_per_file
+            end_idx = min((i + 1) * max_per_file, len(messages))
+            file_messages = messages.iloc[start_idx:end_idx]
 
-    for i in range(num_files):
-        start_idx = i * max_per_file
-        end_idx = min((i + 1) * max_per_file, len(messages))
-        file_messages = messages.iloc[start_idx:end_idx]
-
-        fig = plot_race_control_table(
-            file_messages, col_defs, "Time", figsize=figsize)
-        files.append(fig.figure)
+            fig = plot_race_control_table(
+                file_messages, col_defs, "Time", figsize=figsize)
+            files.append(fig.figure)
+    except:
+        pass
 
     return files
 
