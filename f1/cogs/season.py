@@ -612,6 +612,13 @@ class Season(commands.Cog, guild_ids=Config().guilds):
 
         def truncate_name(name):
             name = name.split('sites/default/files/')[1]
+            name = name.split("fia")[1]
+            name=name.replace("_-_", " ").replace("_", " ").title()
+            if name.endswith(".Pdf"):
+                name = name[:-4]
+            else:
+                name = name
+            name=name.strip()
             return name
         options_mapping = {}
         for i in list_pdfs:
