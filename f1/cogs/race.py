@@ -551,11 +551,11 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         else:
             await ctx.respond("Install this bot in your server to access quiz features!", ephemeral=True)
 
-    @commands.slash_command(name="reddit", integration_types={
+    @commands.slash_command(name="meme", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def reddit(self, ctx: ApplicationContext):
+    async def meme(self, ctx: ApplicationContext):
         import asyncpraw
         import random
 
@@ -763,6 +763,65 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+
+    @commands.slash_command(
+        name="technical-glossary",
+        description="Short description of a technical term.", integration_types={
+            discord.IntegrationType.guild_install,
+            discord.IntegrationType.user_install,
+        })
+    async def technical(self, ctx: ApplicationContext,
+                        term: str):
+        from bs4 import BeautifulSoup
+        import requests
+        from rapidfuzz import fuzz
+
+        url = f"https://www.f1technical.net/glossary/{term[0].lower()}"
+        html = await asyncio.to_thread(lambda: requests.get(url=url))
+        soup = BeautifulSoup(html.content, 'html.parser')
+        glossary = {}
+
+        for dt in soup.find_all('dt'):
+            dd = dt.find_next_sibling('dd')
+            if dd:
+                glossary[dt.get_text(strip=True)] = dd.get_text(strip=True)
+
+        # Function to find the best match manually
+        def find_best_match(term, keys):
+            best_match = None
+            highest_score = 0
+            for key in keys:
+                score = fuzz.ratio(term, key)
+                if score > highest_score:
+                    highest_score = score
+                    best_match = key
+            return best_match, highest_score
+
+        # Attempt to match the original term
+        if glossary:
+            matched_title, score = find_best_match(term, glossary.keys())
+            if matched_title and score >= 70:
+                embed = discord.Embed(title=matched_title,
+                                      description=glossary[matched_title],
+                                      color=get_top_role_color(ctx.author))
+                embed.set_footer(text="Source: f1technical.net")
+                await ctx.respond(embed=embed, ephemeral=get_ephemeral_setting(ctx))
+                return
+            else:
+                for key in glossary.keys():
+                    if '(' in key and ')' in key:
+                        parenthetical_text = key[key.find(
+                            '(') + 1:key.find(')')].strip()
+                        score = fuzz.ratio(
+                            term.lower(), parenthetical_text.lower())
+                        if score >= 100:
+                            embed = discord.Embed(title=key,
+                                                  description=glossary[key],
+                                                  color=get_top_role_color(ctx.author))
+                            embed.set_footer(text="Source: f1technical.net")
+                            await ctx.respond(embed=embed, ephemeral=get_ephemeral_setting(ctx))
+                            return
+        await ctx.respond("Given term not found.", ephemeral=get_ephemeral_setting(ctx))
 
 
 def setup(bot: discord.Bot):

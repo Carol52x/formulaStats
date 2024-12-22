@@ -16,6 +16,7 @@ import asyncio
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.patches import Patch
 from discord.commands import ApplicationContext
 from discord.ext import commands
 from matplotlib.collections import LineCollection
@@ -378,7 +379,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         red_laps = stats.find_red_laps(laps)
         fig, ax = plt.subplots(figsize=(10, 10))
         added_compounds = set()
-
+        legend_handles = {}
         if year == 2018:
             compound_label_mapping = {"SOFT": " ", "MEDIUM": " ", "HARD": " ", "HYPERSOFT": " ",
                                       "ULTRASOFT": " ",
@@ -416,6 +417,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         added_compounds.add(compound)
                 else:
                     label = ""
+                if label and compound not in legend_handles:
+                    legend_handles[compound] = Patch(
+                        color=fastf1.plotting.get_compound_color(
+                            compound, session),
+                        label=label
+                    )
 
                 hatch = '' if row["FreshTyre"] else '/'
                 plt.barh(
@@ -440,7 +447,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
-        plt.legend(title="Legend")
+        plt.legend(handles=list(legend_handles.values()), title="Legend")
         ax.grid(which="minor", alpha=0.1)
         ax.minorticks_on()
         plt.tight_layout()

@@ -226,6 +226,9 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/track-incidents",
             value="Shows a table showing the lap number and event, such as Safety Car or Red Flag"
         )
+        emd.add_field(
+            name='/technical-glossary',
+            value="Search for a technical term!")
 
         emd.add_field(
             name="/radio",
@@ -237,8 +240,8 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Shows Race Control Data"
         )
         emd.add_field(
-            name="/reddit",
-            value="Shows a random post from r/formuladank"
+            name="/meme",
+            value="Shows a random f1 meme (from r/formuladank)"
         )
         emd.add_field(
             name="/regulations",
