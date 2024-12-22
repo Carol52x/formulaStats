@@ -1362,21 +1362,26 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         median_z = np.median(z_values)
         import builtins
         elev_label = f"{builtins.round(median_z/10)}"
-        tick_labels = [f"{label:.3f}" for label in cbar.get_ticks()]
+        tick_labels = [f"{label*18200:.3f}" for label in cbar.get_ticks()]
         tick_labels.reverse()
         cbar.set_ticklabels(tick_labels)
+        cbar.set_ticks([])
         cbar.ax.invert_yaxis()
         if elev_label.startswith("-"):
             cbar.set_label(
-                f"Elevation (relative to {elev_label[1:]} m)")
+                f"<-- Decreasing | Elevation (relative to {elev_label[1:]} m) | Increasing -->")
         else:
             cbar.set_label(
-                f"Elevation (relative to {elev_label} m)")
+                f"<-- Decreasing | Elevation (relative to {elev_label} m) | Increasing -->")
+        z_values.dropna(inplace=True)
+        fig.text(0.5, 0.01, f'Max elevation change: {(z_values.max()/10-z_values.min()/10):3f} m',
+                 ha='center', va='center', fontsize=20)
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        embed.set_footer(text=f"Current viewing angle in degrees: 50")
+        embed.set_footer(
+            text=f"Current viewing angle in degrees: 50\nFigure scaled down by a factor of 182000 for better viewing experience.")
 
         class MyModal(discord.ui.Modal):
 
@@ -1428,18 +1433,22 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                     tick_labels.reverse()
                     cbar.set_ticklabels(tick_labels)
                     cbar.ax.invert_yaxis()
+                    cbar.set_ticklabels(tick_labels)
+                    cbar.set_ticks([])
                     if elev_label.startswith("-"):
                         cbar.set_label(
-                            f"Elevation (relative to {elev_label[1:]} m)")
+                            f"<-- Decreasing | Elevation (relative to {elev_label[1:]} m) | Increasing -->")
                     else:
                         cbar.set_label(
-                            f"Elevation (relative to {elev_label} m)")
+                            f"<-- Decreasing | Elevation (relative to {elev_label} m) | Increasing -->")
+                    fig.text(0.5, 0.01, f'Max elevation change: {(z_values.max()/10-z_values.min()/10):3f} m',
+                             ha='center', va='center', fontsize=20)
                     f = utils.plot_to_file(fig, "plot")
                     embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                                           color=get_top_role_color(ctx.author))
                     embed.set_image(url="attachment://plot.png")
                     embed.set_footer(
-                        text=f"Current viewing angle in degrees: {angle}")
+                        text=f"Current viewing angle in degrees: {angle}\nFigure scaled down by a factor of 182000 for better viewing experience.")
                     await interaction.edit(file=f, embed=embed)
                 except ValueError:
                     await interaction.respond("Enter a valid angle (in degrees)", ephemeral=True)
