@@ -303,14 +303,15 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def whocanwinwdc(self, ctx: ApplicationContext):
+    async def whocanwinwdc(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+        round = roundnumber(round, year)[0]
+        year = roundnumber(round, year)[1]
         try:
-
             loop = asyncio.get_running_loop()
-            driver_standings = await loop.run_in_executor(None, get_drivers_standings)
+            driver_standings = await loop.run_in_executor(None, get_drivers_standings, round, year)
 
     # Get the maximum amount of points
-            points = await loop.run_in_executor(None, calculate_max_points_for_remaining_season)
+            points = await loop.run_in_executor(None, calculate_max_points_for_remaining_season, round, year)
 
             contenders = []
 
@@ -319,7 +320,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                 contenders.append(contender)
             a = stats.plot_chances(contenders)
             f = utils.plot_to_file(a, "plot")
-            embed = discord.Embed(title='Theoretical WDC Contenders',
+            embed = discord.Embed(title=f'Theoretical WDC Contenders: {year} Round: {round}',
                                   color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
@@ -658,18 +659,20 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         data = await stats.fastest_laps(s, tyre)
         if not year == 2018:
             absolute_compounds = await stats.get_compound_async(year, event.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds] 
-            absolute_number_mapping = {i: j for i, j in zip(compound_numbers, absolute_compounds)}
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
             soft_compound = absolute_number_mapping.get(max(compound_numbers))
             hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items() 
-                                    if number != soft_compound and number != hard_compound)
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
             compound_label_mapping = {
                 "SOFT": soft_compound,
                 "MEDIUM": absolute_number_mapping.get(remaining_compound),
                 "HARD": hard_compound
             }
-            data["Tyre"] = data["Tyre"].apply(lambda x: x + " " + compound_label_mapping.get(x, ""))
+            data["Tyre"] = data["Tyre"].apply(
+                lambda x: x + " " + compound_label_mapping.get(x, ""))
         table, ax = stats.laptime_table(data)
         ax.set_title(
             f"{event['EventDate'].year} {event['EventName']}\nFastest Lap Times"

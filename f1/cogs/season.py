@@ -400,7 +400,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     df.fillna(" ", inplace=True)
                     df.set_index(df.columns[0], inplace=True, drop=True)
                     df.drop(columns=[col for col in df.columns if col.lower(
-            ).startswith("unnamed")], inplace=True)
+                    ).startswith("unnamed")], inplace=True)
                     df.drop(df.index[-1], inplace=True)
                     df = df.applymap(lambda x: re.sub(
                         r'\[.*?\]', '', str(x))if isinstance(x, str) else x)
@@ -557,11 +557,12 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             df = df.drop(columns=['Ref.'])
             options_original = df['Description'].tolist()
             options_original = list(dict.fromkeys(options_original))
-            options=options_original[:]
+            options = options_original[:]
             for idx, i in enumerate(options):
                 if len(i) > 100:
                     options[idx] = i[0:100]
-            options.remove(".mw-parser-output .vanchor>:target~.vanchor-text{background-color:#b1d2ff}@media screen{html.skin-th")
+            options.remove(
+                ".mw-parser-output .vanchor>:target~.vanchor-text{background-color:#b1d2ff}@media screen{html.skin-th")
             if type == "Misc. Driver records(part 2)":
                 options = options[100:165]
             else:
@@ -573,8 +574,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             }
             mapping = {
                 (key[:100] if len(key) > 100 else key): value for key, value in mapping.items()
-                     }
-                    
+            }
+
             embed = discord.Embed(
                 url=url, title="Misc. Driver Records", color=get_top_role_color(ctx.author))
             await ctx.respond(embed=embed, view=Menu(options=options, timeout=None, mapping=mapping), ephemeral=get_ephemeral_setting(ctx))
@@ -688,9 +689,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                                 new_page += 1
                         elif self.button_type == "last":
                             new_page = self.paginator.page_count
-                        await self.paginator.goto_page(page_number=new_page, interaction=interaction)
-                        page_number = self.paginator.current_page
-                        page = doc.load_page(page_number)
+                        page = doc.load_page(new_page)
                         pix = page.get_pixmap(
                             matrix=(fitz.Matrix(300 / 72, 300 / 72)))
                         img_stream = io.BytesIO()
@@ -699,14 +698,19 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                         img.save(img_stream, format="PNG")
                         img_stream.seek(0)
                         image = discord.File(
-                            img_stream, filename=f"{page_number}.png")
+                            img_stream, filename=f"{new_page}.png")
                         embed = discord.Embed(
                             title=f"Document(s) for {year} {type}",
                             color=get_top_role_color(ctx.author)
                         ).set_thumbnail(
                             url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
-                        ).set_image(url=f"attachment://{page_number}.png")
-                        await interaction.edit(embed=embed, file=image)
+                        ).set_image(url=f"attachment://{new_page}.png")
+                        for i in range(0, len(mypage)):
+                            if i == new_page:
+                                mypage[i] = Page(
+                                    files=[image], embeds=[embed])
+                        await paginator.update(pages=mypage, interaction=interaction, current_page=new_page, custom_view=MyView(timeout=None))
+                        await paginator.goto_page(new_page)
 
                 try:
                     while True:
@@ -738,7 +742,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                         color=get_top_role_color(ctx.author)
                     ).set_thumbnail(
                         url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
-                    )
+                    ).set_image(url=f"attachment://{i}.png")
                     mypage.append(Page(embeds=[embed]))
                 buttons = [
                     PaginatorButton("first", label="<<",
@@ -763,32 +767,34 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                             label="Enter Page number:"))
 
                     async def callback(self, interaction: discord.Interaction):
-                        page_num = int(self.children[0].value)
                         try:
-                            try:
-                                await paginator.goto_page(page_num-1, interaction=interaction)
-                                page_number = paginator.current_page
-                                page = doc.load_page(page_number)
-                                pix = page.get_pixmap(
-                                    matrix=(fitz.Matrix(300 / 72, 300 / 72)))
-                                img_stream = io.BytesIO()
-                                img = Image.frombytes(
-                                    "RGB", [pix.width, pix.height], pix.samples)
-                                img.save(img_stream, format="PNG")
-                                img_stream.seek(0)
-                                image = discord.File(
-                                    img_stream, filename=f"{page_number}.png")
-                                embed = discord.Embed(
-                                    title=f"Document(s) for {year} {type}",
-                                    color=get_top_role_color(ctx.author)
-                                ).set_thumbnail(
-                                    url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
-                                ).set_image(url=f"attachment://{page_number}.png")
-                                await interaction.edit(file=image, embed=embed)
-                            except:
-                                pass
-                        except IndexError:
-                            await interaction.response.send_message("Invalid page number.", ephemeral=True)
+                            page_num = int(self.children[0].value)
+                            page = doc.load_page(page_num-1)
+                            pix = page.get_pixmap(
+                                matrix=(fitz.Matrix(300 / 72, 300 / 72)))
+                            img_stream = io.BytesIO()
+                            img = Image.frombytes(
+                                "RGB", [pix.width, pix.height], pix.samples)
+                            img.save(img_stream, format="PNG")
+                            img_stream.seek(0)
+                            image = discord.File(
+                                img_stream, filename=f"{page_num-1}.png")
+                            embed = discord.Embed(
+                                title=f"Document(s) for {year} {type}",
+                                color=get_top_role_color(ctx.author)
+                            ).set_thumbnail(
+                                url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
+                            ).set_image(url=f"attachment://{page_num-1}.png")
+                            for i in range(0, len(mypage)):
+                                if i == page_num-1:
+                                    mypage[i] = Page(
+                                        files=[image], embeds=[embed])
+                            await paginator.update(pages=mypage, interaction=interaction,
+                                                   custom_view=MyView(timeout=None), current_page=page_num-1)
+                            await paginator.goto_page(page_num-1)
+
+                        except:
+                            await interaction.respond("Invalid page number.", ephemeral=True)
 
                 class MyView(discord.ui.View):
                     @discord.ui.button(label="Switch page", row=1, style=discord.ButtonStyle.primary)

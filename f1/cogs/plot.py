@@ -1325,8 +1325,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         fig = plt.figure(figsize=(12, 10))
         ax_3d = fig.add_subplot(111, projection='3d')
         cmap = plt.get_cmap('viridis')
-        norm = plt.Normalize(vmin=z_trimmed.min(),
-                             vmax=z_trimmed.max())
+        norm = plt.Normalize(vmax=z_trimmed.max(), vmin=z_trimmed.min()
+                             )
 
         for i, segment in enumerate(segments):
             color = cmap(norm(z_trimmed[i]))
@@ -1355,6 +1355,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         median_z = np.median(z_values)
         import builtins
         elev_label = f"{builtins.round(median_z/10)}"
+        tick_labels = [f"{label:.3f}" for label in cbar.get_ticks()]
+        tick_labels.reverse()
+        cbar.set_ticklabels(tick_labels)
+        cbar.ax.invert_yaxis()
         if elev_label.startswith("-"):
             cbar.set_label(
                 f"Elevation (relative to {elev_label[1:]} m)")
@@ -1365,60 +1369,73 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
+        embed.set_footer(text=f"Current viewing angle in degrees: 50")
+
         class MyModal(discord.ui.Modal):
 
             def __init__(self, *args, **kwargs) -> None:
                 super().__init__(*args, **kwargs)
                 self.add_item(discord.ui.InputText(
-                    label="Enter viewing angle (in degrees):"))
+                    label="Enter angle in degs (Recommended: 30 to 90):"))
 
             async def callback(self, interaction: discord.Interaction):
-                angle = int(self.children[0].value)
-                await interaction.response.defer(ephemeral=get_ephemeral_setting(ctx))
-                fig = plt.figure(figsize=(12, 10))
-                ax_3d = fig.add_subplot(111, projection='3d')
-                cmap = plt.get_cmap('viridis')
-                norm = plt.Normalize(vmin=z_trimmed.min(),
-                                    vmax=z_trimmed.max())
+                try:
+                    angle = int(self.children[0].value)
+                    await interaction.response.defer(ephemeral=get_ephemeral_setting(ctx))
+                    fig = plt.figure(figsize=(12, 10))
+                    ax_3d = fig.add_subplot(111, projection='3d')
+                    cmap = plt.get_cmap('viridis')
+                    norm = plt.Normalize(vmin=z_trimmed.min(),
+                                         vmax=z_trimmed.max())
 
-                for i, segment in enumerate(segments):
-                    color = cmap(norm(z_trimmed[i]))
+                    for i, segment in enumerate(segments):
+                        color = cmap(norm(z_trimmed[i]))
 
-                    ax_3d.plot(segment[:, 0], segment[:, 1], segment[:, 2],
-                            color=color, linewidth=thicc[i], alpha=0.3)
+                        ax_3d.plot(segment[:, 0], segment[:, 1], segment[:, 2],
+                                   color=color, linewidth=thicc[i], alpha=0.3)
 
-                ax_3d.plot(x_trimmed, y_trimmed, z_trimmed + 0.001,
-                        color='black', linestyle='-', linewidth=3, zorder=5)
-                ax_3d.set_xlabel("X Position (m)")
-                ax_3d.set_ylabel("Y Position (m)")
-                ax_3d.set_zlabel("Elevation (m)")
+                    ax_3d.plot(x_trimmed, y_trimmed, z_trimmed + 0.001,
+                               color='black', linestyle='-', linewidth=3, zorder=5)
+                    ax_3d.set_xlabel("X Position (m)")
+                    ax_3d.set_ylabel("Y Position (m)")
+                    ax_3d.set_zlabel("Elevation (m)")
 
-                ax_3d.set_xlim([x_trimmed.min(), x_trimmed.max()])
-                ax_3d.set_ylim([y_trimmed.min(), y_trimmed.max()])
-                ax_3d.set_zlim([z_trimmed.min(), z_trimmed.max()])
-                ax_3d.grid(False)
-                ax_3d.set_axis_off()
+                    ax_3d.set_xlim([x_trimmed.min(), x_trimmed.max()])
+                    ax_3d.set_ylim([y_trimmed.min(), y_trimmed.max()])
+                    ax_3d.set_zlim([z_trimmed.min(), z_trimmed.max()])
+                    ax_3d.grid(False)
+                    ax_3d.set_axis_off()
 
-                # Title
-                ax_3d.set_title(
-                    f"{ev['EventDate'].year} {ev['EventName']} - 3D Track Layout")
-                ax_3d.view_init(elev=angle, azim=200)
-                cbar = fig.colorbar(plt.cm.ScalarMappable(
-                    norm=norm, cmap=cmap), ax=ax_3d)
-                median_z = np.median(z_values)
-                import builtins
-                elev_label = f"{builtins.round(median_z/10)}"
-                if elev_label.startswith("-"):
-                    cbar.set_label(
-                        f"Elevation (relative to {elev_label[1:]} m)")
-                else:
-                    cbar.set_label(
-                        f"Elevation (relative to {elev_label} m)")
-                f = utils.plot_to_file(fig, "plot")
-                embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
-                                    color=get_top_role_color(ctx.author))
-                embed.set_image(url="attachment://plot.png")
-                await interaction.edit(file=f, embed=embed)
+                    # Title
+                    ax_3d.set_title(
+                        f"{ev['EventDate'].year} {ev['EventName']} - 3D Track Layout")
+                    ax_3d.view_init(elev=angle, azim=200)
+                    cbar = fig.colorbar(plt.cm.ScalarMappable(
+                        norm=norm, cmap=cmap), ax=ax_3d)
+                    median_z = np.median(z_values)
+                    import builtins
+                    elev_label = f"{builtins.round(median_z/10)}"
+
+                    tick_labels = [
+                        f"{label:.3f}" for label in cbar.get_ticks()]
+                    tick_labels.reverse()
+                    cbar.set_ticklabels(tick_labels)
+                    cbar.ax.invert_yaxis()
+                    if elev_label.startswith("-"):
+                        cbar.set_label(
+                            f"Elevation (relative to {elev_label[1:]} m)")
+                    else:
+                        cbar.set_label(
+                            f"Elevation (relative to {elev_label} m)")
+                    f = utils.plot_to_file(fig, "plot")
+                    embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
+                                          color=get_top_role_color(ctx.author))
+                    embed.set_image(url="attachment://plot.png")
+                    embed.set_footer(
+                        text=f"Current viewing angle in degrees: {angle}")
+                    await interaction.edit(file=f, embed=embed)
+                except ValueError:
+                    await interaction.respond("Enter a valid angle (in degrees)", ephemeral=True)
 
         class MyView(discord.ui.View):
             @discord.ui.button(label="Change viewing angle", style=discord.ButtonStyle.primary)

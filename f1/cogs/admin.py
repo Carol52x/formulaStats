@@ -65,11 +65,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd1.add_field(
-            name="/info",
-            value="Bot information and status."
-        )
-
-        emd1.add_field(
             name="/laptimes",
             value="Best ranked lap times per driver."
         )
