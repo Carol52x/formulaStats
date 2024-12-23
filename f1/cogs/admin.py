@@ -73,7 +73,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd1.add_field(
             name="/constructors",
-            value="Find constructors info for the given season"
+            value="Find constructors info"
         )
         emd1.add_field(
             name="/grid",
@@ -164,6 +164,9 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/positionchanges",
             value="Plot driver position changes in the race."
         )
+        emd1.add_field(
+            name="/circuits",
+            value="View circuit info for the given season.")
 
         emd.add_field(
             name="/race-trace",

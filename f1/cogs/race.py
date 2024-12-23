@@ -7,6 +7,7 @@ import fastf1
 from f1.errors import MissingDataError
 from f1.api.stats import get_channel_and_roles_for_guild, get_drivers_standings, calculate_max_points_for_remaining_season, calculate_who_can_win, get_driver
 from f1.config import Config
+from f1.api.stats import get_constructor
 from f1.api import ergast, stats
 from f1.api.stats import get_ephemeral_setting
 from f1 import options, utils
@@ -792,43 +793,44 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def career(self, ctx: ApplicationContext, driver: options.driveroption2):
+        try:
 
-        loop = asyncio.get_running_loop()
-        result_embed = await loop.run_in_executor(None, get_driver, driver, ctx)
-        # send final embed
-        await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
+            loop = asyncio.get_running_loop()
+            result_embed = await loop.run_in_executor(None, get_driver, driver, ctx)
+            await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Driver not found.", ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="Constructor information for the given season", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def constructors(self, ctx: ApplicationContext, year: options.SeasonOption):
-        year = roundnumber(round=None, year=year)[1]
-        await utils.check_season(ctx, year)
+    async def constructors(self, ctx: ApplicationContext, constructor: str):
+        try:
+            loop = asyncio.get_running_loop()
+            result_embed = await loop.run_in_executor(None, get_constructor, constructor, ctx)
+            await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Constructor not found.", ephemeral=get_ephemeral_setting(ctx))
 
-        url = f'https://api.jolpi.ca/ergast/f1/{year}/constructors/'
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                standings = await response.json()
-        if standings:
-            results = {
-                'season': standings['MRData']['ConstructorTable']['season'],
-                'data': [],
-            }
-            for standing in standings['MRData']['ConstructorTable']['Constructors']:
-                results['data'].append(
-                    {
-                        'Constructor': standing['name'],
-                        'Nationality': standing['nationality'],
-                    }
-                )
-        table, ax = stats.constructor_table(results['data'])
-        ax.set_title(f"{year} Formula 1 Teams").set_fontsize(12)
-        embed = discord.Embed(
-            title=f'Teams participating in the {year} season', color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        f = utils.plot_to_file(table, f"plot")
-        await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
+    @commands.slash_command(description="Circuit information for the given season", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
+    async def circuits(self, ctx: ApplicationContext, year: options.SeasonOption):
+        try:
+            year = roundnumber(round=None, year=year)[1]
+            await utils.check_season(ctx, year)
+            results = await ergast.get_circuits(year)
+            table, ax = stats.circuit_table(results['data'])
+            ax.set_title(f"{year} Formula 1 circuits").set_fontsize(12)
+            embed = discord.Embed(
+                title=f'Teams participating in the {year} season', color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            f = utils.plot_to_file(table, f"plot")
+            await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("No data found for the given season.", ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(
         name="track-incidents",
