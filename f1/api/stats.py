@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import re
+from rapidfuzz import fuzz
 import sqlite3
 import threading
 import time
@@ -2098,90 +2099,224 @@ def get_wiki_image(search_term):
 
 
 def get_driver(driver, ctx):
+
+    message_embed = discord.Embed(
+        title="temp_driver_title", description="", color=get_top_role_color(ctx.author))
+
+    url = 'https://en.wikipedia.org/wiki/List_of_Formula_One_drivers'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    table = soup.find_all('table')
+    table = table[2]
+
+    driver_data = []
+
     try:
-        # setup embed
-        message_embed = discord.Embed(
-            title="temp_driver_title", description="", color=get_top_role_color(ctx.author))
+        for row in table.find_all('tr')[1:]:
+            columns = row.find_all('td')
+            flags = row.find('img', {'class': 'mw-file-element'})
+            if flags:
+                nationality = flags['src']
+            if columns:
+                driver_dict = {
+                    'name': parse_driver_name(columns[0].text.strip()),
+                    'nationality': nationality,
+                    'seasons_completed': columns[2].text.strip(),
+                    'championships': parse_championships(columns[3].text.strip()),
+                    'entries': parse_brackets(columns[4].text.strip()),
+                    'starts': parse_brackets(columns[5].text.strip()),
+                    'poles': parse_brackets(columns[6].text.strip()),
+                    'wins': parse_brackets(columns[7].text.strip()),
+                    'podiums': parse_brackets(columns[8].text.strip()),
+                    'fastest_laps': parse_brackets(columns[9].text.strip()),
+                    'points': parse_brackets(columns[10].text.strip())
+                }
+                driver_data.append(driver_dict)
+    except Exception as e:
+        message_embed.set_footer(f"Error getting data! {e}")
 
-        url = 'https://en.wikipedia.org/wiki/List_of_Formula_One_drivers'
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
-        table = soup.find_all('table')
-        table = table[2]
+    normalized_input = unidecode(driver).casefold()
+    # img_url = unidecode(driver).title()
+    wiki_image = get_wiki_image(driver)
 
-        driver_data = []
+    # iterate through driver data to find a match
+    index = -1
+    for i in range(len(driver_data)):
+        normalized_name = unidecode(driver_data[i]['name']).casefold()
+        similarity = fuzz.ratio(normalized_name, normalized_input)
+        if similarity >= 90:
+            index = i
+            break
+    if index == -1:
 
+        message_embed.title = "Driver \"" + driver + "\" not found!"
+        message_embed.description = "Try a driver's full name!"
+        return message_embed
+
+    else:
+        if wiki_image != 0:
+            message_embed.set_image(url=wiki_image)
+            message_embed.set_thumbnail(
+                url=f"https:{driver_data[index]['nationality']}")
+        message_embed.title = driver_data[index]['name']
+        message_embed.description = ""
         try:
-            for row in table.find_all('tr')[1:]:
-                columns = row.find_all('td')
-                flags = row.find('img', {'class': 'mw-file-element'})
-                if flags:
-                    nationality = flags['src']
-                if columns:
-                    driver_dict = {
-                        'name': parse_driver_name(columns[0].text.strip()),
-                        'nationality': nationality,
-                        'seasons_completed': columns[2].text.strip(),
-                        'championships': parse_championships(columns[3].text.strip()),
-                        'entries': parse_brackets(columns[4].text.strip()),
-                        'starts': parse_brackets(columns[5].text.strip()),
-                        'poles': parse_brackets(columns[6].text.strip()),
-                        'wins': parse_brackets(columns[7].text.strip()),
-                        'podiums': parse_brackets(columns[8].text.strip()),
-                        'fastest_laps': parse_brackets(columns[9].text.strip()),
-                        'points': parse_brackets(columns[10].text.strip())
-                    }
-                    driver_data.append(driver_dict)
-        except Exception as e:
-            message_embed.set_footer(f"Error getting data! {e}")
-
-        normalized_input = unidecode(driver).casefold()
-        # img_url = unidecode(driver).title()
-        wiki_image = get_wiki_image(driver)
-
-        # iterate through driver data to find a match
-        index = -1
-        for i in range(len(driver_data)):
-            normalized_name = unidecode(driver_data[i]['name']).casefold()
-            if normalized_name == normalized_input:
-                index = i
-                break
-        if index == -1:
-
-            message_embed.title = "Driver \"" + driver + "\" not found!"
-            message_embed.description = "Try a driver's full name!"
-            return message_embed
-
-        else:
-            if wiki_image != 0:
-                message_embed.set_image(url=wiki_image)
-                message_embed.set_thumbnail(
-                    url=f"https:{driver_data[index]['nationality']}")
-            message_embed.title = driver_data[index]['name']
-            message_embed.description = ""
             message_embed.url = wikipedia.WikipediaPage(
                 title=wikipedia.search(driver, results=1)[0]).url
-            message_embed.add_field(
-                name="**Seasons Completed:** ", value=str(driver_data[index]['seasons_completed']))
-            message_embed.add_field(
-                name="**Championships:** ", value=str(driver_data[index]['championships']))
-            message_embed.add_field(
-                name="**Entries:** ", value=str(driver_data[index]['entries']))
-            message_embed.add_field(
-                name="**Starts:** ", value=str(driver_data[index]['starts']))
-            message_embed.add_field(
-                name="**Poles:** ", value=str(driver_data[index]['poles']))
-            message_embed.add_field(
-                name="**Wins:** ", value=str(driver_data[index]['wins']))
-            message_embed.add_field(
-                name="**Podiums:** ", value=str(driver_data[index]['podiums']))
-            message_embed.add_field(
-                name="**Fastest Laps:** ", value=str(driver_data[index]['fastest_laps']))
-            message_embed.add_field(
-                name="**Points:**", value=str(driver_data[index]['points']))
-            return message_embed
-    except:
-        print('Error occured!')
+        except wikipedia.DisambiguationError:
+            message_embed.title = driver_data[index]['name']
+            message_embed.set_thumbnail(
+                url=f"https:{driver_data[index]['nationality']}")
+
+        message_embed.add_field(
+            name="**Seasons Completed:** ", value=str(driver_data[index]['seasons_completed']))
+        message_embed.add_field(
+            name="**Championships:** ", value=str(driver_data[index]['championships']))
+        message_embed.add_field(
+            name="**Entries:** ", value=str(driver_data[index]['entries']))
+        message_embed.add_field(
+            name="**Starts:** ", value=str(driver_data[index]['starts']))
+        message_embed.add_field(
+            name="**Poles:** ", value=str(driver_data[index]['poles']))
+        message_embed.add_field(
+            name="**Wins:** ", value=str(driver_data[index]['wins']))
+        message_embed.add_field(
+            name="**Podiums:** ", value=str(driver_data[index]['podiums']))
+        message_embed.add_field(
+            name="**Fastest Laps:** ", value=str(driver_data[index]['fastest_laps']))
+        message_embed.add_field(
+            name="**Points:**", value=str(driver_data[index]['points']))
+        return message_embed
+
+
+def get_constructor(driver, ctx):
+
+    message_embed = discord.Embed(
+        title="temp_driver_title", description="", color=get_top_role_color(ctx.author))
+
+    url = 'https://en.wikipedia.org/wiki/List_of_Formula_One_constructors'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    table_list = soup.find_all('table')
+    table_1 = table_list[1]
+    table_2 = table_list[2]
+    driver_data = []
+    for row in table_1.find_all('tr')[1:]:
+        columns = row.find_all('td')
+        if columns:
+            driver_dict = {
+                'constructor': parse_brackets(columns[0].text.strip()),
+                'engine': parse_brackets(columns[1].text.strip()),
+                'licensed in': parse_brackets(columns[2].text.strip()),
+                'based in': parse_brackets(columns[3].text.strip()),
+                'seasons': parse_brackets(columns[4].text.strip()),
+                'entries': parse_brackets(columns[5].text.strip()),
+                'starts': parse_brackets(columns[6].text.strip()),
+                'drivers': parse_brackets(columns[7].text.strip()),
+                'total entries': parse_brackets(columns[8].text.strip()),
+                'wins': parse_brackets(columns[9].text.strip()),
+                'points': parse_brackets(columns[10].text.strip()),
+                'poles': parse_brackets(columns[11].text.strip()),
+                'fastest_laps': parse_brackets(columns[12].text.strip()),
+                'podiums': parse_brackets(columns[13].text.strip()),
+                'wcc': parse_brackets(columns[14].text.strip()),
+                'wdc': parse_brackets(columns[15].text.strip()),
+                "formernames": parse_brackets(columns[16].text.strip())
+            }
+            driver_data.append(driver_dict)
+
+    normalized_input = unidecode(driver).casefold()
+    index = -1
+    for i in range(len(driver_data)):
+        normalized_name = unidecode(driver_data[i]['constructor']).casefold()
+        similarity = fuzz.ratio(normalized_name, normalized_input)
+        if similarity >= 65:
+            index = i
+            break
+    if index == -1:
+        driver_data = []
+        for row in table_2.find_all('tr')[1:]:
+            columns = row.find_all('td')
+            if columns:
+                driver_dict = {
+                    'constructor': parse_brackets(columns[0].text.strip()),
+                    'licensed in': parse_brackets(columns[1].text.strip()),
+                    'seasons': parse_brackets(columns[2].text.strip()),
+                    'entries': parse_brackets(columns[3].text.strip()),
+                    'starts': parse_brackets(columns[4].text.strip()),
+                    'drivers': parse_brackets(columns[5].text.strip()),
+                    'total entries': parse_brackets(columns[6].text.strip()),
+                    'wins': parse_brackets(columns[7].text.strip()),
+                    'points': parse_brackets(columns[8].text.strip()),
+                    'poles': parse_brackets(columns[9].text.strip()),
+                    'fastest_laps': parse_brackets(columns[10].text.strip()),
+                    'wcc': parse_brackets(columns[11].text.strip()),
+                    'wdc': parse_brackets(columns[12].text.strip()),
+                }
+                driver_data.append(driver_dict)
+        normalized_input = unidecode(driver).casefold()
+        for i in range(len(driver_data)):
+            normalized_name = unidecode(
+                driver_data[i]['constructor']).casefold()
+            similarity = fuzz.ratio(normalized_name, normalized_input)
+            if similarity >= 65:
+                index = i
+                break
+
+    try:
+        message_embed.title = driver_data[index]['constructor']
+        message_embed.add_field(
+            name="**Seasons:** ", value=str(driver_data[index]['seasons']))
+        message_embed.add_field(
+            name="**Based in:** ", value=str(driver_data[index]['based in']))
+        message_embed.add_field(
+            name="**Licensed in:** ", value=str(driver_data[index]['licensed in']))
+        message_embed.add_field(
+            name="**Drivers:** ", value=str(driver_data[index]['drivers']))
+        message_embed.add_field(
+            name="**WCC:** ", value=str(driver_data[index]['wcc']))
+        message_embed.add_field(
+            name="**WDC:** ", value=str(driver_data[index]['wdc']))
+        message_embed.add_field(
+            name="**Total Entries:** ", value=str(driver_data[index]['total entries']))
+        message_embed.add_field(
+            name="**Starts:** ", value=str(driver_data[index]['starts']))
+        message_embed.add_field(
+            name="**Poles:** ", value=str(driver_data[index]['poles']))
+        message_embed.add_field(
+            name="**Wins:** ", value=str(driver_data[index]['wins']))
+        message_embed.add_field(
+            name="**Points:**", value=str(driver_data[index]['points']))
+        message_embed.add_field(
+            name="**Fastest Laps:** ", value=str(driver_data[index]['fastest_laps']))
+        message_embed.add_field(
+            name="**Former Names:**", value=str(driver_data[index]['formernames']))
+    except KeyError:
+        message_embed.title = driver_data[index]['constructor']
+        message_embed.add_field(
+            name="**Seasons:** ", value=str(driver_data[index]['seasons']))
+        message_embed.add_field(
+            name="**Licensed in:** ", value=str(driver_data[index]['licensed in']))
+        message_embed.add_field(
+            name="**Drivers:** ", value=str(driver_data[index]['drivers']))
+        message_embed.add_field(
+            name="**WCC:** ", value=str(driver_data[index]['wcc']))
+        message_embed.add_field(
+            name="**WDC:** ", value=str(driver_data[index]['wdc']))
+        message_embed.add_field(
+            name="**Total Entries:** ", value=str(driver_data[index]['total entries']))
+        message_embed.add_field(
+            name="**Starts:** ", value=str(driver_data[index]['starts']))
+        message_embed.add_field(
+            name="**Poles:** ", value=str(driver_data[index]['poles']))
+        message_embed.add_field(
+            name="**Wins:** ", value=str(driver_data[index]['wins']))
+        message_embed.add_field(
+            name="**Points:**", value=str(driver_data[index]['points']))
+        message_embed.add_field(
+            name="**Fastest Laps:** ", value=str(driver_data[index]['fastest_laps']))
+
+    return message_embed
 
 
 stat_map = {
