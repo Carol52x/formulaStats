@@ -52,7 +52,7 @@ python -m main
 
 **After install**
 
-A `/cache` directory will be created in the project root when the bot is running. This may become large over time with session telemetry (~100 MB per race weekend). You can manually delete the `/cache` folder or specific subfolders, or a script is provided in the root directory: `python -m flushcache`. Make sure the bot is not running. A new cache will be created during the next startup. Some temp media files can also be generated if `/radio` is used and logs are stored in a `.txt` file in the logs folder. `bot_settings.db` and `guild_roles.db` are generated when `/silent-mode` and `/quizsetup` are used, respectively.
+A `/cache` directory will be created in the project root when the bot is running. This may become large over time with session telemetry (~100 MB per race weekend). You can manually delete the `/cache` folder or specific subfolders, or a script is provided in the root directory: `python -m flushcache`. Make sure the bot is not running. A new cache will be created during the next startup. Some temp media files can also be generated if `/radio` is used and logs are stored in a `.txt` file in the logs folder. `bot_settings.db` and `guild_roles.db` , `leaderboard.db` are generated when `/silent-mode` and `/quizsetup` are used, respectively.
 
 This bot comes with [CogWatch](https://github.com/robertwayne/cogwatch) out of the box to make development easier for the modules inside `f1/cogs` folder.
 
