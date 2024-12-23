@@ -617,9 +617,9 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             embed.set_footer(text=user_rank_text)
             pages.append(Page(embeds=[embed]))
 
-        paginator = Paginator(pages=pages, timeout=None, author_check=False)
+        paginator = Paginator(pages=pages, timeout=899, author_check=False)
         try:
-            await paginator.respond(ctx.interaction)
+            await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
         except discord.Forbidden:
             return
         except discord.HTTPException:
