@@ -11,7 +11,10 @@ from f1.api.stats import get_top_role_color
 from f1 import options
 from f1.api import stats
 import pandas as pd
+from f1.api.stats import get_ephemeral_setting
 import sqlite3
+import time
+START_TIME = time.time()
 logger = logging.getLogger("f1-bot")
 
 
@@ -26,6 +29,15 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         fetch.use_cache = True
         ff1_cache.set_enabled()
         logger.warning("Cache re-enabled after timeout")
+
+    def get_uptime(self):
+        """Get running time since bot started. Return tuple (days, hours, minutes)."""
+        invoke_time = time.time()
+        uptime = invoke_time - START_TIME
+        days, rem = divmod(uptime, 86400)
+        hours, rem = divmod(rem, 3600)
+        mins, secs = divmod(rem, 60)
+        return (int(days), int(hours), int(mins), int(secs))
 
     @commands.slash_command(integration_types={
         discord.IntegrationType.guild_install,
@@ -60,10 +72,17 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd1.add_field(
-            name="/help",
-            value="No description provided"
+            name="/constructors",
+            value="Find constructors info for the given season"
         )
-
+        emd1.add_field(
+            name="/grid",
+            value="Find all the participating drivers and teams for the given season."
+        )
+        emd1.add_field(
+            name="/info",
+            value="Find Bot info."
+        )
         emd1.add_field(
             name="/laptimes",
             value="Best ranked lap times per driver."
@@ -132,9 +151,15 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Make Quizzes"
         )
         emd1.add_field(
+            name="/leaderboard",
+            value="Leaderboard for quizzes")
+        emd1.add_field(
             name="/quizsetup",
             value="Setup quiz for your server."
         )
+        emd1.add_field(
+            name='/technical-glossary',
+            value="Search for a technical term")
         emd.add_field(
             name="/positionchanges",
             value="Plot driver position changes in the race."
@@ -226,9 +251,6 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/track-incidents",
             value="Shows a table showing the lap number and event, such as Safety Car or Red Flag"
         )
-        emd.add_field(
-            name='/technical-glossary',
-            value="Search for a technical term!")
 
         emd.add_field(
             name="/radio",
@@ -310,6 +332,30 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             await ctx.respond("Settings updated for this server!", ephemeral=True)
         else:
             await ctx.respond("You can only use this command after installing it on your server!", ephemeral=True)
+
+    @commands.slash_command(description="Bot information and status.")
+    async def info(self, ctx: ApplicationContext):
+        uptime = self.get_uptime()
+        app_info = await self.bot.application_info()
+        latency = int(self.bot.latency * 10)
+
+        if self.bot.is_closed():
+            ws = "```diff\n- Closed\n```"
+        else:
+            ws = "```diff\n+ Open\n```"
+
+        emd = Embed(
+            title=f"{app_info.name}",
+            description="formulaStats is a discord bot implementation to view Formula 1 statistics and other visuals via slash commands. formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1) and [Jolpica (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.", color=get_top_role_color(ctx.author))
+        emd.add_field(
+            name="Github repository", value="https://github.com/Carol52x/formulaStats", inline=False)
+        emd.add_field(
+            name="Uptime", value=f"{uptime[0]}d, {uptime[1]}h, {uptime[2]}m", inline=True)
+        emd.add_field(name="Ping", value=f"{latency} ms", inline=True)
+        emd.add_field(name="Connection", value=ws, inline=True)
+        emd.set_footer(
+            text='Bug reports can be reported by contacting carol520 or opening a github issue.')
+        await ctx.respond(embed=emd, ephemeral=get_ephemeral_setting(ctx))
 
 
 def setup(bot: discord.Bot):

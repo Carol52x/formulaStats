@@ -263,6 +263,26 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
+    @commands.slash_command(description="All drivers and teams participating in the season.")
+    async def grid(self, ctx, year: options.SeasonOption):
+        try:
+            if year == None:
+                year = int(datetime.now().year)
+
+            await check_season(ctx, year)
+            result = await ergast.get_all_drivers_and_teams(year)
+            table, ax = stats.grid_table(result['data'])
+            yr, rd = result['season'], result['round']
+            ax.set_title(f"{yr} Formula 1 Grid").set_fontsize(12)
+            embed = discord.Embed(
+                title=f'Grid for the {yr} season', color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+
+            f = utils.plot_to_file(table, f"plot")
+            await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            await ctx.respond("Data not found for the given season.", ephemeral=get_ephemeral_setting(ctx))
+
     @commands.slash_command(description='get race schedule', integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
@@ -594,7 +614,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         s = BeautifulSoup(html.content, 'html.parser')
         results = s.find_all(class_='list-item')
         documents = [result.find('a')['href']
-                    for result in results if result.find('a')]
+                     for result in results if result.find('a')]
         filtered = []
 
         def filter_pdfs(pdf_list, year, doc_type):
@@ -616,7 +636,6 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                                 filtered.append(base_url + url)
             return filtered
         list_pdfs = filter_pdfs(documents, year, type)
-        print(list_pdfs)
         options_list = []
 
         def truncate_name(name):
@@ -625,12 +644,12 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 name = name.split("fia")[1]
             except IndexError:
                 pass
-            name=name.replace("_-_", " ").replace("_", " ").title()
+            name = name.replace("_-_", " ").replace("_", " ").title()
             if name.endswith(".Pdf"):
                 name = name[:-4]
             else:
                 name = name
-            name=name.strip()
+            name = name.strip()
             return name
         options_mapping = {}
         for i in list_pdfs:
@@ -638,8 +657,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             options_mapping.update({truncate_name(i): i})
         embed = discord.Embed(
             title="Choose your document:",
-              description="Please note that this document list contains documents corresponding to the year of regulations and not the issue date."
-              ,color=get_top_role_color(ctx.author))
+            description="Please note that this document list contains documents corresponding to the year of regulations and not the issue date.", color=get_top_role_color(ctx.author))
 
         class SelectMenu(discord.ui.View):
 
@@ -654,7 +672,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 # Split options into chunks of 25 or less
                 MAX_OPTIONS = 25
                 option_chunks = [options[i:i + MAX_OPTIONS]
-                                for i in range(0, len(options), MAX_OPTIONS)]
+                                 for i in range(0, len(options), MAX_OPTIONS)]
                 select_menus = []
 
                 for idx, chunk in enumerate(option_chunks):
@@ -811,7 +829,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                                     mypage[i] = Page(
                                         files=[image], embeds=[embed])
                             await paginator.update(pages=mypage, interaction=interaction,
-                                                custom_view=MyView(timeout=None), current_page=page_num-1)
+                                                   custom_view=MyView(timeout=None), current_page=page_num-1)
                             await paginator.goto_page(page_num-1)
 
                         except:
@@ -823,7 +841,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                         await interaction.response.send_modal(MyModal(title="Travel to your desired page."))
                 try:
                     await paginator.update(interaction=ctx.interaction,
-                                        custom_view=MyView())
+                                           custom_view=MyView())
                 except:
                     pass
                 try:
@@ -838,7 +856,6 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             await ctx.respond("No documents found for the given combination of year and type.")
         else:
             await ctx.respond(embed=embed, view=SelectMenu(options), ephemeral=get_ephemeral_setting(ctx))
-
 
 
 def setup(bot: discord.Bot):

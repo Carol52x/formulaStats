@@ -538,18 +538,92 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                     fact = ""
                 d = {"1️⃣": option1, "2️⃣": option2,
                      "3️⃣": option3, "4️⃣": option4}
+                conn = sqlite3.connect("leaderboard.db")
+                cursor = conn.cursor()
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS winners (
+                    guild_id INTEGER,
+                    user_id INTEGER,
+                    wins INTEGER,
+                    PRIMARY KEY (guild_id, user_id)
+                )
+                """)
+
+                conn.commit()
                 if correct_answers == 0:
                     winner_embed.description = f"No one answered correctly. The correct answer was **||{d.get(answer)}. {fact}||**"
                 else:
                     winner_embed.description = f"The correct answer was **||{d.get(answer)}. {fact}||**. {correct_answers} {'person' if correct_answers == 1 else 'people'} answered correctly:"
                     for i, winner in enumerate(winners):
+                        cursor.execute("""
+                        INSERT INTO winners (guild_id, user_id, wins)
+                        VALUES (?, ?, 1)
+                        ON CONFLICT(guild_id, user_id)
+                        DO UPDATE SET wins = wins + 1
+                        """, (guild_id, winner.id))
+                        conn.commit()
                         if i < 5:  # Mention up to 5 winners
                             winner_embed.description += f"\n{i + 1}. {winner.mention}"
+
                 await quiz_message.reply(embed=winner_embed)
             except discord.Forbidden:
                 await ctx.respond(f"I don't have enough permissions to send quizzes to <#{channel_id}>. I require media permissions for that!", ephemeral=True)
         else:
             await ctx.respond("Install this bot in your server to access quiz features!", ephemeral=True)
+
+    @commands.slash_command(name="leaderboard", description="View quiz leaderboard.")
+    async def leaderboard(self, ctx: ApplicationContext):
+        conn = sqlite3.connect("leaderboard.db")
+        cursor = conn.cursor()
+        guild_id = ctx.guild.id
+        user_id = ctx.author.id
+        cursor.execute("""
+        SELECT user_id, wins
+        FROM winners
+        WHERE guild_id = ?
+        ORDER BY wins DESC
+        """, (guild_id,))
+        all_users = cursor.fetchall()
+
+        if not all_users:
+            await ctx.respond("No leaderboard data available for this server.", ephemeral=True)
+            return
+
+        # Determine the rank of the user invoking the command
+        cursor.execute("""
+        SELECT RANK
+        FROM (
+            SELECT user_id, RANK() OVER (ORDER BY wins DESC) AS RANK
+            FROM winners
+            WHERE guild_id = ?
+        ) WHERE user_id = ?
+        """, (guild_id, user_id))
+        user_rank = cursor.fetchone()
+        user_rank_text = f"Your rank: #{user_rank[0]}" if user_rank else "Your rank: No data (you haven't participated yet!)"
+        pages = []
+        from discord.ext.pages import Page, Paginator
+        for i in range(0, len(all_users), 10):  # Paginate 10 users per page
+            embed = discord.Embed(
+                title=f"Quiz Leaderboard for {ctx.guild.name}",
+                color=get_top_role_color(ctx.author)
+            )
+
+            for rank, (user_id, wins) in enumerate(all_users[i:i + 10], start=i + 1):
+                user = ctx.guild.get_member(user_id)
+                username = user.name if user else f"User ID: {user_id}"
+                embed.add_field(name=f"#{rank} {username}",
+                                value=f"Wins: {wins}", inline=False)
+
+            embed.set_footer(text=user_rank_text)
+            pages.append(Page(embeds=[embed]))
+
+        paginator = Paginator(pages=pages, timeout=None, author_check=False)
+        try:
+            await paginator.respond(ctx.interaction)
+        except discord.Forbidden:
+            return
+        except discord.HTTPException:
+            return
 
     @commands.slash_command(name="meme", integration_types={
         discord.IntegrationType.guild_install,
@@ -723,6 +797,38 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         result_embed = await loop.run_in_executor(None, get_driver, driver, ctx)
         # send final embed
         await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
+
+    @commands.slash_command(description="Constructor information for the given season", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
+    async def constructors(self, ctx: ApplicationContext, year: options.SeasonOption):
+        year = roundnumber(round=None, year=year)[1]
+        await utils.check_season(ctx, year)
+
+        url = f'https://api.jolpi.ca/ergast/f1/{year}/constructors/'
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                standings = await response.json()
+        if standings:
+            results = {
+                'season': standings['MRData']['ConstructorTable']['season'],
+                'data': [],
+            }
+            for standing in standings['MRData']['ConstructorTable']['Constructors']:
+                results['data'].append(
+                    {
+                        'Constructor': standing['name'],
+                        'Nationality': standing['nationality'],
+                    }
+                )
+        table, ax = stats.constructor_table(results['data'])
+        ax.set_title(f"{year} Formula 1 Teams").set_fontsize(12)
+        embed = discord.Embed(
+            title=f'Teams participating in the {year} season', color=get_top_role_color(ctx.author))
+        embed.set_image(url="attachment://plot.png")
+        f = utils.plot_to_file(table, f"plot")
+        await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(
         name="track-incidents",
