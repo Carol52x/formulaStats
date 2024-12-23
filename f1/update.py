@@ -8,11 +8,10 @@ year_mapping = {2024: '2024-2043',
                 2020: "2020-1059",
                 2019: "2019-971"}
 
-pitstop_year_list = [2012, 2013, 2014, 2015, 2016, 2017,
-                     2018, 2019, 2020, 2021, 2022, 2023, 2024]
+pitstop_year_list = list(range(2012, 2025))
 
-document_year_list = [2019, 2020, 2021, 2022, 2023, 2024]
+document_year_list = list(range(2019, 2025))
 
-fastf1_year_list = [2018, 2019, 2020, 2021, 2022, 2023, 2024]
+fastf1_year_list = list(range(2018, 2025))
 
-regulation_year_list = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+regulation_year_list = list(range(2018, 2027))
