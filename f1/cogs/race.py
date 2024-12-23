@@ -805,10 +805,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def constructors(self, ctx: ApplicationContext, constructor: str):
+    async def constructors(self, ctx: ApplicationContext, team: str):
         try:
             loop = asyncio.get_running_loop()
-            result_embed = await loop.run_in_executor(None, get_constructor, constructor, ctx)
+            result_embed = await loop.run_in_executor(None, get_constructor, team, ctx)
             await ctx.respond(embed=result_embed, ephemeral=get_ephemeral_setting(ctx))
         except:
             await ctx.respond("Constructor not found.", ephemeral=get_ephemeral_setting(ctx))
