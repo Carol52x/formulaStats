@@ -2213,8 +2213,13 @@ def get_drivers_standings(round, year):
 def calculate_max_points_for_remaining_season(round, year):
     SEASON = int(year)
     ROUND = int(round)
-    POINTS_FOR_SPRINT = 8 + 25
-    POINTS_FOR_CONVENTIONAL = 25
+    if year > 2024:
+        POINTS_FOR_SPRINT = 8 + 25
+        POINTS_FOR_CONVENTIONAL = 25
+    else:
+        POINTS_FOR_SPRINT = 8 + 25 + 1
+        POINTS_FOR_CONVENTIONAL = 25 + 1
+
     events = fastf1.events.get_event_schedule(SEASON)
     events = events[events['RoundNumber'] > ROUND]
 
@@ -3301,14 +3306,36 @@ def grid_table(data: list[dict]) -> tuple[Figure, Axes]:
 
     df = pd.DataFrame(data)
     col_defs = [
-        ColDef("Code", width=0.4, textprops={"weight": "bold"}, border="r"),
-        ColDef("No", width=0.35),
         ColDef("Name", width=0.9, textprops={"ha": "left"}),
-        ColDef("Age", width=0.35),
         ColDef("Nationality", width=0.75, textprops={"ha": "left"}),
         ColDef("Team", width=0.8, textprops={"ha": "left"}),
     ]
-    table = plot_table(df, col_defs, "Code", figsize=(10, 10))
+    table = plot_table(df, col_defs, "Name", figsize=(10, 10))
+
+    return table.figure, table.ax
+
+
+def constructor_table(data: list[dict]) -> tuple[Figure, Axes]:
+
+    df = pd.DataFrame(data)
+    col_defs = [
+        ColDef("Constructor", width=0.9, textprops={"ha": "left"}),
+        ColDef("Nationality", width=0.75, textprops={"ha": "left"})
+    ]
+    table = plot_table(df, col_defs, "Constructor", figsize=(10, 10))
+
+    return table.figure, table.ax
+
+
+def circuit_table(data: list[dict]) -> tuple[Figure, Axes]:
+
+    df = pd.DataFrame(data)
+    col_defs = [
+        ColDef("Circuit Name", width=0.9, textprops={"ha": "left"}),
+        ColDef("Locality", width=0.75, textprops={"ha": "left"}),
+        ColDef("Country", width=0.8, textprops={"ha": "left"}),
+    ]
+    table = plot_table(df, col_defs, "Circuit Name", figsize=(10, 10))
 
     return table.figure, table.ax
 

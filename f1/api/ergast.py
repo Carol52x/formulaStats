@@ -95,7 +95,8 @@ async def get_all_drivers(season=None, round=None) -> list[dict]:
 
     # Fallback to season only if data for the round is unavailable
     if round and not res['MRData']['DriverTable']['Drivers']:
-        logger.warning("Driver data for specified round is missing, falling back to season list.")
+        logger.warning(
+            "Driver data for specified round is missing, falling back to season list.")
         res = await fetch(season_url)
 
     return res['MRData']['DriverTable']['Drivers']
@@ -188,7 +189,8 @@ async def get_driver_standings(season, rnd=None):
     if standings:
         results = {
             'season': standings['MRData']['StandingsTable']['season'],
-            'round': standings['MRData']['StandingsTable'].get('round', None),  # Round might be None if not available
+            # Round might be None if not available
+            'round': standings['MRData']['StandingsTable'].get('round', None),
             'data': [],
         }
 
@@ -292,25 +294,47 @@ async def get_all_drivers_and_teams(season):
         if API response unavailable.
     """
     url = f'{BASE_URL}/{season}/driverStandings'
-    soup = await get_soup(url)
-    if soup:
-        standings = soup.find_all('driverstanding')
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            standings = await response.json()
+    if standings:
         results = {
-            'season': soup.standingslist['season'],
-            'round': soup.standingslist['round'],
-            'data': []
+            'season': standings['MRData']['StandingsTable']['season'],
+            # Round might be None if not available
+            'round': standings['MRData']['StandingsTable'].get('round', None),
+            'data': [],
         }
-        for standing in standings:
-            driver = standing.driver
-            team = standing.constructor
+        for standing in standings['MRData']['StandingsTable']['StandingsLists'][0]['DriverStandings']:
+            driver = standing['Driver']
+            team = standing['Constructors']
             results['data'].append(
                 {
-                    'No': int(driver.permanentnumber.string),
-                    'Code': driver['code'],
-                    'Name': f'{driver.givenname.string} {driver.familyname.string}',
-                    'Age': utils.age(driver.dateofbirth.string[:4]),
-                    'Nationality': driver.nationality.string,
-                    'Team': team.find('name').string,
+                    'Name': f'{driver["givenName"]} {driver["familyName"]}',
+                    'Nationality': driver['nationality'],
+                    'Team': team[0]['name'],
+                }
+            )
+        return results
+    raise MissingDataError()
+
+
+async def get_circuits(season):
+
+    url = f'{BASE_URL}/{season}/circuits'
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            standings = await response.json()
+    if standings:
+        results = {
+            'season': standings['MRData']['CircuitTable']['season'],
+            'data': [],
+        }
+        for standing in standings['MRData']['CircuitTable']['Circuits']:
+            results['data'].append(
+                {
+                    'Circuit Name': standing['circuitName'],
+                    'Locality': standing['Location']['locality'],
+                    'Country': standing['Location']['country'],
                 }
             )
         return results
