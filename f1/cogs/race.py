@@ -486,7 +486,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                 # Send quiz embed with custom question and options
                 embed = discord.Embed(title="You only have 10 seconds to answer!",
                                       description=f"**{question}**", color=discord.Color.blurple())
-                embed.set_author(name='FormulaOne Quiz')
+                embed.set_author(name=f'{ctx.guild.name} Quiz')
                 embed.add_field(name="1️⃣", value=option1, inline=False)
                 embed.add_field(name="2️⃣", value=option2, inline=False)
                 embed.add_field(name="3️⃣", value=option3, inline=False)

@@ -274,7 +274,6 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def records(self, ctx, type: options.RecordOption):
-        await ctx.defer(ephemeral=get_ephemeral_setting(ctx))
         from io import StringIO
         import requests
         from bs4 import BeautifulSoup
@@ -320,8 +319,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         elif type == "Races":
             url = "https://en.wikipedia.org/wiki/List_of_Formula_One_race_records"
 
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
+        response = await asyncio.to_thread(lambda: requests.get(url))
+        soup =await asyncio.to_thread(lambda:  BeautifulSoup(response.text, "html.parser"))
         headings_list = await asyncio.to_thread(lambda: soup.find_all('h3'))
         headings = [heading.get_text(strip=True).replace(
             "[edit]", "") for heading in headings_list]
