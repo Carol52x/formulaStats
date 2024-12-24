@@ -340,7 +340,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
     async def info(self, ctx: ApplicationContext):
         uptime = self.get_uptime()
         app_info = await self.bot.application_info()
-        latency = int(self.bot.latency * 10)
+        latency = int(self.bot.latency * 1000)
 
         if self.bot.is_closed():
             ws = "```diff\n- Closed\n```"
