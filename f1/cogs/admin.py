@@ -99,8 +99,8 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd1.add_field(
-            name="/avg pos",
-            value="Average position of a driver or a team in a span of season. (This may take about a minute or two.)"
+            name="/avgpos",
+            value="Average position of a driver or a team in a span of season."
         )
 
         emd1.add_field(
@@ -130,7 +130,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd1.add_field(
             name="/h2h",
-            value="Head to Head stats. (This may take about a minute or two.)"
+            value="Head to Head stats."
         )
 
         emd1.add_field(
