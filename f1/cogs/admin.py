@@ -233,7 +233,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd.add_field(
             name="/sectors",
-            value="View fastest sectors and speed trap based on quick laps. Seasons >= 2018."
+            value="View fastest sectors and speed trap based on quick laps."
         )
 
         emd.add_field(
