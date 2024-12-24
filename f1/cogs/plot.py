@@ -444,9 +444,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.invert_yaxis()
         stats.shade_sc_periods(sc_laps, vsc_laps, ax)
         stats.shade_red_flag(red_laps, ax)
-        legend_handles['Safety Car'] = Patch(color='orange', alpha=0.5, label="Safety Car")
-        legend_handles['Virtual Safety Car'] = Patch(color='yellow', alpha=0.5, label="Virtual Safety Car")
-        legend_handles['Red Flag'] = Patch(color='red', alpha=0.5, label="Red Flag")
+        legend_handles['Safety Car'] = Patch(
+            color='orange', alpha=0.5, label="Safety Car")
+        legend_handles['Virtual Safety Car'] = Patch(
+            color='yellow', alpha=0.5, label="Virtual Safety Car")
+        legend_handles['Red Flag'] = Patch(
+            color='red', alpha=0.5, label="Red Flag")
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
@@ -1238,6 +1241,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             color=get_top_role_color(ctx.author)
         )
         embed.set_image(url="attachment://plot.png")
+        embed.set_footer(
+            text=r"Methodology: The data is filtered to include laps within 105% of the fastest lap and grouped by Compound and TyreLife to calculate the mean lap time for each group. However, this does not explicitly account for changing fuel loads.")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="avg-lap-delta",
