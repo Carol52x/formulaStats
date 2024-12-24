@@ -334,6 +334,8 @@ async def get_circuits(season):
                 {
                     'Circuit Name': standing['circuitName'],
                     'Locality': standing['Location']['locality'],
+                    'Latitude': standing['Location']['lat'],
+                    'Longitude': standing['Location']['long'],
                     'Country': standing['Location']['country'],
                 }
             )

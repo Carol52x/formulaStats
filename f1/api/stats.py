@@ -2262,6 +2262,8 @@ def get_constructor(driver, ctx):
             if similarity >= 65:
                 index = i
                 break
+    if index == -1:
+        return
 
     try:
         message_embed.title = driver_data[index]['constructor']
@@ -3466,11 +3468,13 @@ def circuit_table(data: list[dict]) -> tuple[Figure, Axes]:
 
     df = pd.DataFrame(data)
     col_defs = [
-        ColDef("Circuit Name", width=0.9, textprops={"ha": "left"}),
+        ColDef("Circuit Name", width=1, textprops={"ha": "left"}),
         ColDef("Locality", width=0.75, textprops={"ha": "left"}),
+        ColDef("Latitude", width=0.5, textprops={"ha": "left"}),
+        ColDef("Longitude", width=0.5, textprops={"ha": "left"}),
         ColDef("Country", width=0.8, textprops={"ha": "left"}),
     ]
-    table = plot_table(df, col_defs, "Circuit Name", figsize=(10, 10))
+    table = plot_table(df, col_defs, "Circuit Name", figsize=(15, 10))
 
     return table.figure, table.ax
 
