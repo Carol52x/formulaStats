@@ -40,12 +40,6 @@ RegulationOption = Option(
     description="Choose the type of regulation to view. (default Sporting)",
     default="Sporting Regulations")
 
-DocumentOption2 = Option(
-    bool,
-    choices=[True, False],
-    description="default false",
-    default=False)
-
 
 EphemeralOption = Option(
     bool,
@@ -155,10 +149,6 @@ SessionOption = Option(
     default="Race",
     description="The session to view (default race)")
 
-DocumentOption = Option(
-    int,
-    default=None,
-    description="Enter 1, 2, 3.. for older documents, or leave empty for the latest doc.")
 
 LapOption = Option(
     int,
