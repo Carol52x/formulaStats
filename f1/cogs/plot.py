@@ -444,11 +444,14 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         ax.invert_yaxis()
         stats.shade_sc_periods(sc_laps, vsc_laps, ax)
         stats.shade_red_flag(red_laps, ax)
-        legend_handles['Safety Car'] = Patch(
+        if sc_laps.size > 0:
+            legend_handles['Safety Car'] = Patch(
             color='orange', alpha=0.5, label="Safety Car")
-        legend_handles['Virtual Safety Car'] = Patch(
+        if vsc_laps.size > 0:
+            legend_handles['Virtual Safety Car'] = Patch(
             color='yellow', alpha=0.5, label="Virtual Safety Car")
-        legend_handles['Red Flag'] = Patch(
+        if red_laps.size > 0:
+            legend_handles['Red Flag'] = Patch(
             color='red', alpha=0.5, label="Red Flag")
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
