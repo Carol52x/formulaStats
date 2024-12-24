@@ -825,7 +825,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             table, ax = stats.circuit_table(results['data'])
             ax.set_title(f"{year} Formula 1 circuits").set_fontsize(12)
             embed = discord.Embed(
-                title=f'Teams participating in the {year} season', color=get_top_role_color(ctx.author))
+                title=f'Circuits visited in the {year} season', color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
             f = utils.plot_to_file(table, f"plot")
             await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))

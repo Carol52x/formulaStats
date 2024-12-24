@@ -100,8 +100,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def fiadoc(self, ctx, doc: options.DocumentOption, year: options.SeasonOption5, round: options.RoundOption,
-                     get_all_docs: options.DocumentOption2):
+    async def fiadoc(self, ctx, year: options.SeasonOption5, round: options.RoundOption):
+        doc = 0
 
         from discord.ext.pages import Paginator, Page
         year = stats.roundnumber(round, year)[1]
@@ -119,103 +119,77 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         if eventname is None:
             event = await stats.to_event(year, round)
             eventname = event.EventName
-        if get_all_docs is True:
-            options_list = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc, None, True)
+        options_list = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc, None, True)
 
-            def truncate_before_gp_name(path):
-                import re
-                result = re.split(r'Grand Prix - ', path, maxsplit=1)
-                if len(result) == 2:
-                    return result[1]
-                return path
-            options_mapping = {truncate_before_gp_name(
-                path): path for path in options_list}
-            embed = discord.Embed(
-                title="Choose your document:", color=get_top_role_color(ctx.author))
+        def truncate_before_gp_name(path):
+            import re
+            result = re.split(r'Grand Prix - ', path, maxsplit=1)
+            if len(result) == 2:
+                return result[1]
+            return path
+        options_mapping = {truncate_before_gp_name(
+            path): path for path in options_list}
+        embed = discord.Embed(
+            title="Choose your document:", description="-# Sorted by latest to oldest documents for the given event", color=get_top_role_color(ctx.author))
 
-            class SelectMenu(discord.ui.View):
+        class SelectMenu(discord.ui.View):
 
-                def __init__(self, options, timeout=None):
-                    super().__init__(timeout=timeout)
-                    self.menus = self.create_select_menus(options)
+            def __init__(self, options, timeout=None):
+                super().__init__(timeout=timeout)
+                self.menus = self.create_select_menus(options)
 
-                    for menu in self.menus:
-                        self.add_item(menu)
+                for menu in self.menus:
+                    self.add_item(menu)
 
-                def create_select_menus(self, options):
-                    # Split options into chunks of 25 or less
-                    MAX_OPTIONS = 25
-                    option_chunks = [options[i:i + MAX_OPTIONS]
-                                     for i in range(0, len(options), MAX_OPTIONS)]
-                    select_menus = []
+            def create_select_menus(self, options):
+                # Split options into chunks of 25 or less
+                MAX_OPTIONS = 25
+                option_chunks = [options[i:i + MAX_OPTIONS]
+                                 for i in range(0, len(options), MAX_OPTIONS)]
+                select_menus = []
 
-                    for idx, chunk in enumerate(option_chunks):
-                        select_menus.append(discord.ui.Select(
-                            placeholder=f"Choose a document (Menu {idx + 1})",
-                            min_values=1,
-                            max_values=1,
-                            options=[discord.SelectOption(
-                                label=option, value=option) for option in chunk]
-                        ))
+                for idx, chunk in enumerate(option_chunks):
+                    select_menus.append(discord.ui.Select(
+                        placeholder=f"Choose a document (Menu {idx + 1})",
+                        min_values=1,
+                        max_values=1,
+                        options=[discord.SelectOption(
+                            label=option, value=option) for option in chunk]
+                    ))
 
-                    return select_menus
+                return select_menus
 
-                # Define a callback for each select menu dynamically
-                async def interaction_check(self, interaction):
-                    selected_value = interaction.data['values'][0]
-                    await self.handle_selection(interaction, selected_value)
+            # Define a callback for each select menu dynamically
+            async def interaction_check(self, interaction):
+                selected_value = interaction.data['values'][0]
+                await self.handle_selection(interaction, selected_value)
 
-                async def handle_selection(self, interaction, doc_name):
-                    await interaction.response.send_message(f"Preparing the document...", ephemeral=True)
-                    loop = asyncio.get_running_loop()
-                    images = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc, options_mapping.get(doc_name))
-                    mypage = []
+            async def handle_selection(self, interaction, doc_name):
+                await interaction.response.send_message(f"Preparing the document...", ephemeral=True)
+                loop = asyncio.get_running_loop()
+                images = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc, options_mapping.get(doc_name))
+                mypage = []
 
-                    for idx, image in enumerate(images):
-                        embed = discord.Embed(
-                            title=f"FIA Document(s) for {year} {eventname}",
-                            color=get_top_role_color(ctx.author)
-                        ).set_thumbnail(
-                            url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
-                        ).set_image(url=f"attachment://{idx}.png")
+                for idx, image in enumerate(images):
+                    embed = discord.Embed(
+                        title=f"FIA Document(s) for {year} {eventname}",
+                        color=get_top_role_color(ctx.author)
+                    ).set_thumbnail(
+                        url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png'
+                    ).set_image(url=f"attachment://{idx}.png")
 
-                        mypage.append(Page(embeds=[embed], files=[image]))
+                    mypage.append(Page(embeds=[embed], files=[image]))
 
-                    paginator = Paginator(
-                        pages=mypage, timeout=898, author_check=False)
-                    try:
-                        await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
-                    except discord.Forbidden:
-                        return
-                    except discord.HTTPException:
-                        return
-            options = list(options_mapping.keys())
-            await ctx.respond(embed=embed, view=SelectMenu(options))
-        else:
-            try:
-                images = await loop.run_in_executor(None, get_fia_doc, year, eventname, doc)
-            except:
-                await ctx.respond("No documents found for the given session.")
-                return
-            a = 0
-
-            for i in images:
-
-                embed = discord.Embed(title=f"FIA Document(s) for {year} {eventname}", description="", color=get_top_role_color(ctx.author)).set_thumbnail(
-                    url='https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg/1200px-F%C3%A9d%C3%A9ration_Internationale_de_l%27Automobile_wordmark.svg.png')
-                embed.set_image(url=f"attachment://{a}.png")
-
-                mypage.append(Page(embeds=[embed], files=[i]))
-                a += 1
-
-            paginator = Paginator(
-                pages=mypage, timeout=None, author_check=False)
-            try:
-                await paginator.respond(ctx.interaction)
-            except discord.Forbidden:
-                return
-            except discord.HTTPException:
-                return
+                paginator = Paginator(
+                    pages=mypage, timeout=898, author_check=False)
+                try:
+                    await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
+                except discord.Forbidden:
+                    return
+                except discord.HTTPException:
+                    return
+        options = list(options_mapping.keys())
+        await ctx.respond(embed=embed, view=SelectMenu(options))
 
     @commands.slash_command(description="Constructors Championship standings.", integration_types={
         discord.IntegrationType.guild_install,
@@ -657,7 +631,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             options_mapping.update({truncate_name(i): i})
         embed = discord.Embed(
             title="Choose your document:",
-            description="Please note that this document list contains documents corresponding to the year of regulations and not the issue date.", color=get_top_role_color(ctx.author))
+            description="-# Please note that this document list contains documents corresponding to the year of regulations and not the issue date.",
+            color=get_top_role_color(ctx.author))
 
         class SelectMenu(discord.ui.View):
 
