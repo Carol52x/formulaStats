@@ -910,7 +910,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                     'Team', 'Min Speed']).sort_values('Min Speed', ascending=False).reset_index()
                 team_color = {}
                 for team in team_max_speed.Team:
-                    team_color[team] = fastf1.plotting.team_color(team)
+                    team_color[team] = fastf1.plotting.get_team_color(team, session=s)
 
                 fig, ax = plt.subplots(2, figsize=(15, 18))
                 fig.suptitle('Teams\' Max and Min Speed (Fastest Lap) \n' +
