@@ -99,7 +99,11 @@ TyreOption = Option(
         "MEDIUM",
         "HARD",
         "INTERMEDIATE",
-        "WET"
+        "WET",
+        "SUPERHARD",
+        'SUPERSOFT',
+        "ULTRASOFT",
+        'HYPERSOFT'
     ],
     default=None
 )
