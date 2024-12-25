@@ -320,7 +320,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             url = "https://en.wikipedia.org/wiki/List_of_Formula_One_race_records"
 
         response = await asyncio.to_thread(lambda: requests.get(url))
-        soup =await asyncio.to_thread(lambda:  BeautifulSoup(response.text, "html.parser"))
+        soup = await asyncio.to_thread(lambda:  BeautifulSoup(response.text, "html.parser"))
         headings_list = await asyncio.to_thread(lambda: soup.find_all('h3'))
         headings = [heading.get_text(strip=True).replace(
             "[edit]", "") for heading in headings_list]
@@ -358,6 +358,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                 await self.handle_selection(interaction, selected_value, mapping)
 
             async def handle_selection(self, interaction, value, mapping):
+                await interaction.response.defer(ephemeral=get_ephemeral_setting(ctx))
                 if type == "Races" or type == "Misc. Driver records" or type == "Misc. Driver records (part 2)":
                     record_tuple = mapping.get(value)
                     record_string = f"{record_tuple[0][1]} : {record_tuple[0][0]}"

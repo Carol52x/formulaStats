@@ -446,13 +446,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         stats.shade_red_flag(red_laps, ax)
         if sc_laps.size > 0:
             legend_handles['Safety Car'] = Patch(
-            color='orange', alpha=0.5, label="Safety Car")
+                color='orange', alpha=0.5, label="Safety Car")
         if vsc_laps.size > 0:
             legend_handles['Virtual Safety Car'] = Patch(
-            color='yellow', alpha=0.5, label="Virtual Safety Car")
+                color='yellow', alpha=0.5, label="Virtual Safety Car")
         if red_laps.size > 0:
             legend_handles['Red Flag'] = Patch(
-            color='red', alpha=0.5, label="Red Flag")
+                color='red', alpha=0.5, label="Red Flag")
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
@@ -1155,7 +1155,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(name="tyre-performance",
+    @commands.slash_command(name="tyre-degradation",
                             description="Plot the performance of each tyre compound based on the age of the tyre.", integration_types={
                                 discord.IntegrationType.guild_install,
                                 discord.IntegrationType.user_install,
@@ -1245,7 +1245,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         )
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
-            text=r"Methodology: The data is filtered to include laps within 105% of the fastest lap and grouped by Compound and TyreLife to calculate the mean lap time for each group. However, this does not explicitly account for changing fuel loads.")
+            text=r"Methodology: The data is filtered to include laps within 105% of the fastest lap and grouped by Compound and TyreLife to calculate the mean lap time for each group.")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="avg-lap-delta",

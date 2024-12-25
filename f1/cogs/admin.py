@@ -209,7 +209,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd.add_field(
-            name="/tyre-performance",
+            name="/tyre-degradation",
             value="Plot the performance of each tyre compound based on the age of the tyre."
         )
 

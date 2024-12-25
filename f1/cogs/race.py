@@ -18,6 +18,8 @@ from f1.api.stats import roundnumber
 from discord.ext import commands
 from discord import ApplicationContext, Embed
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 import discord
 import asyncio
 import logging
@@ -760,7 +762,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(
-        description="View fastest sectors and speed trap based on quick laps. Seasons >= 2018.", integration_types={
+        description="View fastest sectors and speed trap based on quick laps.", integration_types={
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
         })
@@ -773,20 +775,176 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         await utils.check_season(ctx, year)
         session = stats.convert_shootout_to_qualifying(year, session)
         yr, rd = ev["EventDate"].year, ev["RoundNumber"]
-        s = await stats.load_session(ev, session, laps=True)
+        s = await stats.load_session(ev, session, laps=True, telemetry=True)
+        race_name = ev.EventName
         data = await stats.sectors(s, tyre)
-
         table, ax = stats.sectors_table(data)
-        ax.set_title(
-            f"{yr} {ev['EventName']} - Sectors" +
-            (f"\nTyre: {tyre}" if tyre else "")
-        ).set_fontsize(12)
+        if tyre is not None and year > 2018:
+            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
+            compound_numbers = [int(s[1:]) for s in absolute_compounds]
+            absolute_number_mapping = {i: j for i, j in zip(
+                compound_numbers, absolute_compounds)}
+            soft_compound = absolute_number_mapping.get(max(compound_numbers))
+            hard_compound = absolute_number_mapping.get(min(compound_numbers))
+            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                      if number != soft_compound and number != hard_compound)
+            compound_label_mapping = {
+                "SOFT": soft_compound,
+                "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                "HARD": hard_compound
+            }
+            ax.set_title(
+                f"{yr} {ev['EventName']} - Sectors" +
+                (f"\nTyre: {tyre} {compound_label_mapping.get(tyre, '')}" if tyre else "")
+            ).set_fontsize(12)
+        elif tyre is not None and year == 2018:
+            ax.set_title(
+                f"{yr} {ev['EventName']} - Sectors" +
+                (f"\nTyre: {tyre}" if tyre else "")
+            ).set_fontsize(12)
+        else:
+            ax.set_title(
+                f"{yr} {ev['EventName']} - Sectors" +
+                (f"\nTyre: {tyre}" if tyre else "")
+            ).set_fontsize(12)
 
         f = utils.plot_to_file(table, "plot")
         embed = discord.Embed(title=f'Sectors and Speed Trap: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+
+        class MyView(discord.ui.View):
+
+            @discord.ui.button(label="Tabular", row=0, style=discord.ButtonStyle.primary, disabled=True)
+            async def first_button_callback(self, button, interaction):
+                self.enable_all_items()
+                button.disabled = True
+                await interaction.response.edit_message(view=self)
+                table, ax = stats.sectors_table(data)
+                ax.set_title(
+                    f"{yr} {ev['EventName']} - Sectors" +
+                    (f"\nTyre: {tyre}" if tyre else "")
+                ).set_fontsize(12)
+
+                f = utils.plot_to_file(table, "plot")
+                embed = discord.Embed(title=f'Sectors and Speed Trap: {ev.EventName}',
+                                      color=get_top_role_color(ctx.author))
+                embed.set_image(url="attachment://plot.png")
+                await interaction.edit(file=f, embed=embed)
+
+            @discord.ui.button(label="Bar plot (sectors)", row=0, style=discord.ButtonStyle.primary)
+            async def second_button_callback(self, button, interaction):
+                self.enable_all_items()
+                button.disabled = True
+                await interaction.response.edit_message(view=self)
+                df = s.laps
+
+                df.Sector1Time = df.Sector1Time.dt.total_seconds()
+                df.Sector2Time = df.Sector2Time.dt.total_seconds()
+                df.Sector3Time = df.Sector3Time.dt.total_seconds()
+                df = df.dropna(
+                    subset=['Sector1Time', 'Sector2Time', 'Sector3Time'])
+                top_10_sector1 = df.groupby(['Driver'])['Sector1Time'].min(
+                ).sort_values().head(10).reset_index()
+                top_10_sector2 = df.groupby(['Driver'])['Sector2Time'].min(
+                ).sort_values().head(10).reset_index()
+                top_10_sector3 = df.groupby(['Driver'])['Sector3Time'].min(
+                ).sort_values().head(10).reset_index()
+                driver_color = {}
+                df_results = s.results
+                for index, row in df_results.iterrows():
+                    driver = row['Abbreviation']
+                    driver_color[driver] = fastf1.plotting.get_driver_color(
+                        driver, session=s)
+                fig, ax = plt.subplots(1, 3, figsize=(20, 14))
+                fig.suptitle('Fastest Sector Time \n'+race_name, fontsize=20)
+                sns.barplot(x=top_10_sector1['Sector1Time'], y=top_10_sector1['Driver'],
+                            palette=driver_color, ax=ax[0], edgecolor='black')
+                ax[0].bar_label(ax[0].containers[0], padding=3)
+                ax[0].set_xlim(top_10_sector1.Sector1Time[0]-0.1,
+                               top_10_sector1.Sector1Time[9]+0.1)
+                ax[0].set_title('Sector 1')
+                sns.barplot(x=top_10_sector2['Sector2Time'], y=top_10_sector2['Driver'],
+                            palette=driver_color, ax=ax[1], edgecolor='black')
+                ax[1].bar_label(ax[1].containers[0], padding=3)
+                ax[1].set_xlim(top_10_sector2.Sector2Time[0]-0.1,
+                               top_10_sector2.Sector2Time[9]+0.1)
+                ax[1].set_title('Sector 2')
+                sns.barplot(x=top_10_sector3['Sector3Time'], y=top_10_sector3['Driver'],
+                            palette=driver_color, ax=ax[2], edgecolor='black')
+                ax[2].bar_label(ax[2].containers[0], padding=3)
+                ax[2].set_xlim(top_10_sector3.Sector3Time[0]-0.1,
+                               top_10_sector3.Sector3Time[9]+0.1)
+                ax[2].set_title('Sector 3')
+                ax[0].grid(which="minor", alpha=0.1)
+                ax[0].minorticks_on()
+                ax[1].grid(which="minor", alpha=0.1)
+                ax[1].minorticks_on()
+                ax[2].grid(which="minor", alpha=0.1)
+                ax[2].minorticks_on()
+
+                file_2 = utils.plot_to_file(fig, "plot_2")
+                embed_2 = discord.Embed(title=f'Sectors: {ev.EventName}',
+                                        color=get_top_role_color(ctx.author))
+                embed_2.set_image(url="attachment://plot_2.png")
+                await interaction.edit(file=file_2, embed=embed_2)
+
+            @discord.ui.button(label="Bar plot (speed traps)", style=discord.ButtonStyle.primary)
+            async def third_button_callback(self, button, interaction):
+                self.enable_all_items()
+                button.disabled = True
+                await interaction.response.edit_message(view=self)
+                df = s.laps
+                team_max_speed = {}
+                team_min_speed = {}
+
+                for team in set(df.Team):
+                    team_max_speed[team] = df.pick_team(
+                        team).pick_fastest().get_telemetry().Speed.max()
+                    team_min_speed[team] = df.pick_team(
+                        team).pick_fastest().get_telemetry().Speed.min()
+
+                team_max_speed = pd.DataFrame(team_max_speed.items(), columns=[
+                    'Team', 'Max Speed']).sort_values('Max Speed', ascending=False).reset_index()
+                team_min_speed = pd.DataFrame(team_min_speed.items(), columns=[
+                    'Team', 'Min Speed']).sort_values('Min Speed', ascending=False).reset_index()
+                team_color = {}
+                for team in team_max_speed.Team:
+                    team_color[team] = fastf1.plotting.team_color(team)
+
+                fig, ax = plt.subplots(2, figsize=(15, 18))
+                fig.suptitle('Teams\' Max and Min Speed (Fastest Lap) \n' +
+                             race_name, fontsize=20)
+                sns.barplot(data=team_max_speed, x='Team', y='Max Speed',
+                            palette=team_color, ax=ax[0], edgecolor='black')
+                ax[0].set_ylim(team_max_speed['Max Speed'].min()-5,
+                               team_max_speed['Max Speed'].max()+1)
+                ax[0].set_title('Maximum Speed(km/h)')
+                for i in range(len(team_max_speed)):
+                    ax[0].text(i, team_max_speed['Max Speed'][i]+0.2,
+                               team_max_speed['Max Speed'][i], ha='center')
+                sns.barplot(data=team_min_speed, x='Team', y='Min Speed',
+                            palette=team_color, ax=ax[1], edgecolor='black')
+                ax[1].set_ylim(team_min_speed['Min Speed'].min()-5,
+                               team_min_speed['Min Speed'].max()+1)
+                ax[1].set_title('Minimum Speed(km/h)')
+                ax[1].invert_yaxis()
+                ax[1].xaxis.tick_top()
+                ax[1].xaxis.set_label_position('top')
+                ax[0].grid(which="minor", alpha=0.1)
+                ax[0].minorticks_on()
+                ax[1].grid(which="minor", alpha=0.1)
+                ax[1].minorticks_on()
+                for i in range(len(team_min_speed)):
+                    ax[1].text(i, team_min_speed['Min Speed'][i]+0.7,
+                               team_min_speed['Min Speed'][i], ha='center')
+                file_3 = utils.plot_to_file(fig, "plot_3")
+                embed_3 = discord.Embed(title=f'Speed Traps: {ev.EventName}',
+                                        color=get_top_role_color(ctx.author))
+                embed_3.set_image(url="attachment://plot_3.png")
+                await interaction.edit(file=file_3, embed=embed_3)
+
+        await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx), view=MyView())
 
     @commands.slash_command(description="Career stats for a driver. Enter Full Name of the driver.", integration_types={
         discord.IntegrationType.guild_install,
