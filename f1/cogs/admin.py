@@ -58,7 +58,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             colour=get_top_role_color(ctx.author))
         emd1.add_field(
             name="/calendar",
-            value="Provides season calendar"
+            value="Provides season calendar."
         )
 
         emd1.add_field(
@@ -68,7 +68,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd1.add_field(
             name="/fiadoc",
-            value="Get latest FIA Document. Use 2, 3… for older documents."
+            value="Get latest FIA Document."
         )
 
         emd1.add_field(
@@ -148,18 +148,18 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
         emd1.add_field(
             name="/quiz",
-            value="Make Quizzes"
+            value="Make Quizzes."
         )
         emd1.add_field(
             name="/leaderboard",
-            value="Leaderboard for quizzes")
+            value="Leaderboard for quizzes.")
         emd1.add_field(
             name="/quizsetup",
             value="Setup quiz for your server."
         )
         emd1.add_field(
             name='/technical-glossary',
-            value="Search for a technical term")
+            value="Search for a technical term.")
         emd.add_field(
             name="/positionchanges",
             value="Plot driver position changes in the race."
@@ -170,12 +170,12 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd.add_field(
             name="/race-trace",
-            value="Lap Comparison of participating drivers"
+            value="Lap Comparison of participating drivers."
         )
 
         emd.add_field(
             name="/standing-history",
-            value="Standing History of either WDC or WCC"
+            value="Standing History of either WDC or WCC."
         )
 
         emd.add_field(
@@ -219,7 +219,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
         emd1.add_field(
             name="/track-elevation",
-            value="View circuit's 3D visualisation")
+            value="View circuit's 3D visualisation.")
 
         emd.add_field(
             name="/results",
@@ -252,7 +252,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
         emd.add_field(
             name="/track-incidents",
-            value="Shows a table showing the lap number and event, such as Safety Car or Red Flag"
+            value="Shows a table showing the lap number and event, such as Safety Car or Red Flag."
         )
 
         emd.add_field(
@@ -262,18 +262,18 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd.add_field(
             name="/racecontrol",
-            value="Shows Race Control Data"
+            value="Shows Race Control Data."
         )
         emd.add_field(
             name="/meme",
-            value="Shows a random f1 meme (from r/formuladank)"
+            value="Shows a random f1 meme. (from r/formuladank)"
         )
         emd.add_field(
             name="/regulations",
-            value="View formula 1 regulations")
+            value="View formula 1 regulations.")
         emd.add_field(
             name="/records",
-            value="View formula 1 records")
+            value="View formula 1 records.")
 
         emd.add_field(
             name="/generate-cache",
