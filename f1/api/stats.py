@@ -501,7 +501,7 @@ async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
         lap2 = "Lap " + str(lap2)
 
     plt.suptitle(f"{yr} {event['EventName']} {sn} - Fastest Sectors\n" +
-                 d1 + " (" + f"{utils.format_timedelta(fastest_driver_1['LapTime'])}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(fastest_driver_2['LapTime'])}" + ")")
+                 d1 + " (" + f"{utils.format_timedelta(fastest_driver_1['LapTime'])}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(fastest_driver_2['LapTime'])}" + ")", fontsize=20)
     file = utils.plot_to_file(plt.gcf(), "plot")
     return file
 
@@ -535,7 +535,7 @@ async def weather(year, location, session, event, race):
 # get session
 
     fig, ax = plt.subplots(2, 2, figsize=(15, 15))
-    fig.suptitle('Weather Data & Track Evolution \n'+race_name)
+    fig.suptitle('Weather Data & Track Evolution \n'+race_name, fontsize=20)
 
 # Track and Air Temperature
     sns.lineplot(data=df_weather, x='SessionTime(Minutes)',
@@ -798,7 +798,7 @@ async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, se
     ax[0].minorticks_on()
 
     plt.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 d1 + " (" + f"{utils.format_timedelta(driver1_laptime)}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(driver2_laptime)}" + ")",)
+                 d1 + " (" + f"{utils.format_timedelta(driver1_laptime)}" + ") vs " + d2 + " (" + f"{utils.format_timedelta(driver2_laptime)}" + ")", fontsize=20)
     file = utils.plot_to_file(fig, "plot")
     return file
 
@@ -1000,7 +1000,7 @@ async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
         lap2 = "Lap " + str(lap2)
 
     fig.suptitle(f"{yr} {event['EventName']} {sn}\n" +
-                 drv1 + " (" + utils.format_timedelta(first_driver['LapTime']) + ") vs " + drv2 + " (" + utils.format_timedelta(second_driver['LapTime']) + ")")
+                 drv1 + " (" + utils.format_timedelta(first_driver['LapTime']) + ") vs " + drv2 + " (" + utils.format_timedelta(second_driver['LapTime']) + ")", fontsize=20)
 
     drs_1 = first_car['DRS']
     drs_2 = second_car['DRS']
@@ -1635,7 +1635,7 @@ async def h2h(year, session_type, ctx, include_dnfs):
     fastf1.plotting.setup_mpl(misc_mpl_mods=False, color_scheme='fastf1')
     fig, ax = plt.subplots(1, figsize=(13, 9))
 
-    fig.suptitle(f'{year} {session_type} Head to Head')
+    fig.suptitle(f'{year} {session_type} Head to Head', fontsize=20)
     offset = 0
     driver_names = []
     y_ticks = []
