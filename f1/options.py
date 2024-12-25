@@ -22,10 +22,6 @@ driveroption2 = Option(
     description="Enter Full Name of the driver."
 )
 
-driveroption2 = Option(
-    str,
-    description="Enter Full Name of the driver."
-)
 RecordOption = Option(
     str,
     choices=["Drivers", 'Constructors',
