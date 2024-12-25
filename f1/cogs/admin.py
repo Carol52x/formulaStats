@@ -278,7 +278,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd.add_field(
             name="/generate-cache",
-            value="Generates cache for a given f1 session and thus, speeds up some of the plotting functions.")
+            value="Generates cache for a given f1 race weekend and thus, speeds up some of the plotting functions.")
         emd.add_field(
             name="/silent-mode",
             value="Makes the messages visible only to the user who issued the command.")
@@ -306,20 +306,19 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         except discord.HTTPException:
             return
 
-    @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 session to speed up plotting.", integration_types={
+    @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 race weekend to speed up plotting.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
     async def cache(self,
                     ctx: ApplicationContext, year: options.SeasonOption3,
-                    round: options.RoundOption, session: options.SessionOption):
-        session = stats.convert_shootout_to_qualifying(year, session)
-        from datetime import datetime
+                    round: options.RoundOption):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
-        await ctx.respond("Generating cache for the given session", ephemeral=True)
+        await ctx.respond("Generating cache for the given event", ephemeral=True)
         event = await stats.to_event(year, round)
-        s = await stats.load_session(event, session, laps=True, telemetry=True, weather=True, messages=True)
+        for i in range(5, 0, -1):
+            s = await stats.load_session(event, i, laps=True, telemetry=True, weather=True, messages=True)
 
     @commands.slash_command(name="silent-mode", description="Makes the messages visible only to the user who issued the command.")
     @default_permissions(administrator=True)
