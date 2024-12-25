@@ -103,7 +103,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
     async def fiadoc(self, ctx, year: options.SeasonOption5, round: options.RoundOption):
         doc = 0
 
-        from discord.ext.pages import Paginator, Page
+        from discord.ext.pages import Paginator, Page, PaginatorButton
         year = stats.roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
         if year == int(datetime.now().year) and round is None:
@@ -179,9 +179,21 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     ).set_image(url=f"attachment://{idx}.png")
 
                     mypage.append(Page(embeds=[embed], files=[image]))
+                buttons = [
+                    PaginatorButton("first", label="First",
+                                    style=discord.ButtonStyle.blurple),
+                    PaginatorButton("prev", label="Previous",
+                                    style=discord.ButtonStyle.red),
+                    PaginatorButton("page_indicator",
+                                    style=discord.ButtonStyle.gray, disabled=True),
+                    PaginatorButton("next", label="Next",
+                                    style=discord.ButtonStyle.green),
+                    PaginatorButton("last", label="Last",
+                                    style=discord.ButtonStyle.blurple),
+                ]
 
-                paginator = Paginator(
-                    pages=mypage, timeout=898, author_check=False)
+                paginator = Paginator(pages=mypage, timeout=898, author_check=False, show_indicator=True, use_default_buttons=False,
+                                      custom_buttons=buttons)
                 try:
                     await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
                 except discord.Forbidden:
@@ -759,15 +771,15 @@ class Season(commands.Cog, guild_ids=Config().guilds):
                     ).set_image(url=f"attachment://{i}.png")
                     mypage.append(Page(embeds=[embed]))
                 buttons = [
-                    PaginatorButton("first", label="<<",
+                    PaginatorButton("first", label="First",
                                     style=discord.ButtonStyle.blurple),
-                    PaginatorButton("prev", label="<",
+                    PaginatorButton("prev", label="Previous",
                                     style=discord.ButtonStyle.red),
                     PaginatorButton("page_indicator",
                                     style=discord.ButtonStyle.gray, disabled=True),
-                    PaginatorButton("next", label=">",
+                    PaginatorButton("next", label="Next",
                                     style=discord.ButtonStyle.green),
-                    PaginatorButton("last", label=">>",
+                    PaginatorButton("last", label="Last",
                                     style=discord.ButtonStyle.blurple),
                 ]
                 paginator = Paginator(

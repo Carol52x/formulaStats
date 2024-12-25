@@ -198,15 +198,15 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                 embed.set_image(url=f"attachment://plot.png")
                 mypage.append(Page(embeds=[embed], files=[file_1]))
             buttons = [
-                RadioPaginator("first", label="<<",
+                RadioPaginator("first", label="First",
                                style=discord.ButtonStyle.blurple),
-                RadioPaginator("prev", label="<",
+                RadioPaginator("prev", label="Previous",
                                style=discord.ButtonStyle.red),
                 RadioPaginator("page_indicator",
                                style=discord.ButtonStyle.gray, disabled=True),
-                RadioPaginator("next", label=">",
+                RadioPaginator("next", label="Next",
                                style=discord.ButtonStyle.green),
-                RadioPaginator("last", label=">>",
+                RadioPaginator("last", label="Last",
                                style=discord.ButtonStyle.blurple),
             ]
 
@@ -232,7 +232,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
 
-        from discord.ext.pages import Paginator, Page
+        from discord.ext.pages import Paginator, Page, PaginatorButton
         await utils.check_season(ctx, year)
         session = stats.convert_shootout_to_qualifying(year, session)
 
@@ -254,8 +254,21 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             embed.set_image(url=f"attachment://plot.png")
 
             mypage.append(Page(embeds=[embed], files=[file]))
+        buttons = [
+            PaginatorButton("first", label="First",
+                            style=discord.ButtonStyle.blurple),
+            PaginatorButton("prev", label="Previous",
+                            style=discord.ButtonStyle.red),
+            PaginatorButton("page_indicator",
+                            style=discord.ButtonStyle.gray, disabled=True),
+            PaginatorButton("next", label="Next",
+                            style=discord.ButtonStyle.green),
+            PaginatorButton("last", label="Last",
+                            style=discord.ButtonStyle.blurple),
+        ]
 
-        paginator = Paginator(pages=mypage, timeout=None, author_check=False)
+        paginator = Paginator(
+            pages=mypage, timeout=None, author_check=False, use_default_buttons=False, custom_buttons=buttons)
         try:
             await paginator.respond(ctx.interaction)
         except discord.Forbidden:
@@ -604,7 +617,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         user_rank = cursor.fetchone()
         user_rank_text = f"Your rank: #{user_rank[0]}" if user_rank else "Your rank: No data (you haven't participated yet!)"
         pages = []
-        from discord.ext.pages import Page, Paginator
+        from discord.ext.pages import Page, Paginator, PaginatorButton
         for i in range(0, len(all_users), 10):  # Paginate 10 users per page
             embed = discord.Embed(
                 title=f"Quiz Leaderboard for {ctx.guild.name}",
@@ -620,7 +633,21 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             embed.set_footer(text=user_rank_text)
             pages.append(Page(embeds=[embed]))
 
-        paginator = Paginator(pages=pages, timeout=899, author_check=False)
+        buttons = [
+            PaginatorButton("first", label="First",
+                            style=discord.ButtonStyle.blurple),
+            PaginatorButton("prev", label="Previous",
+                            style=discord.ButtonStyle.red),
+            PaginatorButton("page_indicator",
+                            style=discord.ButtonStyle.gray, disabled=True),
+            PaginatorButton("next", label="Next",
+                            style=discord.ButtonStyle.green),
+            PaginatorButton("last", label="Last",
+                            style=discord.ButtonStyle.blurple),
+        ]
+
+        paginator = Paginator(
+            pages=pages, timeout=898, author_check=False, use_default_buttons=False, custom_buttons=buttons)
         try:
             await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
         except discord.Forbidden:
@@ -687,7 +714,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             if year > 2017:
                 s = await stats.load_session(event, "R", laps=True, telemetry=True)
                 data = await stats.filter_pitstops(yr, rd, s, filter, driver)
-                text = "The stationary times are an appromixation and thus, may be anomalous."
+                text = "The stationary times are an appromixation and thus, may be anomalous.\nIf there are abnormally large values, this means that the driver pitted during a red flag. "
             else:
                 data = await stats.filter_pitstops(yr, rd, filter=filter, driver=driver)
                 text = ""
@@ -910,7 +937,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                     'Team', 'Min Speed']).sort_values('Min Speed', ascending=False).reset_index()
                 team_color = {}
                 for team in team_max_speed.Team:
-                    team_color[team] = fastf1.plotting.get_team_color(team, session=s)
+                    team_color[team] = fastf1.plotting.get_team_color(
+                        team, session=s)
 
                 fig, ax = plt.subplots(2, figsize=(15, 18))
                 fig.suptitle('Teams\' Max and Min Speed (Fastest Lap) \n' +

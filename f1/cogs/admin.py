@@ -44,6 +44,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def help(self, ctx: ApplicationContext):
+        from discord.ext.pages import Page, Paginator, PaginatorButton
 
         emd1 = Embed(
             title="Type `/command` and choose parameters",
@@ -282,9 +283,28 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             name="/silent-mode",
             value="Makes the messages visible only to the user who issued the command.")
 
-        embeds = [emd1, emd]
+        embeds = [Page(embeds=[emd1]), Page(embeds=[emd])]
+        buttons = [
+            PaginatorButton("first", label="First",
+                            style=discord.ButtonStyle.blurple),
+            PaginatorButton("prev", label="Previous",
+                            style=discord.ButtonStyle.red),
+            PaginatorButton("page_indicator",
+                            style=discord.ButtonStyle.gray, disabled=True),
+            PaginatorButton("next", label="Next",
+                            style=discord.ButtonStyle.green),
+            PaginatorButton("last", label="Last",
+                            style=discord.ButtonStyle.blurple),
+        ]
 
-        await ctx.respond(embeds=embeds, ephemeral=True)
+        paginator = Paginator(pages=embeds, timeout=898, author_check=False, show_indicator=True, use_default_buttons=False,
+                              custom_buttons=buttons)
+        try:
+            await paginator.respond(ctx.interaction, ephemeral=get_ephemeral_setting(ctx))
+        except discord.Forbidden:
+            return
+        except discord.HTTPException:
+            return
 
     @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 session to speed up plotting.", integration_types={
         discord.IntegrationType.guild_install,
