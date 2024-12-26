@@ -14,6 +14,7 @@ from f1 import options, utils
 from f1.api.stats import add_role_to_guild, remove_role_from_guild
 from discord import default_permissions
 import io
+from f1.options import resolve_rounds, resolve_sessions, resolve_years_ergast, resolve_years_fastf1, resolve_years_pitstop, resolve_drivers, resolve_tyres, resolve_full_driver_name, resolve_team, resolve_term
 from f1.api.stats import roundnumber
 from discord.ext import commands
 from discord import ApplicationContext, Embed
@@ -44,7 +45,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def radio(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(), round: options.RoundOption, session: options.SessionOption, year: options.SeasonOption3):
+    async def radio(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                    round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                    session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
+                    driver: discord.Option(str, "Select the driver", autocomplete=resolve_drivers)):
         from discord.ext.pages import Page, PaginatorButton, Paginator
         import requests
         round = roundnumber(round, year)[0]
@@ -226,8 +230,9 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def racecontrol(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
-                          session: options.SessionOption):
+    async def racecontrol(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                          round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                          session: discord.Option(str, "Select the session", autocomplete=resolve_sessions)):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -280,8 +285,9 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def stints(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
-                     driver: options.DriverOption):
+    async def stints(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                     round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                     driver: discord.Option(str, "Select the driver", default=None, autocomplete=resolve_drivers)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -319,7 +325,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def whocanwinwdc(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def whocanwinwdc(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                           round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         try:
@@ -347,8 +354,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def results(self, ctx: ApplicationContext, year: options.SeasonOption2, round: options.RoundOption,
-                      session: options.SessionOption):
+    async def results(self, ctx: ApplicationContext,
+                      year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast),
+                      round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                      session: discord.Option(str, "Select the session", autocomplete=resolve_sessions)):
         """Get the results for a session. The `round` can be the event name, location or round number in the season.
         The `session` is the identifier selected from the command choices.
 
@@ -382,7 +391,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(name="quizsetup")
+    @commands.slash_command(name="quizsetup", description="Setup up quiz for this server.")
     @default_permissions(administrator=True)
     async def quizsetup(self,
                         ctx: ApplicationContext,
@@ -424,7 +433,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         else:
             await ctx.respond("Install this bot in your server to access quiz features!", ephemeral=True)
 
-    @commands.slash_command(name="quiz")
+    @commands.slash_command(name="quiz", description="Send quizzes.")
     async def quiz(self, ctx: ApplicationContext, question: str, option1: str, option2: str, option3: str, option4: str, answer: options.quizoption, fact: discord.Option(str, required=False), image: discord.Option(discord.Attachment, "Upload an image", required=False) = None):
         if ctx.guild.name is not None:
             guild_id = ctx.guild.id
@@ -655,7 +664,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         except discord.HTTPException:
             return
 
-    @commands.slash_command(name="meme", integration_types={
+    @commands.slash_command(name="meme", description="Random meme. (from r/formuladank)", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -691,8 +700,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def pitstops(self, ctx: ApplicationContext, year: options.SeasonOption4, round: options.RoundOption,
-                       filter: options.RankedPitstopFilter, driver: options.DriverOption):
+    async def pitstops(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_pitstop),
+                       round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                       driver: discord.Option(str, "Select the driver", autocomplete=resolve_drivers),
+                       filter: options.RankedPitstopFilter):
         """Display pitstops for the race ranked by `filter` or `driver`.
 
         All parameters are optional. Defaults to the best pitstop per driver for the most recent race.
@@ -744,8 +755,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def laptimes(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
-                       tyre: options.TyreOption, session: options.SessionOption):
+    async def laptimes(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                       round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                       session: discord.Option(str, "Select the session", autocomplete=resolve_sessions),
+                       tyre: discord.Option(str, "Select the tyre", default=None, autocomplete=resolve_tyres)):
         """Best ranked lap times per driver in the race. All parameters optional.
 
         Only the best recorded lap for each driver in the race.
@@ -793,8 +806,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             discord.IntegrationType.guild_install,
             discord.IntegrationType.user_install,
         })
-    async def sectors(self, ctx: ApplicationContext, year: options.SeasonOption3,
-                      round: options.RoundOption, tyre: options.TyreOption, session: options.SessionOption):
+    async def sectors(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                      round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                      session: discord.Option(str, "Select the session", autocomplete=resolve_sessions),
+                      tyre: discord.Option(str, "Select the tyre", default=None, autocomplete=resolve_tyres)):
         """View min sector times and max speedtrap per driver. Based on recorded quicklaps only."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -978,7 +993,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def career(self, ctx: ApplicationContext, driver: options.driveroption2):
+    async def career(self, ctx: ApplicationContext, driver: discord.Option(str, "Select the driver", autocomplete=resolve_full_driver_name)):
         try:
 
             loop = asyncio.get_running_loop()
@@ -991,7 +1006,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def constructors(self, ctx: ApplicationContext, team: str):
+    async def constructors(self, ctx: ApplicationContext, team: discord.Option(str, "Select the team", autocomplete=resolve_team)):
         try:
             loop = asyncio.get_running_loop()
             result_embed = await loop.run_in_executor(None, get_constructor, team, ctx)
@@ -1003,7 +1018,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def circuits(self, ctx: ApplicationContext, year: options.SeasonOption):
+    async def circuits(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast)):
         try:
             year = roundnumber(round=None, year=year)[1]
             await utils.check_season(ctx, year)
@@ -1025,7 +1040,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             discord.IntegrationType.user_install,
         })
     async def track_incidents(self, ctx: ApplicationContext,
-                              year: options.SeasonOption3, round: options.RoundOption):
+                              year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                              round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Outputs a table showing the lap number and event, such as Safety Car or Red Flag."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -1065,7 +1081,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             discord.IntegrationType.user_install,
         })
     async def technical(self, ctx: ApplicationContext,
-                        term: str):
+                        term: discord.Option(str, "Select the term", autocomplete=resolve_term)):
         from bs4 import BeautifulSoup
         import requests
         from rapidfuzz import fuzz

@@ -19,6 +19,7 @@ import seaborn as sns
 from matplotlib.patches import Patch
 from discord.commands import ApplicationContext
 from discord.ext import commands
+from f1.options import resolve_years_ergast, resolve_years_fastf1, resolve_drivers, resolve_laps, resolve_sessions, resolve_sessions_by_year, resolve_rounds
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from f1.api.stats import roundnumber, sectors_func, tel_func, driver_func, const_func, heatmap_func, cornering_func, weather, h2h, averageposition
@@ -44,9 +45,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def cornering(self, ctx: ApplicationContext, driver1: discord.Option(str, required=True),
-                        driver2: discord.Option(str, required=True), year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption,
-                        lap1: options.LapOption1, lap2: options.LapOption2):
+    async def cornering(self, ctx: ApplicationContext,  year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                        round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                        session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
+                        driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
+                        driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers),
+                        lap1: discord.Option(int, "Select lap for driver 1", autocomplete=resolve_laps),
+                        lap2: discord.Option(int, "Select lap for driver 2", autocomplete=resolve_laps)):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -76,7 +81,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def wt(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption, session: options.SessionOption):
+    async def wt(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                 round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                 session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         session = stats.convert_shootout_to_qualifying(year, session)
@@ -95,7 +102,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def heatmap(self, ctx: ApplicationContext, year: options.SeasonOption3):
+    async def heatmap(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1)):
 
         if year == None:
             year = int(datetime.datetime.now().year)
@@ -112,7 +119,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def racetrace(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def racetrace(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                        round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -184,7 +192,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def standing(self, ctx: ApplicationContext, year: options.SeasonOption2, category: options.category):
+    async def standing(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast),
+                       category: options.category):
 
         if year == None:
             year = int(datetime.datetime.now().year)
@@ -209,10 +218,13 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def telemetry(self, ctx: ApplicationContext,
-                        driver1: discord.Option(str, required=True),
-                        driver2: discord.Option(str, required=True),
-                        year: options.SeasonOption3, round: options.RoundOption,
-                        session: options.SessionOption, lap1: options.LapOption1, lap2: options.LapOption2):
+                        year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                        round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                        session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
+                        driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
+                        driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers),
+                        lap1: discord.Option(int, "Select lap for driver 1", autocomplete=resolve_laps),
+                        lap2: discord.Option(int, "Select lap for driver 2", autocomplete=resolve_laps)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -244,16 +256,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def h2hnew(self, ctx: ApplicationContext, year: options.SeasonOption2, session: options.SessionOption2, include_dnfs: options.DNFoption):
-
-        if year == None:
-            year = int(datetime.datetime.now().year)
-        if session == "Sprint Qualifying/Sprint Shootout":
-            if year == 2023:
-                session = "Sprint Shootout"
-            else:
-                session = "Sprint Qualifying"
-        await utils.check_season(ctx, year)
+    async def h2hnew(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                     session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions_by_year),
+                     include_dnfs: options.DNFoption):
         try:
             dc_embed, file = await h2h(year, session, ctx, include_dnfs)
             await ctx.respond(embed=dc_embed.embed, file=file, ephemeral=get_ephemeral_setting(ctx))
@@ -264,15 +269,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def positions(self, ctx: ApplicationContext, category: options.category, session: options.SessionOption2, year: options.SeasonOption2, include_dnfs: options.DNFoption):
-
-        if year == None:
-            year = int(datetime.datetime.now().year)
-        if session == "Sprint Qualifying/Sprint Shootout":
-            if year == 2023:
-                session = "Sprint Shootout"
-            else:
-                session = "Sprint Qualifying"
+    async def positions(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                        session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions_by_year), category: options.category, include_dnfs: options.DNFoption):
         await utils.check_season(ctx, year)
         try:
             dc_embed, file = await averageposition(session, year, category, ctx, include_dnfs)
@@ -284,13 +282,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def gear(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def gear(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                   round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Get a color coded Gear shift changes track mapping """
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
 
-        # Load laps and telemetry data
-        await utils.check_season(ctx, year)
         ev = await stats.to_event(year, round)
         session = await stats.load_session(ev, "R", laps=True, telemetry=True)
 
@@ -359,7 +356,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def tyre_strats(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def tyre_strats(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                          round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -473,7 +471,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def positionchanges(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def positionchanges(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                              round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Line graph per driver showing position for each lap."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -526,8 +525,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def fastestlaps(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
-                          session: options.SessionOption):
+    async def fastestlaps(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                          round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                          session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions)):
         """Bar chart for each driver's fastest lap in `session`."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -587,7 +587,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def team_pace(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def team_pace(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                        round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -652,8 +653,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def driver_laps(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(),
-                          year: options.SeasonOption3, round: options.RoundOption):
+    async def driver_laps(self, ctx: ApplicationContext,
+                          year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                          round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                          driver: discord.Option(
+                              str, "Select the driver", autocomplete=resolve_drivers)
+                          ):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -765,8 +770,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def track_speed(self, ctx: ApplicationContext, driver: options.DriverOptionRequired(),
-                          year: options.SeasonOption3, round: options.RoundOption):
+    async def track_speed(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                          round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                          driver: discord.Option(str, "Select the driver", autocomplete=resolve_drivers)):
         """Get the `driver` fastest lap data and use the lap position and speed
         telemetry to produce a track visualisation.
         """
@@ -832,10 +838,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def track_sectors(self, ctx: ApplicationContext, first: options.DriverOptionRequired(),
-                            second: options.DriverOptionRequired(), year: options.SeasonOption3,
-                            round: options.RoundOption, session: options.SessionOption,
-                            lap: options.LapOption):
+    async def track_sectors(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                            round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                            session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
+                            driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
+                            driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers),
+                            lap: discord.Option(int, "Select the lap", autocomplete=resolve_laps)):
         """Plot a track map showing where a driver was faster based on minisectors."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -846,7 +854,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         if lap and int(lap) > s.laps["LapNumber"].unique().max():
             raise ValueError("Lap number out of range.")
         try:
-            f = await sectors_func(year, round, session, first, second, lap, event, s)
+            f = await sectors_func(year, round, session, driver1, driver2, lap, event, s)
         except KeyError:
             await ctx.respond("No data for the driver found.")
             return
@@ -859,7 +867,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def gains(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def gains(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                    round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Plot each driver position change from starting grid position to finish position as a bar chart."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -900,8 +909,11 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def tyre_choice(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption,
-                          session: options.SessionOption):
+    async def tyre_choice(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                          round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                          session: discord.Option(
+                              str, "Select the session",  autocomplete=resolve_sessions)
+                          ):
         """Plot the distribution of tyre compound for all laps in the session."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -975,9 +987,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def compare_laps(self, ctx: ApplicationContext,
-                           first: options.DriverOptionRequired(),
-                           second: options.DriverOptionRequired(),
-                           year: options.SeasonOption3, round: options.RoundOption):
+                           year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                           round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                           driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
+                           driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers)):
         """Plot the lap times between two drivers for all laps, excluding pitstops and slow laps."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -988,7 +1001,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Get driver codes from the identifiers given
         try:
             drivers = [utils.find_driver(d, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
-                       for d in (first, second)]
+                       for d in (driver1, driver2)]
 
             # Group laps using only quicklaps to exclude pitstops and slow laps
             laps = await asyncio.to_thread(lambda: s.laps.pick_drivers(drivers).pick_quicklaps())
@@ -1028,7 +1041,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(
-            title=f'Laptime Comparison between two drivers: {first[0:3].upper()} vs {second[0:3].upper()}', color=get_top_role_color(ctx.author))
+            title=f'Laptime Comparison between two drivers: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
@@ -1037,7 +1050,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                 discord.IntegrationType.guild_install,
                                 discord.IntegrationType.user_install,
                             })
-    async def lap_distribution(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def lap_distribution(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                               round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Plot a swarmplot and violin plot showing laptime distributions and tyre compound
         for the top 10 point finishers."""
         round = roundnumber(round, year)[0]
@@ -1160,7 +1174,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                 discord.IntegrationType.guild_install,
                                 discord.IntegrationType.user_install,
                             })
-    async def tyreperf(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def tyreperf(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                       round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Plot a line graph showing the performance of each tyre compound based on the age of the tyre."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -1251,7 +1266,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
     @commands.slash_command(name="avg-lap-delta",
                             description="Bar chart comparing average time per driver with overall race average as a delta.",
                             integration_types={discord.IntegrationType.guild_install, discord.IntegrationType.user_install})
-    async def avg_lap_delta(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def avg_lap_delta(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                            round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Get the overall average lap time of the session and plot the delta for each driver."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -1303,7 +1319,9 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def trackelevation(self, ctx: ApplicationContext, year: options.SeasonOption3, round: options.RoundOption):
+    async def trackelevation(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                             round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
+                             session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)

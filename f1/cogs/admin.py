@@ -12,6 +12,7 @@ from f1 import options
 from f1.api import stats
 import pandas as pd
 from f1.api.stats import get_ephemeral_setting
+from f1.options import resolve_years_fastf1, resolve_rounds
 import sqlite3
 import time
 START_TIME = time.time()
@@ -39,7 +40,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         mins, secs = divmod(rem, 60)
         return (int(days), int(hours), int(mins), int(secs))
 
-    @commands.slash_command(integration_types={
+    @commands.slash_command(description="List of commands.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
@@ -156,7 +157,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Leaderboard for quizzes.")
         emd1.add_field(
             name="/quizsetup",
-            value="Setup quiz for your server."
+            value="Setup quiz for your server. (admin only)"
         )
         emd1.add_field(
             name='/technical-glossary',
@@ -281,7 +282,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Generates cache for a given f1 race weekend and thus, speeds up some of the plotting functions.")
         emd.add_field(
             name="/silent-mode",
-            value="Makes the messages visible only to the user who issued the command.")
+            value="Makes the messages visible only to the user who issued the command. (admin only")
 
         embeds = [Page(embeds=[emd1]), Page(embeds=[emd])]
         buttons = [
@@ -311,8 +312,8 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def cache(self,
-                    ctx: ApplicationContext, year: options.SeasonOption3,
-                    round: options.RoundOption):
+                    ctx: ApplicationContext, year: discord.Option(int, "Select the season", default=None, autocomplete=resolve_years_fastf1),
+                    round: discord.Option(str, "Select the round (event)", default=None, autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await ctx.respond("Generating cache for the given event", ephemeral=True)

@@ -18,6 +18,7 @@ import discord
 import pandas as pd
 from plottable import ColDef
 import typing
+from f1.options import resolve_years_ergast, resolve_years_regulation, resolve_years_document, resolve_rounds
 from discord.ext import commands
 fastf1.ergast.interface.BASE_URL = "https://api.jolpi.ca/ergast/f1"
 fastf1.Cache.enable_cache('cache/')
@@ -34,7 +35,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def wdc(self, ctx, year: options.SeasonOption):
+    async def wdc(self, ctx, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast)):
         """Display the Driver Championship standings as of the last race or `season`.
 
 
@@ -77,7 +78,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def calender(self, ctx, year: options.SeasonOption2):
+    async def calender(self, ctx, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast)):
         if year == None:
             year = int(datetime.now().year)
         await check_season(ctx, year)
@@ -100,7 +101,8 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def fiadoc(self, ctx, year: options.SeasonOption5, round: options.RoundOption):
+    async def fiadoc(self, ctx, year: discord.Option(int, "Select the season", default=None, autocomplete=resolve_years_document),
+                     round: discord.Option(str, "Select the round (event)", default=None, autocomplete=resolve_rounds)):
         doc = 0
 
         from discord.ext.pages import Paginator, Page, PaginatorButton
@@ -125,7 +127,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             import re
             result = re.split(r'Grand Prix - ', path, maxsplit=1)
             if len(result) == 2:
-                return result[1]
+                return result[1].removesuffix(".pdf").removesuffix(".Pdf")
             return path
         options_mapping = {truncate_before_gp_name(
             path): path for path in options_list}
@@ -207,7 +209,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def wcc(self, ctx, year: options.SeasonOption):
+    async def wcc(self, ctx, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast)):
         """Display Constructor Championship standings as of the last race or `season`.
 
         Usage:
@@ -250,7 +252,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description="All drivers and teams participating in the season.")
-    async def grid(self, ctx, year: options.SeasonOption):
+    async def grid(self, ctx, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast)):
         try:
             if year == None:
                 year = int(datetime.now().year)
@@ -590,7 +592,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def regulations(self, ctx, year: options.SeasonOption6, type: options.RegulationOption):
+    async def regulations(self, ctx, year: discord.Option(int, "Select the season", autocomplete=resolve_years_regulation), type: options.RegulationOption):
         url = "https://www.fia.com/regulation/category/110"
         base_url = "https://www.fia.com"
         year = stats.roundnumber(None, year)[1]
