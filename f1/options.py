@@ -3,7 +3,7 @@
 from discord import Option, AutocompleteContext
 from f1.update import pitstop_year_list, fastf1_year_list, document_year_list, regulation_year_list, ergast_year_list
 import fastf1
-from f1.api import stats
+from f1.api import stats, ergast
 from rapidfuzz import process
 import requests
 from bs4 import BeautifulSoup
@@ -99,7 +99,7 @@ async def resolve_term(ctx: AutocompleteContext):
 async def resolve_years_ergast(ctx: AutocompleteContext):
     if 'year' in ctx.options:
         # Use the first 4 characters to match years
-        year_prefix = str(ctx.value)[:4]
+        year_prefix = str(ctx.value)[:3]
         year_list = [str(y) for y in ergast_year_list]
         # Filter the list of years based on the first 3 digits of user input
         # Return the years as integers
@@ -110,7 +110,7 @@ async def resolve_years_fastf1(ctx: AutocompleteContext):
     # Handle Year Autocomplete
     if 'year' in ctx.options:
         # Use the first 4 characters to match years
-        year_prefix = str(ctx.value)[:4]
+        year_prefix = str(ctx.value)[:3]
         year_list = [str(y) for y in fastf1_year_list]
         # Filter the list of years based on the first 3 digits of user input
         # Return the years as integers
@@ -121,7 +121,7 @@ async def resolve_years_pitstop(ctx: AutocompleteContext):
     # Handle Year Autocomplete
     if 'year' in ctx.options:
         # Use the first 4 characters to match years
-        year_prefix = str(ctx.value)[:4]
+        year_prefix = str(ctx.value)[:3]
         year_list = [str(y) for y in pitstop_year_list]
         # Filter the list of years based on the first 3 digits of user input
         # Return the years as integers
@@ -132,7 +132,7 @@ async def resolve_years_regulation(ctx: AutocompleteContext):
     # Handle Year Autocomplete
     if 'year' in ctx.options:
         # Use the first 4 characters to match years
-        year_prefix = str(ctx.value)[:4]
+        year_prefix = str(ctx.value)[:3]
         year_list = [str(y) for y in regulation_year_list]
         # Filter the list of years based on the first 3 digits of user input
         # Return the years as integers
@@ -143,7 +143,7 @@ async def resolve_years_document(ctx: AutocompleteContext):
     # Handle Year Autocomplete
     if 'year' in ctx.options:
         # Use the first 4 characters to match years
-        year_prefix = str(ctx.value)[:4]
+        year_prefix = str(ctx.value)[:3]
         year_list = [str(y) for y in document_year_list]
         # Filter the list of years based on the first 3 digits of user input
         # Return the years as integers
@@ -154,10 +154,14 @@ async def resolve_rounds(ctx: AutocompleteContext):
     year = ctx.options.get('year')  # Fetch the selected year
     if 'round' in ctx.options and year:
         # Only show rounds if year is selected
-        event_list = fastf1.get_event_schedule(int(year), include_testing=False)[
-            'EventName'].to_list()
-        # Filter event names based on user input
-        return [event for event in event_list if ctx.value in event][:25]
+        event_list = fastf1.get_event_schedule(int(year), include_testing=False)['EventName'].to_list()
+        
+        # Sanitize user input and event names
+        user_input = (ctx.value or "").strip().lower()  # Handle None and normalize case
+        return [
+            event for event in event_list 
+            if user_input in event.lower()  # Case-insensitive match
+        ][:25]
 
 
 async def resolve_sessions_by_year(ctx: AutocompleteContext):
@@ -219,25 +223,34 @@ async def resolve_sessions(ctx: AutocompleteContext):
         # Filter the sessions based on user input
         return [session for session in sessions if ctx.value in session][:25]
 
-
 async def resolve_drivers(ctx: AutocompleteContext):
-    await ctx.interaction.response.defer()
     year = int(ctx.options.get("year"))
     round = ctx.options.get('round')
     session = ctx.options.get('session', "Race")
     ev = await stats.to_event(year, round)
-    s = await stats.load_session(ev, session)
-    driver_list = s.drivers
-    driver_names = [
-        s.get_driver(driver)['LastName']
-        for driver in driver_list
-        if s.get_driver(driver)['ClassifiedPosition'] != "W"
-    ]
+    if year > 2017:
+        s = await stats.load_session(ev, session)
+        driver_list = s.drivers
+        driver_names = [
+            s.get_driver(driver)['Abbreviation']
+            for driver in driver_list
+            if s.get_driver(driver)['ClassifiedPosition'] != "W"
+        ]
 
-    matches = [
-        driver_name for driver_name in driver_names if ctx.value.lower() in driver_name.lower()
-    ]
+        matches = [
+            driver_name for driver_name in driver_names if ctx.value.lower() in driver_name.lower()
+        ]
+    else:
+        driver_names = []
+        driver_dict = await ergast.get_all_drivers(year, ev['RoundNumber'])
+        for i in driver_dict:
+            driver_names.append(i['code'])
+        matches = [
+            driver_name for driver_name in driver_names if ctx.value.lower() in driver_name.lower()
+        ]
+
     return matches[:25]
+
 
 
 async def resolve_tyres(ctx: AutocompleteContext):
