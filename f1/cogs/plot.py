@@ -50,8 +50,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
                         driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
                         driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers),
-                        lap1: discord.Option(int, "Select lap for driver 1", autocomplete=resolve_laps),
-                        lap2: discord.Option(int, "Select lap for driver 2", autocomplete=resolve_laps)):
+                        lap1: discord.Option(int, "Select lap for driver 1 (default fastest)", default=None, autocomplete=resolve_laps),
+                        lap2: discord.Option(int, "Select lap for driver 2 (default fastest)", default=None, autocomplete=resolve_laps)):
 
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -72,7 +72,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             await ctx.respond("No data for the driver found.")
             return
 
-        embed = discord.Embed(title=f'Cornering Analysis: {driver1[0:3].upper()} vs {driver2[0:3].upper()}',
+        embed = discord.Embed(title=f'Cornering Analysis: {driver1} vs {driver2}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
@@ -223,8 +223,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                         session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
                         driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
                         driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers),
-                        lap1: discord.Option(int, "Select lap for driver 1", autocomplete=resolve_laps),
-                        lap2: discord.Option(int, "Select lap for driver 2", autocomplete=resolve_laps)):
+                        lap1: discord.Option(int, "Select lap for driver 1 (default fastest)", default=None, autocomplete=resolve_laps),
+                        lap2: discord.Option(int, "Select lap for driver 2 (default fastest)", default=None, autocomplete=resolve_laps)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
@@ -246,7 +246,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             return
 
         embed = discord.Embed(
-            title=f'Telemetry: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
+            title=f'Telemetry: {driver1} vs {driver2}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         embed.set_footer(
             text="Please note that the Brake traces are in binary and therfore are not an accurate representation of the actual telemetry.\nThere are also inherent inaccuracies with the way lap delta is calculated but at the moment there is no better way to calculate the said delta.")
@@ -669,9 +669,10 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         # Load laps and telemetry data
         ev = await stats.to_event(year, round)
         race = await stats.load_session(ev, "R", laps=True, telemetry=True)
+        driver = utils.find_driver(driver, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
         try:
             driver_laps = await asyncio.to_thread(lambda: race.laps.pick_drivers(
-                driver[0:3].upper()).pick_quicklaps().reset_index())
+                driver).pick_quicklaps().reset_index())
         except KeyError:
             await ctx.respond("No data for the driver found.")
             return
@@ -760,7 +761,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         # Send the plot image as part of a message
         embed = discord.Embed(
-            title=f'Driver lap time distribution: {driver[0:3].upper()}',
+            title=f'Driver lap time distribution: {driver}',
             color=get_top_role_color(ctx.author)
         )
         embed.set_image(url="attachment://plot.png")
@@ -843,7 +844,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                             session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions),
                             driver1:  discord.Option(str, "Select driver 1", autocomplete=resolve_drivers),
                             driver2:  discord.Option(str, "Select driver 2", autocomplete=resolve_drivers),
-                            lap: discord.Option(int, "Select the lap", autocomplete=resolve_laps)):
+                            lap: discord.Option(int, "Select the lap (default fastest)", default=None, autocomplete=resolve_laps)):
         """Plot a track map showing where a driver was faster based on minisectors."""
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
@@ -1041,7 +1042,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
 
         f = utils.plot_to_file(fig, "plot")
         embed = discord.Embed(
-            title=f'Laptime Comparison between two drivers: {driver1[0:3].upper()} vs {driver2[0:3].upper()}', color=get_top_role_color(ctx.author))
+            title=f'Laptime Comparison between two drivers: {driver1} vs {driver2}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 

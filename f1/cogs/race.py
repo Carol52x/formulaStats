@@ -63,31 +63,28 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             ev = await stats.to_event(year, round)
             session1 = await stats.load_session(ev, session, telemetry=False, laps=False, weather=False, messages=False)
 
-            if not driver.isdigit():
-                driver_number = session1.get_driver(
-                    driver[0:3].upper())['DriverNumber']
-            else:
-                driver_number = driver
+            driver = utils.find_driver(driver, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
+            driver=session1.get_driver(driver)['DriverNumber']
             # fallback for driver headshot url as data seems to be unavailable for the 2018 season.
             if year == 2018:
                 ev2 = await stats.to_event(year+1, round)
                 session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
                 driver_url = session2.get_driver(
-                    driver[0:3].upper())['HeadshotUrl']
+                    str(driver))['HeadshotUrl']
             elif year == 2019 and round < 7:  # fallback for handling missing data from the 2019 season as well
                 ev2 = await stats.to_event(year+1, round+6)
                 session2 = await stats.load_session(ev2, session, telemetry=False, laps=False, weather=False, messages=False)
                 driver_url = session2.get_driver(
-                    driver[0:3].upper())['HeadshotUrl']
+                    str(driver))['HeadshotUrl']
             else:
                 driver_url = session1.get_driver(
-                    driver[0:3].upper())['HeadshotUrl']
+                    str(driver))['HeadshotUrl']
 
             path = "https://livetiming.formula1.com" + session1.api_path + "TeamRadio.json"
             response = requests.get(path)
             radio_data = json.loads(response.content.decode("utf-8-sig"))
             data = [entry for entry in radio_data["Captures"]
-                    if entry["RacingNumber"] == str(driver_number)]
+                    if entry["RacingNumber"] == str(driver)]
             urls = []
             for i in data:
                 urls.append("https://livetiming.formula1.com" +
@@ -196,7 +193,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             for i in range(0, int(length)):
 
                 embed = discord.Embed(
-                    title=f"{ev['EventDate'].year} {ev['EventName']}- Radios for {session1.get_driver(driver[0:3].upper())['LastName']}",
+                    title=f"{ev['EventDate'].year} {ev['EventName']}- Radios for {session1.get_driver(driver)['LastName']}",
                     color=get_top_role_color(ctx.author)
                 )
                 embed.set_image(url=f"attachment://plot.png")
