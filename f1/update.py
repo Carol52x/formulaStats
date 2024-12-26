@@ -15,3 +15,5 @@ document_year_list = list(range(2019, 2025))
 fastf1_year_list = list(range(2018, 2025))
 
 regulation_year_list = list(range(2018, 2027))
+
+ergast_year_list = list(range(1950, 2025))
