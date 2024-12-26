@@ -185,10 +185,16 @@ class Race(commands.Cog, guild_ids=Config().guilds):
 
                         with open(output_file, "rb") as video_file:
                             await interaction.edit(file=discord.File(video_file, filename="output.mp4"))
-                    await send_video(mp3_url, driver_url)
+                    try:
+                        await send_video(mp3_url, driver_url)
+                    except:
+                        await send_video(ctx, mp3_url_1, "https://www.shutterstock.com/image-vector/user-account-circle-profile-line-600nw-272552858.jpg")
             mypage = []
             mp3_url_1 = urls[0]
-            file_1 = await send_video(ctx, mp3_url_1, driver_url)
+            try:
+                file_1 = await send_video(ctx, mp3_url_1, driver_url)
+            except:
+                file_1 = await send_video(ctx, mp3_url_1, "https://www.shutterstock.com/image-vector/user-account-circle-profile-line-600nw-272552858.jpg")
 
             for i in range(0, int(length)):
 
