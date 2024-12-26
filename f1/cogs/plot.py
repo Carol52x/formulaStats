@@ -256,7 +256,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def h2hnew(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+    async def h2hnew(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast),
                      session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions_by_year),
                      include_dnfs: options.DNFoption):
         try:
@@ -269,7 +269,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def positions(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+    async def positions(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_ergast),
                         session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions_by_year), category: options.category, include_dnfs: options.DNFoption):
         await utils.check_season(ctx, year)
         try:
