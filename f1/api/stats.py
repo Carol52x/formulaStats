@@ -347,8 +347,8 @@ async def get_compound_async(year: int, eventname: str):
 
 
 async def sectors_func(yr, rc, sn, d1, d2, lap, event, session):
-    d1 = d1[0:3].upper()
-    d2 = d2[0:3].upper()
+    d1 = utils.find_driver(d1, await ergast.get_all_drivers(yr, event["RoundNumber"]))["code"]
+    d2 = utils.find_driver(d2, await ergast.get_all_drivers(yr, event["RoundNumber"]))["code"]
 
     lap1 = lap
     lap2 = lap1
@@ -587,8 +587,8 @@ async def weather(year, location, session, event, race):
 
 async def cornering_func(yr, rc, sn, d1, d2, lap1, lap2, dist1, dist2, event, session):
 
-    d1 = d1[0:3].upper()
-    d2 = d2[0:3].upper()
+    d1 = utils.find_driver(d1, await ergast.get_all_drivers(yr, event["RoundNumber"]))["code"]
+    d2 = utils.find_driver(d2, await ergast.get_all_drivers(yr, event["RoundNumber"]))["code"]
 
     # Get the laps
     laps = await asyncio.to_thread(lambda: session.laps)
@@ -936,8 +936,8 @@ def heatmap_func(yr):
 
 
 async def tel_func(yr, rc, sn, d1, d2, lap1, lap2, event, session):
-    d1 = d1[0:3].upper()
-    d2 = d2[0:3].upper()
+    d1 = utils.find_driver(d1, await ergast.get_all_drivers(yr, event["RoundNumber"]))["code"]
+    d2 = utils.find_driver(d2, await ergast.get_all_drivers(yr, event["RoundNumber"]))["code"]
 
     laps = session.laps
 
