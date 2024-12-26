@@ -226,7 +226,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             except discord.HTTPException:
                 return
         except IndexError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
 
     @commands.slash_command(description="Race Control data", integration_types={
@@ -304,7 +304,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             try:
                 table = stats.stints_driver(stints)
             except KeyError:
-                await ctx.respond("No data for that driver found.")
+                await ctx.respond("No data for that driver found.\n-# *Why? The driver might not have participated in the given session.*")
                 return
             f = utils.plot_to_file(table, "plot")
         else:
@@ -707,7 +707,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
     })
     async def pitstops(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_pitstop),
                        round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
-                       driver: discord.Option(str, "Select the driver", autocomplete=resolve_drivers),
+                       driver: discord.Option(str, "Select the driver", default=None, autocomplete=resolve_drivers),
                        filter: options.RankedPitstopFilter):
         """Display pitstops for the race ranked by `filter` or `driver`.
 
@@ -749,7 +749,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         except IndexError:
             if driver:
-                await ctx.respond("No data for the driver found.")
+                await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
                 return
             else:
                 pass

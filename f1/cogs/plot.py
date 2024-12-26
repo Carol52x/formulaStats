@@ -69,7 +69,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         try:
             file = await cornering_func(year, round, session, driver1, driver2, lap1, lap2, "", "", event, s)
         except KeyError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
 
         embed = discord.Embed(title=f'Cornering Analysis: {driver1} vs {driver2}',
@@ -242,7 +242,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         try:
             f = await tel_func(year, round, session, driver1, driver2, lap1, lap2, event, s)
         except KeyError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
 
         embed = discord.Embed(
@@ -674,7 +674,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             driver_laps = await asyncio.to_thread(lambda: race.laps.pick_drivers(
                 driver).pick_quicklaps().reset_index())
         except KeyError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
         driver_laps["LapTime"] = driver_laps["LapTime"].dt.total_seconds()
 
@@ -808,7 +808,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             del lap, car
 
         except KeyError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
         fig, ax = plt.subplots(sharex=True, sharey=True)
 
@@ -857,7 +857,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         try:
             f = await sectors_func(year, round, session, driver1, driver2, lap, event, s)
         except KeyError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
         embed = discord.Embed(title=f'Fastest Sectors comparison: {event.EventName}',
                               color=get_top_role_color(ctx.author))
@@ -1010,7 +1010,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                                  "LapTime"]].groupby("Driver")
             del laps
         except KeyError:
-            await ctx.respond("No data for the driver found.")
+            await ctx.respond("No data for the driver found.\n-# *Why? The driver might not have participated in the given session.*")
             return
 
         fig = Figure(figsize=(8, 5), dpi=DPI, layout="constrained")
@@ -1321,8 +1321,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         discord.IntegrationType.user_install,
     })
     async def trackelevation(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
-                             round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds),
-                             session: discord.Option(str, "Select the session",  autocomplete=resolve_sessions)):
+                             round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         await utils.check_season(ctx, year)
