@@ -332,6 +332,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                            round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
+        ev = await stats.to_event(year, round)
+        round = ev['RoundNumber']
         try:
             loop = asyncio.get_running_loop()
             driver_standings = await loop.run_in_executor(None, get_drivers_standings, round, year)
