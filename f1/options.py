@@ -166,7 +166,9 @@ async def resolve_rounds(ctx: AutocompleteContext):
 
 async def resolve_sessions_by_year(ctx: AutocompleteContext):
     year = int(ctx.options.get("year"))
-    if year < 2021:
+    if year < 2003:
+        sessions = ["Race"]
+    elif year < 2021:
         sessions = ["Qualifying", "Race"]
     elif year < 2023:
         sessions = ["Qualifying", "Sprint", "Race"]
