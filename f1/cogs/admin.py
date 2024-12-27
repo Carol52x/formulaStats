@@ -318,8 +318,15 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         year = roundnumber(round, year)[1]
         await ctx.respond("Generating cache for the given event", ephemeral=True)
         event = await stats.to_event(year, round)
-        for i in range(5, 0, -1):
-            s = await stats.load_session(event, i, laps=True, telemetry=True, weather=True, messages=True)
+
+        # Run session loading concurrently
+        tasks = [
+            stats.load_session(event, i, laps=True, telemetry=True, weather=True, messages=True)
+            for i in range(5, 0, -1)
+        ]
+
+        await asyncio.gather(*tasks)
+
 
     @commands.slash_command(name="silent-mode", description="Makes the messages visible only to the user who issued the command.")
     @default_permissions(administrator=True)
