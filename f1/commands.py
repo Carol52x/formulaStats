@@ -105,4 +105,7 @@ async def on_command_error(ctx: commands.Context, err):
 
 @bot.event
 async def on_application_command_error(ctx: discord.Interaction, err):
-    await handle_errors(ctx, err)
+    if isinstance(err, commands.CommandOnCooldown):
+        await ctx.respond("This command is currently on cooldown. Try again after an hour.", ephemeral=get_ephemeral_setting(ctx))
+    else:
+        await handle_errors(ctx, err)
