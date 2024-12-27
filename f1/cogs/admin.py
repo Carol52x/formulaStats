@@ -279,7 +279,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd.add_field(
             name="/generate-cache",
-            value="Generates cache for a given f1 race weekend and thus, speeds up some of the plotting functions.")
+            value="Generates cache for a given f1 race weekend and thus, speeds up some of the plotting functions. (Can only be used 10 times per hour)")
         emd.add_field(
             name="/silent-mode",
             value="Makes the messages visible only to the user who issued the command. (admin only")
@@ -307,10 +307,11 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         except discord.HTTPException:
             return
 
-    @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 race weekend to speed up plotting.", integration_types={
+    @commands.slash_command(name="generate-cache", description="Generate cache for a given f1 race weekend to speed up plotting. This command has a cooldown.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
+    @commands.cooldown(10, 3600, commands.BucketType.user)
     async def cache(self,
                     ctx: ApplicationContext, year: discord.Option(int, "Select the season", default=None, autocomplete=resolve_years_fastf1),
                     round: discord.Option(str, "Select the round (event)", default=None, autocomplete=resolve_rounds)):
@@ -321,12 +322,12 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         # Run session loading concurrently
         tasks = [
-            stats.load_session(event, i, laps=True, telemetry=True, weather=True, messages=True)
+            stats.load_session(event, i, laps=True,
+                               telemetry=True, weather=True, messages=True)
             for i in range(5, 0, -1)
         ]
 
         await asyncio.gather(*tasks)
-
 
     @commands.slash_command(name="silent-mode", description="Makes the messages visible only to the user who issued the command.")
     @default_permissions(administrator=True)

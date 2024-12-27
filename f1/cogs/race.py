@@ -64,7 +64,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             session1 = await stats.load_session(ev, session, telemetry=False, laps=False, weather=False, messages=False)
 
             driver = utils.find_driver(driver, await ergast.get_all_drivers(year, ev["RoundNumber"]))["code"]
-            driver=session1.get_driver(driver)['DriverNumber']
+            driver = session1.get_driver(driver)['DriverNumber']
             # fallback for driver headshot url as data seems to be unavailable for the 2018 season.
             if year == 2018:
                 ev2 = await stats.to_event(year+1, round)
@@ -639,7 +639,10 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             )
 
             for rank, (user_id, wins) in enumerate(all_users[i:i + 10], start=i + 1):
-                user = ctx.guild.get_member(user_id)
+                try:
+                    user = await ctx.guild.fetch_member(user_id)
+                except:
+                    user = None
                 username = user.name if user else f"User ID: {user_id}"
                 embed.add_field(name=f"#{rank} {username}",
                                 value=f"Wins: {wins}", inline=False)
