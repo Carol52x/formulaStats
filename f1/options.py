@@ -287,7 +287,7 @@ async def resolve_laps(ctx: AutocompleteContext):
     ev = await stats.to_event(year, round)
     s = await stats.load_session(ev, session, messages=True)
     max_lap = s.race_control_messages['Lap'].max()
-    lap_list = list(range(0, max_lap + 1))
+    lap_list = list(range(1, max_lap + 1))
     matches = [str(lap) for lap in lap_list if str(lap).startswith(ctx.value)]
     return matches[:25]
 
