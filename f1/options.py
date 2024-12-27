@@ -154,12 +154,14 @@ async def resolve_rounds(ctx: AutocompleteContext):
     year = ctx.options.get('year')  # Fetch the selected year
     if 'round' in ctx.options and year:
         # Only show rounds if year is selected
-        event_list = fastf1.get_event_schedule(int(year), include_testing=False)['EventName'].to_list()
-        
+        event_list = fastf1.get_event_schedule(int(year), include_testing=False)[
+            'EventName'].to_list()
+
         # Sanitize user input and event names
-        user_input = (ctx.value or "").strip().lower()  # Handle None and normalize case
+        # Handle None and normalize case
+        user_input = (ctx.value or "").strip().lower()
         return [
-            event for event in event_list 
+            event for event in event_list
             if user_input in event.lower()  # Case-insensitive match
         ][:25]
 
@@ -225,6 +227,7 @@ async def resolve_sessions(ctx: AutocompleteContext):
         # Filter the sessions based on user input
         return [session for session in sessions if ctx.value in session][:25]
 
+
 async def resolve_drivers(ctx: AutocompleteContext):
     year = int(ctx.options.get("year"))
     round = ctx.options.get('round')
@@ -252,7 +255,6 @@ async def resolve_drivers(ctx: AutocompleteContext):
         ]
 
     return matches[:25]
-
 
 
 async def resolve_tyres(ctx: AutocompleteContext):
@@ -286,7 +288,7 @@ async def resolve_laps(ctx: AutocompleteContext):
     s = await stats.load_session(ev, session, messages=True)
     max_lap = s.race_control_messages['Lap'].max()
     lap_list = list(range(0, max_lap + 1))
-    matches = [str(lap) for lap in lap_list if str(lap) == ctx.value]
+    matches = [str(lap) for lap in lap_list if str(lap).startswith(ctx.value)]
     return matches[:25]
 
 
