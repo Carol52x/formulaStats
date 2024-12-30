@@ -75,6 +75,8 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Cornering Analysis: {driver1} vs {driver2}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
+
+        embed.description = '-# Public telemetry data, in general, is never extremely accurate. Check `/info` for details.'
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="track-evolution", description="Trackside weather and evolution data.", integration_types={
@@ -248,8 +250,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(
             title=f'Telemetry: {driver1} vs {driver2}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        embed.set_footer(
-            text="Please note that the Brake traces are in binary and therfore are not an accurate representation of the actual telemetry.\nThere are also inherent inaccuracies with the way lap delta is calculated but at the moment there is no better way to calculate the said delta.")
+        embed.description = "-# Please note that the Brake traces are in binary.\n-# Public telemetry data, in general, is never extremely accurate. Check `/info` for details."
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(name="h2h", description="Head to Head stats.", integration_types={
@@ -462,8 +463,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'Tyre Strategies: {ev.EventName}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        embed.set_footer(
-            text='The stripes (if any) represents that the tyre is a used set.', icon_url=None)
+        embed.description = '-# The stripes (if any) represents that the tyre is a used set.'
 
         await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
 
@@ -1260,13 +1260,12 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             color=get_top_role_color(ctx.author)
         )
         embed.set_image(url="attachment://plot.png")
-        embed.set_footer(
-            text=r"Methodology: The data is filtered to include laps within 105% of the fastest lap and grouped by Compound and TyreLife to calculate the mean lap time for each group.")
+        embed.description = r"-# Methodology: The data is filtered to include laps within 105% of the fastest lap and grouped by Compound and TyreLife to calculate the mean lap time for each group."
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(name="avg-lap-delta",
-                            description="Bar chart comparing average time per driver with overall race average as a delta.",
-                            integration_types={discord.IntegrationType.guild_install, discord.IntegrationType.user_install})
+    @ commands.slash_command(name="avg-lap-delta",
+                             description="Bar chart comparing average time per driver with overall race average as a delta.",
+                             integration_types={discord.IntegrationType.guild_install, discord.IntegrationType.user_install})
     async def avg_lap_delta(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
                             round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
         """Get the overall average lap time of the session and plot the delta for each driver."""
@@ -1409,8 +1408,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
         embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                               color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
-        embed.set_footer(
-            text=f"Current viewing angle in degrees: 50\nFigure scaled down by a factor of 182000 for better viewing experience.")
+        embed.description = f"-# Current viewing angle in degrees: 50\n-# Figure scaled down by a factor of 182000 for better viewing experience."
 
         class MyModal(discord.ui.Modal):
 
@@ -1476,8 +1474,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                     embed = discord.Embed(title=f'3D Track Layout: {ev["EventName"]}',
                                           color=get_top_role_color(ctx.author))
                     embed.set_image(url="attachment://plot.png")
-                    embed.set_footer(
-                        text=f"Current viewing angle in degrees: {angle}\nFigure scaled down by a factor of 182000 for better viewing experience.")
+                    embed.description = f"-# Current viewing angle in degrees: {angle}\n-# Figure scaled down by a factor of 182000 for better viewing experience."
                     await interaction.edit(file=f, embed=embed)
                 except ValueError:
                     await interaction.respond("Enter a valid angle (in degrees)", ephemeral=True)

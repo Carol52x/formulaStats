@@ -249,7 +249,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         )
 
         emd.add_field(
-            name="/wdc-contenders",
+            name="/championship-contenders",
             value="Shows a list of drivers who can still mathematically win the wdc."
         )
         emd.add_field(
@@ -377,13 +377,19 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
 
         emd = Embed(
             title=f"{app_info.name}",
-            description="formulaStats is a discord bot implementation to view Formula 1 statistics and other visuals via slash commands. formulaStats sources its data from [FastF1](https://github.com/theOehrly/Fast-F1) and [Jolpica (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.", color=get_top_role_color(ctx.author))
+            description=f"{app_info.name} is a discord bot implementation to view Formula 1 statistics and other visuals via slash commands. {app_info.name} sources its data from [FastF1](https://github.com/theOehrly/Fast-F1) and [Jolpica (Now deprecated Ergast's successor)](https://github.com/jolpica/jolpica-f1), and uses [Pycord](https://github.com/Pycord-Development/pycord) to interact with the discord API.", color=get_top_role_color(ctx.author))
         emd.add_field(
             name="Github repository", value="https://github.com/Carol52x/formulaStats", inline=False)
         emd.add_field(
             name="Uptime", value=f"{uptime[0]}d, {uptime[1]}h, {uptime[2]}m", inline=True)
         emd.add_field(name="Ping", value=f"{latency} ms", inline=True)
         emd.add_field(name="Connection", value=ws, inline=True)
+        emd.add_field(name='Usage',
+                      value="You are generally advised to follow the order of command parameters (i.e year -> round -> session...). *However*, sometimes the options do not load up, in that case you can manually type in the parameters, and formulaStats will find the best match and return data accordingly.")
+        emd.add_field(name='Guidelines for manually entering parameters',
+                      value='`Round` parameter can either be the official event name (without the sponsorship titles), the country location, the locality, round number, or the circuit names. Either of these work. For the `session` parameter, you can either type in the session *number* (these are 1 to 5, Practice 1 to the race) or the session name. The `Driver` parameter can either be the driver number, code or surname.')
+        emd.add_field(name="Caveats",
+                      value='Commands which provide telemetry data are **NOT** supposed to be extremely accurate as the sampling rate is only 4-5hz. Only use this as an elementary visualisation and not a hard fact.')
         emd.set_footer(
             text='Bug reports can be reported by contacting carol520 or opening a github issue.')
         await ctx.respond(embed=emd, ephemeral=get_ephemeral_setting(ctx))

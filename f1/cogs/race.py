@@ -324,34 +324,53 @@ class Race(commands.Cog, guild_ids=Config().guilds):
         embed.set_image(url="attachment://plot.png")
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
 
-    @commands.slash_command(name="wdc-contenders", description="Shows a list of drivers who can still mathematically win the wdc.", integration_types={
+    @commands.slash_command(name="championship-contenders", description="Shows a list of drivers who can still mathematically win the wdc.", integration_types={
         discord.IntegrationType.guild_install,
         discord.IntegrationType.user_install,
     })
-    async def whocanwinwdc(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
-                           round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
+    async def whocanwinwdc(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season (default current)", default=None, autocomplete=resolve_years_fastf1),
+                           round: discord.Option(str, "Select the round (event) (default last completed event)", default=None, autocomplete=resolve_rounds),
+                           category: options.category):
         round = roundnumber(round, year)[0]
         year = roundnumber(round, year)[1]
         ev = await stats.to_event(year, round)
         round = ev['RoundNumber']
         try:
             loop = asyncio.get_running_loop()
-            driver_standings = await loop.run_in_executor(None, get_drivers_standings, round, year)
+            if category == "Drivers":
+                driver_standings = await loop.run_in_executor(None, get_drivers_standings, round, year)
 
-    # Get the maximum amount of points
-            points = await loop.run_in_executor(None, calculate_max_points_for_remaining_season, round, year)
+        # Get the maximum amount of points
+                points = await loop.run_in_executor(None, calculate_max_points_for_remaining_season, round, year)
 
-            contenders = []
+                contenders = []
 
-        # Iterate over the generator object and extract the relevant information
-            for contender in await loop.run_in_executor(None, calculate_who_can_win, driver_standings, points):
-                contenders.append(contender)
-            a = stats.plot_chances(contenders)
-            f = utils.plot_to_file(a, "plot")
-            embed = discord.Embed(title=f'Theoretical WDC Contenders: {year} Round: {round}',
-                                  color=get_top_role_color(ctx.author))
-            embed.set_image(url="attachment://plot.png")
-            await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+            # Iterate over the generator object and extract the relevant information
+                for contender in await loop.run_in_executor(None, calculate_who_can_win, driver_standings, points):
+                    contenders.append(contender)
+                a = stats.plot_chances(contenders)
+                f = utils.plot_to_file(a, "plot")
+                embed = discord.Embed(title=f'Theoretical WDC Contenders: {year} Round: {round}',
+                                      color=get_top_role_color(ctx.author))
+                embed.set_image(url="attachment://plot.png")
+                await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
+            else:
+                driver_standings = await loop.run_in_executor(None, stats.get_wcc_standings, round, year)
+
+        # Get the maximum amount of points
+                points = await loop.run_in_executor(None, stats.calculate_max_points_for_remaining_season_wcc, round, year)
+
+                contenders = []
+
+            # Iterate over the generator object and extract the relevant information
+                for contender in await loop.run_in_executor(None, stats.calculate_who_can_win_wcc, driver_standings, points):
+                    contenders.append(contender)
+                a = stats.plot_chances_wcc(contenders)
+                f = utils.plot_to_file(a, "plot")
+                embed = discord.Embed(title=f'Theoretical WCC Contenders: {year} Round: {round}',
+                                      color=get_top_role_color(ctx.author))
+                embed.set_image(url="attachment://plot.png")
+                await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         except:
             await ctx.respond("Season has finished or is yet to start!", ephemeral=get_ephemeral_setting(ctx))
 
@@ -733,7 +752,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             if year > 2017:
                 s = await stats.load_session(event, "R", laps=True, telemetry=True)
                 data = await stats.filter_pitstops(yr, rd, s, filter, driver)
-                text = "The stationary times are an appromixation and thus, may be anomalous.\nIf there are abnormally large values, this means that the driver pitted during a red flag. "
+                text = "The stationary times are an appromixation and thus, may be anomalous.\n-# If there are abnormally large values, this means that the driver pitted during a red flag. "
             else:
                 data = await stats.filter_pitstops(yr, rd, filter=filter, driver=driver)
                 text = ""
@@ -748,7 +767,7 @@ class Race(commands.Cog, guild_ids=Config().guilds):
                 title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
 
-            embed.set_footer(text=text)
+            embed.description = f"-# {text}"
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         except IndexError:
             if driver:

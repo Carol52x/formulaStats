@@ -92,8 +92,7 @@ class Season(commands.Cog, guild_ids=Config().guilds):
             title=f'Calender {year}', color=get_top_role_color(ctx.author))
         embed.set_image(url="attachment://plot.png")
         if year > 2020:
-            embed.set_footer(
-                text="The highlighted events are Sprint weekends.")
+            embed.description = "-# The highlighted events are Sprint weekends."
 
         await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
