@@ -2347,6 +2347,23 @@ def get_drivers_standings(round, year):
     return standings
 
 
+def get_wcc_standings(round, year):
+    SEASON = int(year)
+    ROUND = int(round)
+    ergast = Ergast()
+    standings = ergast.get_constructor_standings(season=SEASON, round=ROUND)
+    if standings.content == []:  # check for late updates of ergast data
+        standings = ergast.get_constructor_standings(
+            season=SEASON, round=ROUND-1)
+        standings = standings.content[0]
+        standings.dropna(inplace=True)
+    else:
+        standings = standings.content[0]
+        standings.dropna(inplace=True)
+
+    return standings
+
+
 def calculate_max_points_for_remaining_season(round, year):
     SEASON = int(year)
     ROUND = int(round)
@@ -2356,6 +2373,40 @@ def calculate_max_points_for_remaining_season(round, year):
     else:
         POINTS_FOR_SPRINT = 8 + 25 + 1
         POINTS_FOR_CONVENTIONAL = 25 + 1
+
+    events = fastf1.events.get_event_schedule(SEASON)
+    events = events[events['RoundNumber'] > ROUND]
+
+    # Count how many sprints and conventional races are left
+    if year > 2023:
+        sprint_events = len(
+            events.loc[events["EventFormat"] == "sprint_qualifying"])
+    elif year == 2023:
+        sprint_events = len(
+            events.loc[events["EventFormat"] == "sprint_shootout"])
+    else:
+        sprint_events = len(
+            events.loc[events["EventFormat"] == "sprint"])
+
+    conventional_events = len(
+        events.loc[events["EventFormat"] == "conventional"])
+
+    # Calculate points for each
+    sprint_points = sprint_events * POINTS_FOR_SPRINT
+    conventional_points = conventional_events * POINTS_FOR_CONVENTIONAL
+
+    return sprint_points + conventional_points
+
+
+def calculate_max_points_for_remaining_season_wcc(round, year):
+    SEASON = int(year)
+    ROUND = int(round)
+    if year > 2024:
+        POINTS_FOR_SPRINT = 15 + 43
+        POINTS_FOR_CONVENTIONAL = 43
+    else:
+        POINTS_FOR_SPRINT = 15 + 43 + 1
+        POINTS_FOR_CONVENTIONAL = 43 + 1
 
     events = fastf1.events.get_event_schedule(SEASON)
     events = events[events['RoundNumber'] > ROUND]
@@ -2392,6 +2443,26 @@ def calculate_who_can_win(driver_standings, max_points):
         driver_info = {
             "Position": driver["position"],
             "Driver": f"{driver['givenName']} {driver['familyName']}",
+            "Current Points": driver["points"],
+            "Theoretical max points": driver_max_points,
+            "Can win?": can_win
+        }
+
+        # Yield the dictionary for the driver
+        yield driver_info
+
+
+def calculate_who_can_win_wcc(driver_standings, max_points):
+    LEADER_POINTS = int(driver_standings.loc[0]['points'])
+
+    for i, _ in enumerate(driver_standings.iterrows()):
+        driver = driver_standings.loc[i]
+        driver_max_points = int(driver["points"]) + max_points
+        can_win = 'No' if driver_max_points < LEADER_POINTS else 'Yes'
+
+        driver_info = {
+            "Position": driver["position"],
+            "Team": driver['constructorName'],
             "Current Points": driver["points"],
             "Theoretical max points": driver_max_points,
             "Can win?": can_win
@@ -3429,6 +3500,32 @@ def plot_chances(data):
         ColDef("Position", width=0.35, textprops={
                "weight": "bold"}, border="r"),
         ColDef("Driver", width=0.8, textprops={"ha": "left"}, border="l"),
+        ColDef("Current Points", width=0.8, textprops={"ha": "left"}),
+        ColDef("Theoretical max points", width=0.8, textprops={"ha": "left"}),
+        ColDef("Can win?", width=0.8, textprops={"ha": "left"})
+    ]
+
+    if (df["Can win?"] == "Yes").sum() == 1:
+        idx = df[df["Can win?"] == "Yes"].index[0]
+        table = plot_table(df, col_defs, "Position", figsize=(10, 8))
+        table.rows[idx].set_hatch(
+            "//").set_facecolor("#FFD700").set_alpha(0.35)
+    else:
+        # Plot the table without any highlights
+        table = plot_table(df, col_defs, "Position", figsize=(10, 8))
+
+    return table.figure
+
+
+def plot_chances_wcc(data):
+    # Convert the data to a DataFrame
+    df = pd.DataFrame(data)
+
+    # Define column definitions for the table
+    col_defs = [
+        ColDef("Position", width=0.35, textprops={
+               "weight": "bold"}, border="r"),
+        ColDef("Team", width=0.8, textprops={"ha": "left"}, border="l"),
         ColDef("Current Points", width=0.8, textprops={"ha": "left"}),
         ColDef("Theoretical max points", width=0.8, textprops={"ha": "left"}),
         ColDef("Can win?", width=0.8, textprops={"ha": "left"})
