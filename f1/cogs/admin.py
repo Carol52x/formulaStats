@@ -385,7 +385,7 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
         emd.add_field(name="Ping", value=f"{latency} ms", inline=True)
         emd.add_field(name="Connection", value=ws, inline=True)
         emd.add_field(name='Usage',
-                      value="You are generally advised to follow the order of command parameters (i.e year -> round -> session...). *However*, sometimes the options do not load up, in that case you can manually type in the parameters, and formulaStats will find the best match and return data accordingly.")
+                      value=f"You are generally advised to follow the order of command parameters (i.e year -> round -> session...). *However*, sometimes the options do not load up, in that case you can manually type in the parameters, and {app_info.name} will find the best match and return data accordingly.")
         emd.add_field(name='Guidelines for manually entering parameters',
                       value='`Round` parameter can either be the official event name (without the sponsorship titles), the country location, the locality, round number, or the circuit names. Either of these work. For the `session` parameter, you can either type in the session *number* (these are 1 to 5, Practice 1 to the race) or the session name. The `Driver` parameter can either be the driver number, code or surname.')
         emd.add_field(name="Caveats",
