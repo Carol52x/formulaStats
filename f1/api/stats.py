@@ -2361,8 +2361,16 @@ def calculate_max_points_for_remaining_season(round, year):
     events = events[events['RoundNumber'] > ROUND]
 
     # Count how many sprints and conventional races are left
-    sprint_events = len(
-        events.loc[events["EventFormat"] == "sprint_qualifying"])
+    if year > 2023:
+        sprint_events = len(
+            events.loc[events["EventFormat"] == "sprint_qualifying"])
+    elif year == 2023:
+        sprint_events = len(
+            events.loc[events["EventFormat"] == "sprint_shootout"])
+    else:
+        sprint_events = len(
+            events.loc[events["EventFormat"] == "sprint"])
+
     conventional_events = len(
         events.loc[events["EventFormat"] == "conventional"])
 
