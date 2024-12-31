@@ -336,3 +336,23 @@ category = Option(
     ],
     default="Drivers",
     description="Average position of Teams or Drivers. (default drivers)")
+
+AvgMedianOption = Option(
+    str,
+    choices=[
+        "Average",
+        "Median"
+    ],
+    default="Average",
+    description="Quali gaps in median or average over a season. (default average)")
+
+
+async def resolve_sessions_by_year_quali(ctx: AutocompleteContext):
+    year = int(ctx.options.get("year"))
+    if year < 2023:
+        sessions = ['Qualifying']
+    elif year == 2023:
+        sessions = ["Qualifying", "Sprint Shootout"]
+    else:
+        sessions = ["Qualifying", "Sprint Qualifying"]
+    return sessions
