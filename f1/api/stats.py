@@ -294,7 +294,7 @@ def get_event_note(year, eventname):
         eventname = 'Mexican Grand Prix'
     elif eventname == 'São Paulo Grand Prix' and year < 2023:
         eventname = 'Brazilian Grand Prix'
-    elif eventname == 'Saudi Arabian Grand Prix' and year < 2023:
+    elif eventname == 'Saudi Arabian Grand Prix' and year == 2021:
         eventname = 'Saudi Arabia Grand Prix'
     url = url + f"/event/{eventname.replace(' ', '%20')}"
     resp = requests.get(url)
@@ -2015,7 +2015,7 @@ def get_fia_doc(year, eventname, doc=None, doc_name=None, get_all_docs=False):
         eventname = 'Mexican Grand Prix'
     elif eventname == 'São Paulo Grand Prix' and year < 2023:
         eventname = 'Brazilian Grand Prix'
-    elif eventname == 'Saudi Arabian Grand Prix' and year < 2023:
+    elif eventname == 'Saudi Arabian Grand Prix' and year == 2021:
         eventname = 'Saudi Arabia Grand Prix'
 
     if eventname is None:
