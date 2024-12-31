@@ -359,113 +359,120 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
     })
     async def tyre_strats(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
                           round: discord.Option(str, "Select the round (event)", autocomplete=resolve_rounds)):
-        round = roundnumber(round, year)[0]
-        year = roundnumber(round, year)[1]
-        await utils.check_season(ctx, year)
-        ev = await stats.to_event(year, round)
-        session = await stats.load_session(ev, "R", laps=True, telemetry=True)
-        laps = await asyncio.to_thread(lambda: session.laps)
-        drivers = session.drivers
-        drivers = [session.get_driver(driver)["Abbreviation"]
-                   for driver in drivers]
-        stints = laps[["Driver", "Stint",
-                       "Compound", "LapNumber", "FreshTyre"]]
-        stints = stints.groupby(["Driver", "Stint", "Compound", "FreshTyre"])
-        stints = stints.count().reset_index()
-        stints = stints.rename(columns={"LapNumber": "StintLength"})
-        stints = stints[stints["Compound"] != "UNKNOWN"]
-        sc_laps, vsc_laps = stats.find_sc_laps(laps)
-        red_laps = stats.find_red_laps(laps)
-        fig, ax = plt.subplots(figsize=(10, 10))
-        added_compounds = set()
-        legend_handles = {}
-        if year == 2018:
-            compound_label_mapping = {"SOFT": " ", "MEDIUM": " ", "HARD": " ", "HYPERSOFT": " ",
-                                      "ULTRASOFT": " ",
-                                      "SUPERSOFT": " ", "SUPERHARD": " "}
-        else:
-            absolute_compounds = await stats.get_compound_async(year, ev.EventName)
-            compound_numbers = [int(s[1:]) for s in absolute_compounds]
-            absolute_number_mapping = {i: j for i, j in zip(
-                compound_numbers, absolute_compounds)}
-            soft_compound = absolute_number_mapping.get(max(compound_numbers))
-            hard_compound = absolute_number_mapping.get(min(compound_numbers))
-            remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
-                                      if number != soft_compound and number != hard_compound)
-            compound_label_mapping = {
-                "SOFT": soft_compound,
-                "MEDIUM": absolute_number_mapping.get(remaining_compound),
-                "HARD": hard_compound
-            }
+        try:
+            round = roundnumber(round, year)[0]
+            year = roundnumber(round, year)[1]
+            await utils.check_season(ctx, year)
+            ev = await stats.to_event(year, round)
+            session = await stats.load_session(ev, "R", laps=True, telemetry=True)
+            laps = await asyncio.to_thread(lambda: session.laps)
+            drivers = session.drivers
+            drivers = [session.get_driver(driver)["Abbreviation"]
+                       for driver in drivers]
+            stints = laps[["Driver", "Stint",
+                           "Compound", "LapNumber", "FreshTyre"]]
+            stints = stints.groupby(
+                ["Driver", "Stint", "Compound", "FreshTyre"])
+            stints = stints.count().reset_index()
+            stints = stints.rename(columns={"LapNumber": "StintLength"})
+            stints = stints[stints["Compound"] != "UNKNOWN"]
+            sc_laps, vsc_laps = stats.find_sc_laps(laps)
+            red_laps = stats.find_red_laps(laps)
+            fig, ax = plt.subplots(figsize=(10, 10))
+            added_compounds = set()
+            legend_handles = {}
+            if year == 2018:
+                compound_label_mapping = {"SOFT": " ", "MEDIUM": " ", "HARD": " ", "HYPERSOFT": " ",
+                                          "ULTRASOFT": " ",
+                                          "SUPERSOFT": " ", "SUPERHARD": " "}
+            else:
+                absolute_compounds = await stats.get_compound_async(year, ev.EventName)
+                compound_numbers = [int(s[1:]) for s in absolute_compounds]
+                absolute_number_mapping = {i: j for i, j in zip(
+                    compound_numbers, absolute_compounds)}
+                soft_compound = absolute_number_mapping.get(
+                    max(compound_numbers))
+                hard_compound = absolute_number_mapping.get(
+                    min(compound_numbers))
+                remaining_compound = next(compound for compound, number in absolute_number_mapping.items()
+                                          if number != soft_compound and number != hard_compound)
+                compound_label_mapping = {
+                    "SOFT": soft_compound,
+                    "MEDIUM": absolute_number_mapping.get(remaining_compound),
+                    "HARD": hard_compound
+                }
 
-        for driver in drivers:
-            driver_stints = stints.loc[stints["Driver"] == driver]
+            for driver in drivers:
+                driver_stints = stints.loc[stints["Driver"] == driver]
 
-            previous_stint_end = 0
-            for idx, row in driver_stints.iterrows():
-                compound = row["Compound"]
-                absolute_compound = compound_label_mapping.get(
-                    compound, compound)
+                previous_stint_end = 0
+                for idx, row in driver_stints.iterrows():
+                    compound = row["Compound"]
+                    absolute_compound = compound_label_mapping.get(
+                        compound, compound)
 
-                if compound not in added_compounds:
-                    if absolute_compound == " " or absolute_compound == compound:
-                        label = f"{compound}"
-                        added_compounds.add(compound)
+                    if compound not in added_compounds:
+                        if absolute_compound == " " or absolute_compound == compound:
+                            label = f"{compound}"
+                            added_compounds.add(compound)
+                        else:
+                            label = f"{compound} ({absolute_compound})"
+                            added_compounds.add(compound)
                     else:
-                        label = f"{compound} ({absolute_compound})"
-                        added_compounds.add(compound)
-                else:
-                    label = ""
-                if label and compound not in legend_handles:
-                    legend_handles[compound] = Patch(
+                        label = ""
+                    if label and compound not in legend_handles:
+                        legend_handles[compound] = Patch(
+                            color=fastf1.plotting.get_compound_color(
+                                compound, session),
+                            label=label
+                        )
+
+                    hatch = '' if row["FreshTyre"] else '/'
+                    plt.barh(
+                        y=driver,
+                        width=row["StintLength"],
+                        left=previous_stint_end,
                         color=fastf1.plotting.get_compound_color(
-                            compound, session),
+                            row["Compound"], session),
+                        edgecolor="black",
+                        hatch=hatch,
                         label=label
                     )
+                    previous_stint_end += row["StintLength"]
 
-                hatch = '' if row["FreshTyre"] else '/'
-                plt.barh(
-                    y=driver,
-                    width=row["StintLength"],
-                    left=previous_stint_end,
-                    color=fastf1.plotting.get_compound_color(
-                        row["Compound"], session),
-                    edgecolor="black",
-                    hatch=hatch,
-                    label=label
-                )
-                previous_stint_end += row["StintLength"]
+            plt.title(
+                f"{session.event['EventName']} {session.event.year} Tyre Strats")
+            plt.xlabel("Lap Number")
+            plt.grid(False)
+            ax.invert_yaxis()
+            stats.shade_sc_periods(sc_laps, vsc_laps, ax)
+            stats.shade_red_flag(red_laps, ax)
+            if sc_laps.size > 0:
+                legend_handles['Safety Car'] = Patch(
+                    color='orange', alpha=0.5, label="Safety Car")
+            if vsc_laps.size > 0:
+                legend_handles['Virtual Safety Car'] = Patch(
+                    color='yellow', alpha=0.5, label="Virtual Safety Car")
+            if red_laps.size > 0:
+                legend_handles['Red Flag'] = Patch(
+                    color='red', alpha=0.5, label="Red Flag")
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            plt.legend(handles=list(legend_handles.values()), title="Legend")
+            ax.grid(which="minor", alpha=0.1)
+            ax.minorticks_on()
+            plt.tight_layout()
+            file = utils.plot_to_file(plt.gcf(), "plot")
+            embed = discord.Embed(title=f'Tyre Strategies: {ev.EventName}',
+                                  color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            embed.description = '-# The stripes (if any) represents that the tyre is a used set.'
 
-        plt.title(
-            f"{session.event['EventName']} {session.event.year} Tyre Strats")
-        plt.xlabel("Lap Number")
-        plt.grid(False)
-        ax.invert_yaxis()
-        stats.shade_sc_periods(sc_laps, vsc_laps, ax)
-        stats.shade_red_flag(red_laps, ax)
-        if sc_laps.size > 0:
-            legend_handles['Safety Car'] = Patch(
-                color='orange', alpha=0.5, label="Safety Car")
-        if vsc_laps.size > 0:
-            legend_handles['Virtual Safety Car'] = Patch(
-                color='yellow', alpha=0.5, label="Virtual Safety Car")
-        if red_laps.size > 0:
-            legend_handles['Red Flag'] = Patch(
-                color='red', alpha=0.5, label="Red Flag")
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        plt.legend(handles=list(legend_handles.values()), title="Legend")
-        ax.grid(which="minor", alpha=0.1)
-        ax.minorticks_on()
-        plt.tight_layout()
-        file = utils.plot_to_file(plt.gcf(), "plot")
-        embed = discord.Embed(title=f'Tyre Strategies: {ev.EventName}',
-                              color=get_top_role_color(ctx.author))
-        embed.set_image(url="attachment://plot.png")
-        embed.description = '-# The stripes (if any) represents that the tyre is a used set.'
-
-        await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
+            await ctx.respond(embed=embed, file=file, ephemeral=get_ephemeral_setting(ctx))
+        except:
+            import traceback
+            traceback.print_exc()
 
     @commands.slash_command(description="Plot driver position changes in the race.", integration_types={
         discord.IntegrationType.guild_install,
@@ -1625,7 +1632,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             embed = discord.Embed(
                 title=f'Teammate Average {sess} gaps: {year}', color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
-            embed.description = "-# Methodology: The teammate gaps are calculated based on the times set by the drivers in the same session (eg. Q1, Q2, Q3). Wet sessions are *NOT* excluded. "
+            embed.description = "-# Methodology: The teammate gaps are calculated based on the times set by the drivers in the same session (eg. Q1, Q2, Q3). Wet sessions are **NOT** excluded. "
             await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
         else:
@@ -1636,7 +1643,7 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
             embed = discord.Embed(
                 title=f'Teammate Median {sess} gaps: {year}', color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
-            embed.description = "-# Methodology: The teammate gaps are calculated based on the times set by the drivers in the same session (eg. Q1, Q2, Q3). Wet sessions are *NOT* excluded. "
+            embed.description = "-# Methodology: The teammate gaps are calculated based on the times set by the drivers in the same session (eg. Q1, Q2, Q3). Wet sessions are **NOT** excluded. "
             await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
 
 
