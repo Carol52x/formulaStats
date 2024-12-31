@@ -1485,6 +1485,160 @@ class Plot(commands.Cog, guild_ids=Config().guilds):
                 await interaction.response.send_modal(MyModal(title="Change viewing angle"))
         await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx), view=MyView(timeout=None))
 
+    @commands.slash_command(name="quali-gap", description="View average or median quali gaps between teammates over a season", integration_types={
+        discord.IntegrationType.guild_install,
+        discord.IntegrationType.user_install,
+    })
+    async def qualigap(self, ctx: ApplicationContext, year: discord.Option(int, "Select the season", autocomplete=resolve_years_fastf1),
+                       session: discord.Option(str, "Select the sssion", autocomplete=options.resolve_sessions_by_year_quali), type: options.AvgMedianOption):
+        await utils.check_season(ctx, year)
+        schedule = fastf1.get_event_schedule(year, include_testing=False)
+        sess = session
+
+        if session == "Sprint Shootout" and year == 2023:
+            schedule = schedule[schedule['EventFormat'] == 'sprint_shootout']
+            scheduleiteration = schedule['RoundNumber'].tolist()
+            result_setting = 'sprint_shootout'
+        elif session == "Sprint Qualifying" and year >= 2024:
+            schedule = schedule[schedule['EventFormat'] == 'sprint_qualifying']
+            scheduleiteration = schedule['RoundNumber'].tolist()
+            result_setting = 'sprint_qualifying'
+        else:
+            scheduleiteration = schedule['RoundNumber'].tolist()
+            result_setting = 'Qualifying'
+        tasks = []
+
+        async def plot_team_gaps(team_gaps, session_results, calculation_type, year):
+            session = fastf1.get_session(year, 1, "R")
+
+            # Prepare data
+            x_labels = []
+            gap_values = []
+            colors = []
+
+            for team_name, gaps in team_gaps.items():
+                if not gaps:
+                    continue
+
+                # Get the drivers for this team
+                drivers = session_results[session_results["TeamName"] == team_name].sort_values(
+                    "ClassifiedPosition")
+                if len(drivers) < 2:
+                    continue  # Skip teams with less than two drivers
+
+                driver_1, driver_2 = drivers.iloc[0], drivers.iloc[1]
+
+                if calculation_type == 'Average':
+                    gap_value = np.mean(gaps)
+                else:  # Median
+                    gap_value = np.median(gaps)
+
+                # Determine who has the better performance
+                better_driver = driver_2 if gaps[0] < 0 else driver_1
+                better_driver_code = better_driver["Abbreviation"]
+
+                # Annotate x-axis labels
+                x_labels.append(
+                    f"{team_name} (in favor of {better_driver_code})")
+                gap_values.append(gap_value)
+
+                # Get team color
+                team_color = fastf1.plotting.get_team_color(team_name, session)
+                colors.append(team_color)
+
+            # Plot
+            fig, ax = plt.subplots(figsize=(10, 6))
+            bars = ax.barh(x_labels, gap_values, color=colors)
+
+            # Annotate bars with gap values
+            for bar, gap in zip(bars, gap_values):
+                ax.text(
+                    bar.get_width() + 0.01,  # Position to the right of the bar
+                    bar.get_y() + bar.get_height() / 2,  # Centered vertically
+                    f"{gap:.3f}s",  # Rounded to 3 decimal places
+                    va='center',
+                    fontsize=10,
+                    color='white'
+                )
+
+            ax.set_xlabel("Qualifying Gap (seconds)")
+            ax.set_ylabel("Teams")
+            ax.grid(which="minor", alpha=0.1)
+            ax.minorticks_on()
+            plt.tight_layout()
+
+            return fig, ax
+        for c in scheduleiteration:
+
+            event = await stats.to_event(year, c)
+            if result_setting in ['sprint_qualifying', 'sprint_shootout']:
+
+                task = stats.load_session(event, session, laps=True, telemetry=False,
+                                          weather=False, messages=True)
+            else:
+                task = stats.load_session(event, session, laps=False, telemetry=False,
+                                          weather=False, messages=False)
+            tasks.append(task)
+
+        team_gaps = {}
+        results = await asyncio.gather(*tasks)
+
+        for session in results:
+            session_results = session.results  # The DataFrame subclass
+
+            # Group by team
+            teams = session_results.groupby("TeamName")
+
+            for team_name, drivers in teams:
+                if len(drivers) < 2:
+                    continue  # Skip if less than two drivers in the team
+
+                # Sort drivers by their classified position
+                drivers = drivers.sort_values("ClassifiedPosition")
+
+                driver_1 = drivers.iloc[0]
+                driver_2 = drivers.iloc[1]
+
+                # Store qualifying gaps
+                gaps = []
+
+                for quali_phase in ["Q3", "Q2", "Q1"]:
+                    time_1 = driver_1[quali_phase]
+                    time_2 = driver_2[quali_phase]
+
+                    if pd.notna(time_1) and pd.notna(time_2):
+                        gap = abs(time_1.total_seconds() -
+                                  time_2.total_seconds())
+                        gaps.append(gap)
+                        break  # Only compare the same phase
+
+                if team_name not in team_gaps:
+                    team_gaps[team_name] = []
+
+                team_gaps[team_name].extend(gaps)
+
+        if type == 'Average':
+            fig, ax = await plot_team_gaps(team_gaps, session_results, calculation_type='Average', year=year)
+            ax.set_title(
+                f"Teammate {type} {sess} Gaps")
+            f = utils.plot_to_file(fig, "plot")
+            embed = discord.Embed(
+                title=f'Teammate Average {sess} gaps: {year}', color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            embed.description = "-# Methodology: The teammate gaps are calculated based on the times set by the drivers in the same session (eg. Q1, Q2, Q3). Wet sessions are *NOT* excluded. "
+            await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
+
+        else:
+            fig, ax = await plot_team_gaps(team_gaps, session_results, calculation_type='Median', year=year)
+            ax.set_title(
+                f"Teammate {type} {sess} Gaps")
+            f = utils.plot_to_file(fig, "plot")
+            embed = discord.Embed(
+                title=f'Teammate Median {sess} gaps: {year}', color=get_top_role_color(ctx.author))
+            embed.set_image(url="attachment://plot.png")
+            embed.description = "-# Methodology: The teammate gaps are calculated based on the times set by the drivers in the same session (eg. Q1, Q2, Q3). Wet sessions are *NOT* excluded. "
+            await ctx.respond(file=f, embed=embed, ephemeral=get_ephemeral_setting(ctx))
+
 
 def setup(bot: discord.Bot):
     bot.add_cog(Plot(bot))

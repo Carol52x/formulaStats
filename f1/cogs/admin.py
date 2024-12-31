@@ -82,8 +82,8 @@ class Admin(commands.Cog, guild_ids=Config().guilds):
             value="Find all the participating drivers and teams for the given season."
         )
         emd1.add_field(
-            name="/info",
-            value="Find Bot info."
+            name="/quali-gap",
+            value="Get teammate average/median quali delta."
         )
         emd1.add_field(
             name="/laptimes",
