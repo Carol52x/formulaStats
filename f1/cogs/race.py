@@ -766,8 +766,8 @@ class Race(commands.Cog, guild_ids=Config().guilds):
             embed = discord.Embed(
                 title=f"{yr} {event['EventName']} | Pitstops", color=get_top_role_color(ctx.author))
             embed.set_image(url="attachment://plot.png")
-
-            embed.description = f"-# {text}"
+            if text != "":
+                embed.description = f"-# {text}"
             await ctx.respond(embed=embed, file=f, ephemeral=get_ephemeral_setting(ctx))
         except IndexError:
             if driver:
