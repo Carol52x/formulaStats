@@ -276,11 +276,14 @@ class Season(commands.Cog, guild_ids=Config().guilds):
     })
     async def schedule(self, ctx):
         loop = asyncio.get_running_loop()
-        message_embed = await loop.run_in_executor(None, schedule, ctx)
-        if type(message_embed) == str:
-            await ctx.respond(message_embed, ephemeral=get_ephemeral_setting(ctx))
-        else:
-            await ctx.respond(embed=message_embed, ephemeral=get_ephemeral_setting(ctx))
+        try:
+            message_embed = await loop.run_in_executor(None, schedule, ctx)
+            if type(message_embed) == str:
+                await ctx.respond(message_embed, ephemeral=get_ephemeral_setting(ctx))
+            else:
+                await ctx.respond(embed=message_embed, ephemeral=get_ephemeral_setting(ctx))
+        except KeyError:
+            await ctx.respond("Season hasn't started yet!", ephemeral=get_ephemeral_setting(ctx))
 
     @commands.slash_command(description='Get F1 records', integration_types={
         discord.IntegrationType.guild_install,
